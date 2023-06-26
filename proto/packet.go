@@ -17,8 +17,9 @@ var ErrCommandIdInvalid = errors.New("command_Id in Packet data is invalid")
 var ErrCommandIdNotSupported = errors.New("command_Id in Packet data is not supported")
 
 type Packer interface {
-	Pack(seqId uint32) []byte
-	Unpack(data []byte)
+	SeqId() uint32
+	Pack(uint32) []byte
+	Unpack([]byte) Packer
 }
 type packet struct {
 	data  []byte

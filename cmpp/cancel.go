@@ -1,4 +1,4 @@
-package codec
+package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/proto"
@@ -11,12 +11,12 @@ const (
 )
 
 type CmppCancelReq struct {
-	SeqId uint32
+	seqId uint32
 	MsgId uint64 // 8字节 信息标识
 }
 type CmppCancelRsp struct {
 	// session info
-	SeqId  uint32
+	seqId  uint32
 	SuccId uint32
 }
 
@@ -28,9 +28,11 @@ func (p *CmppCancelReq) Pack(seqId uint32) []byte {
 	// Pack header
 	pkt.WriteU32(CmppCancelReqLen)
 	pkt.WriteU32(CMPP_CANCEL.ToInt())
-	pkt.WriteU32(seqId)
 
-	p.SeqId = seqId
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
+
 	pkt.WriteU64(p.MsgId)
 	return data
 }
@@ -38,12 +40,16 @@ func (p *CmppCancelReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppCancelReq) Unpack(data []byte) {
+func (p *CmppCancelReq) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
+	return p
+}
+func (p *CmppCancelReq) SeqId() uint32 {
+	return p.seqId
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
@@ -54,8 +60,9 @@ func (p *CmppCancelRsp) Pack(seqId uint32) []byte {
 	// Pack header
 	pkt.WriteU32(CmppCancelRspLen)
 	pkt.WriteU32(CMPP_CANCEL_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.SeqId = seqId
+
+	p.seqId = seqId
+	pkt.WriteU32(p.seqId)
 
 	// Pack body
 	pkt.WriteU32(p.SuccId)
@@ -65,10 +72,15 @@ func (p *CmppCancelRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppCancelRsp) Unpack(data []byte) {
+func (p *CmppCancelRsp) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
 	p.SuccId = pkt.ReadU32()
+	return p
+}
+
+func (p *CmppCancelRsp) SeqId() uint32 {
+	return p.seqId
 }

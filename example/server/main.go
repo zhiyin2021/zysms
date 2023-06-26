@@ -4,38 +4,90 @@ import (
 	"bytes"
 	"crypto/md5"
 	"log"
-	"net"
-	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/cmpp/codec"
+	"github.com/zhiyin2021/zysms/enum"
+	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
 const (
-	userS     string = "900001"
-	passwordS string = "888888"
+	userS     string = "010000"      // "900001" //010000,pwd:tDd34J443e3
+	passwordS string = "tDd34J443e3" //"888888"
 )
 
-func handleLogin(r *cmpp.Response, p *cmpp.Packet, l *log.Logger) (bool, error) {
-	req, ok := p.Packer.(*codec.CmppConnReq)
-	if !ok {
-		// not a connect request, ignore it,
-		// go on to next handler
-		return true, nil
+func main() {
+	ln, err := zysms.Listen(":7890", zysms.CMPP3)
+	if err != nil {
+		log.Println("cmpp ListenAndServ error:", err)
+	}
+	defer ln.Close()
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Println("cmpp Accept error:", err)
+			continue
+		}
+		go handleRun(conn)
+	}
+}
+func handleRun(conn zysms.SmsConn) {
+	defer conn.Close()
+	log.Println("cmpp Accept a new connection:", conn.RemoteAddr())
+
+	for {
+		pkt, err := conn.RecvPkt(0)
+		if err != nil {
+			logrus.Printf("handle.recv err: %v", err)
+			if err.Error() == "EOF" {
+				return
+			}
+			if _, ok := err.(enum.SmsError); ok {
+				continue
+			}
+			return
+		}
+		var resp proto.Packer
+
+		switch p := pkt.(type) {
+		case *cmpp.CmppConnReq:
+			{
+				resp, err = handleLogin(p)
+				if err != nil {
+					conn.Logger().Errorf("handleLogin error: %v", err)
+				}
+			}
+		case *cmpp.Cmpp3SubmitReq:
+			{
+				resp, err = handleSubmit(p)
+				if err != nil {
+					conn.Logger().Errorf("handleSubmit error: %v", err)
+				}
+			}
+		default:
+			continue
+		}
+		err1 := conn.SendPkt(resp, pkt.SeqId())
+		if err1 != nil {
+			conn.Logger().Errorf("sendPkt error: %v", err)
+			return
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func handleLogin(req *cmpp.CmppConnReq) (proto.Packer, error) {
+	resp := &cmpp.Cmpp3ConnRsp{
+		Version: cmpp.V30,
 	}
 
-	l.Println("remote addr:", p.Conn.Conn.RemoteAddr().(*net.TCPAddr).IP.String())
-	resp := r.Packer.(*codec.Cmpp3ConnRsp)
-
-	// validate the user and password
-	// set the status in the connect response.
-	resp.Version = 0x30
-	addr := req.SrcAddr
-	if addr != utils.OctetString(userS, 6) {
-		l.Println("handleLogin error:", codec.ConnRspStatusErrMap[codec.ErrnoConnInvalidSrcAddr])
-		resp.Status = uint32(codec.ErrnoConnInvalidSrcAddr)
-		return false, codec.ConnRspStatusErrMap[codec.ErrnoConnInvalidSrcAddr]
+	if req.SrcAddr != utils.OctetString(userS, 6) {
+		resp.Status = uint32(cmpp.ErrnoConnInvalidSrcAddr)
+		return resp, cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnInvalidSrcAddr]
 	}
 
 	tm := req.Timestamp
@@ -46,50 +98,26 @@ func handleLogin(r *cmpp.Response, p *cmpp.Packet, l *log.Logger) (bool, error) 
 		nil))
 
 	if req.AuthSrc != string(authSrc[:]) {
-		l.Println("handleLogin error: ", codec.ConnRspStatusErrMap[codec.ErrnoConnAuthFailed])
-		resp.Status = uint32(codec.ErrnoConnAuthFailed)
-		return false, codec.ConnRspStatusErrMap[codec.ErrnoConnAuthFailed]
+		// conn.Logger().Errorln("handleLogin error: ", cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnAuthFailed])
+		resp.Status = uint32(cmpp.ErrnoConnAuthFailed)
+		return resp, cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnAuthFailed]
 	}
 
-	authIsmg := md5.Sum(bytes.Join([][]byte{[]byte{byte(resp.Status)},
+	authIsmg := md5.Sum(bytes.Join([][]byte{{byte(resp.Status)},
 		authSrc[:],
 		[]byte(passwordS)},
 		nil))
 	resp.AuthIsmg = string(authIsmg[:])
-	l.Printf("handleLogin: %s login ok\n", addr)
-
-	return false, nil
+	return resp, nil
 }
 
-func handleSubmit(r *cmpp.Response, p *cmpp.Packet, l *log.Logger) (bool, error) {
-	req, ok := p.Packer.(*codec.Cmpp3SubmitReq)
-	if !ok {
-		return true, nil // go on to next handler
+func handleSubmit(req *cmpp.Cmpp3SubmitReq) (proto.Packer, error) {
+	resp := &cmpp.Cmpp3SubmitRsp{
+		MsgId: 12878564852733378560,
 	}
-
-	resp := r.Packer.(*codec.Cmpp3SubmitRsp)
-	resp.MsgId = 12878564852733378560 //0xb2, 0xb9, 0xda, 0x80, 0x00, 0x01, 0x00, 0x00
 	for i, d := range req.DestTerminalId {
-		l.Printf("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s]\n",
-			req.MsgSrc, req.SeqId, resp.MsgId+uint64(i), req.SrcId, d)
+		logrus.Printf("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s]\n",
+			req.MsgSrc, req.SeqId(), resp.MsgId+uint64(i), req.SrcId, d)
 	}
-	return true, nil
-}
-
-func main() {
-	var handlers = []cmpp.Handler{
-		cmpp.HandlerFunc(handleLogin),
-		cmpp.HandlerFunc(handleSubmit),
-	}
-
-	err := cmpp.ListenAndServe(":7890",
-		codec.V30,
-		5*time.Second,
-		3,
-		nil,
-		handlers...,
-	)
-	if err != nil {
-		log.Println("cmpp ListenAndServ error:", err)
-	}
+	return resp, nil
 }

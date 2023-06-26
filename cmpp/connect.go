@@ -1,4 +1,4 @@
-package codec
+package cmpp
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/utils"
 )
@@ -62,7 +61,7 @@ type CmppConnReq struct {
 	Version   Version // +1 = 35：双方协商的版本号(高位 4bit 表示主 版本号,低位 4bit 表示次版本号)，对 于3.0的版本，高4bit为3，低4位为 0
 	Timestamp uint32  // +4 = 39：时间戳的明文,由客户端产生,格式为 MMDDHHMMSS，即月日时分秒，10 位数字的整型，右对齐。
 	Secret    string  //非协议内容，调用Pack前需设置
-	SeqId     uint32  // 序列编号
+	seqId     uint32  // 序列编号
 }
 
 // Cmpp2ConnRsp represents a Cmpp2 connect response packet.
@@ -78,7 +77,7 @@ type Cmpp2ConnRsp struct {
 	Version  Version // 1字节 服务器支持的最高版本号，对于3.0的版本，高4bit为3，低4位为0
 	Secret   string  // 非协议内容
 	AuthSrc  string  // 非协议内容
-	SeqId    uint32  // 序列编号
+	seqId    uint32  // 序列编号
 }
 
 // Cmpp3ConnRsp represents a Cmpp3 connect response packet.
@@ -94,7 +93,7 @@ type Cmpp3ConnRsp struct {
 	Version  Version // 1字节 服务器支持的最高版本号，对于3.0的版本，高4bit为3，低4位为0
 	Secret   string  // 非协议内容
 	AuthSrc  string  // 非协议内容
-	SeqId    uint32  // 序列编号
+	seqId    uint32  // 序列编号
 }
 
 // Pack packs the CmppConnReq to bytes stream for client side.
@@ -107,8 +106,11 @@ func (p *CmppConnReq) Pack(seqId uint32) []byte {
 	// Pack header
 	pkt.WriteU32(CmppConnReqLen)
 	pkt.WriteU32(CMPP_CONNECT.ToInt())
-	pkt.WriteU32(seqId)
-	p.SeqId = seqId
+
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
+
 	var ts string
 	if p.Timestamp == 0 {
 		ts, p.Timestamp = utils.Timestamp2() //default: current time.
@@ -130,17 +132,16 @@ func (p *CmppConnReq) Pack(seqId uint32) []byte {
 	pkt.WriteByte(byte(p.Version))
 	pkt.WriteU32(p.Timestamp)
 
-	logrus.Warningln("seqid:", seqId, buf)
 	return buf
 }
 
 // Unpack unpack the binary byte stream to a CmppConnReq variable.
 // Usually it is used in server side. After unpack, you will get SeqId, SourceAddr,
 // AuthenticatorSource, Version and Timestamp.
-func (p *CmppConnReq) Unpack(data []byte) {
+func (p *CmppConnReq) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
 	// Body: Source_Addr
 	p.SrcAddr = pkt.ReadStr(6)
 	// Body: AuthSrc
@@ -149,6 +150,11 @@ func (p *CmppConnReq) Unpack(data []byte) {
 	p.Version = Version(pkt.ReadByte())
 	// Body: timestamp
 	p.Timestamp = pkt.ReadU32()
+	return p
+}
+
+func (p *CmppConnReq) SeqId() uint32 {
+	return p.seqId
 }
 
 // Pack packs the Cmpp2ConnRsp to bytes stream for server side.
@@ -161,13 +167,14 @@ func (p *Cmpp2ConnRsp) Pack(seqId uint32) []byte {
 	// pack header
 	pkt.WriteU32(Cmpp2ConnRspLen)
 	pkt.WriteU32(CMPP_CONNECT_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.SeqId = seqId
 
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
 	// pack body
 	pkt.WriteByte(p.Status)
 
-	md5 := md5.Sum(bytes.Join([][]byte{[]byte{p.Status},
+	md5 := md5.Sum(bytes.Join([][]byte{{p.Status},
 		[]byte(p.AuthSrc),
 		[]byte(p.Secret)},
 		nil))
@@ -181,10 +188,10 @@ func (p *Cmpp2ConnRsp) Pack(seqId uint32) []byte {
 // Usually it is used in client side. After unpack, you will get SeqId, Status,
 // AuthenticatorIsmg, and Version.
 // Parameter data contains seqId in header and the whole packet body.
-func (p *Cmpp2ConnRsp) Unpack(data []byte) {
+func (p *Cmpp2ConnRsp) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
 
 	// Body: Status
 	p.Status = pkt.ReadByte()
@@ -194,6 +201,10 @@ func (p *Cmpp2ConnRsp) Unpack(data []byte) {
 
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
+	return p
+}
+func (p *Cmpp2ConnRsp) SeqId() uint32 {
+	return p.seqId
 }
 
 // Pack packs the Cmpp3ConnRsp to bytes stream for server side.
@@ -206,8 +217,10 @@ func (p *Cmpp3ConnRsp) Pack(seqId uint32) []byte {
 	// pack header
 	pkt.WriteU32(Cmpp3ConnRspLen)
 	pkt.WriteU32(CMPP_CONNECT_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.SeqId = seqId
+
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
 
 	// pack body
 	pkt.WriteU32(p.Status)
@@ -231,11 +244,11 @@ func (p *Cmpp3ConnRsp) Pack(seqId uint32) []byte {
 // Usually it is used in client side. After unpack, you will get SeqId, Status,
 // AuthenticatorIsmg, and Version.
 // Parameter data contains seqId in header and the whole packet body.
-func (p *Cmpp3ConnRsp) Unpack(data []byte) {
+func (p *Cmpp3ConnRsp) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
 
 	// Body: Status
 	p.Status = pkt.ReadU32()
@@ -244,4 +257,9 @@ func (p *Cmpp3ConnRsp) Unpack(data []byte) {
 	p.AuthIsmg = pkt.ReadStr(16)
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
+	return p
+}
+
+func (p *Cmpp3ConnRsp) SeqId() uint32 {
+	return p.seqId
 }

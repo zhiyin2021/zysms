@@ -1,4 +1,4 @@
-package codec
+package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/proto"
@@ -10,6 +10,7 @@ const (
 )
 
 type CmppReceiptPkt struct {
+	seqId          uint32
 	MsgId          uint64 // 信息标识，SP提交短信(CMPP_SUBMIT)操作时，与SP相连的ISMG产生的 Msg_Id。【8字节】
 	Stat           string // 发送短信的应答结果。【7字节】
 	SubmitTime     string // yyMMddHHmm 【10字节】
@@ -19,9 +20,14 @@ type CmppReceiptPkt struct {
 }
 
 // Pack packs the CmppReceiptPkt to bytes stream for client side.
-func (p *CmppReceiptPkt) Pack() []byte {
+func (p *CmppReceiptPkt) Pack(seqId uint32) []byte {
 	data := make([]byte, CmppReceiptPktLen)
 	pkt := proto.NewPacket(data)
+	pkt.WriteU32(CmppReceiptPktLen)
+
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
 
 	pkt.WriteU64(p.MsgId)
 	pkt.WriteStr(p.Stat, 7)
@@ -36,7 +42,7 @@ func (p *CmppReceiptPkt) Pack() []byte {
 // Unpack unpack the binary byte stream to a CmppReceiptPkt variable.
 // After unpack, you will get all value of fields in
 // CmppReceiptPkt struct.
-func (p *CmppReceiptPkt) Unpack(data []byte) {
+func (p *CmppReceiptPkt) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 
 	p.MsgId = pkt.ReadU64()
@@ -45,5 +51,9 @@ func (p *CmppReceiptPkt) Unpack(data []byte) {
 	p.DoneTime = pkt.ReadStr(10)
 	p.DestTerminalId = pkt.ReadStr(21)
 	p.SmscSequence = pkt.ReadU32()
+	return p
+}
 
+func (p *CmppReceiptPkt) SeqId() uint32 {
+	return p.seqId
 }

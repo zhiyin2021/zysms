@@ -1,4 +1,4 @@
-package codec
+package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/proto"
@@ -12,11 +12,11 @@ const (
 
 type CmppTerminateReq struct {
 	// session info
-	SeqId uint32
+	seqId uint32
 }
 type CmppTerminateRsp struct {
 	// session info
-	SeqId uint32
+	seqId uint32
 }
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
@@ -27,8 +27,10 @@ func (p *CmppTerminateReq) Pack(seqId uint32) []byte {
 	// Pack header
 	pkt.WriteU32(CmppTerminateReqLen)
 	pkt.WriteU32(CMPP_TERMINATE.ToInt())
-	pkt.WriteU32(seqId)
-	p.SeqId = seqId
+
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
 
 	return data
 }
@@ -36,12 +38,16 @@ func (p *CmppTerminateReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppTerminateReq) Unpack(data []byte) {
+func (p *CmppTerminateReq) Unpack(data []byte) proto.Packer {
 
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
+	return p
+}
+func (p *CmppTerminateReq) SeqId() uint32 {
+	return p.seqId
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
@@ -52,8 +58,10 @@ func (p *CmppTerminateRsp) Pack(seqId uint32) []byte {
 	// Pack header
 	pkt.WriteU32(CmppTerminateRspLen)
 	pkt.WriteU32(CMPP_TERMINATE_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.SeqId = seqId
+
+	p.seqId = seqId
+
+	pkt.WriteU32(p.seqId)
 
 	return data
 }
@@ -61,9 +69,14 @@ func (p *CmppTerminateRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppTerminateRsp) Unpack(data []byte) {
+func (p *CmppTerminateRsp) Unpack(data []byte) proto.Packer {
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
-	p.SeqId = pkt.ReadU32()
+	p.seqId = pkt.ReadU32()
+	return p
+}
+
+func (p *CmppTerminateRsp) SeqId() uint32 {
+	return p.seqId
 }

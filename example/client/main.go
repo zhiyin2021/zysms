@@ -6,26 +6,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/cmpp/codec"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
 const (
-	user           string        = "900001"
-	password       string        = "888888"
+	user           string        = "010000"      // "900001" //010000,pwd:tDd34J443e3
+	password       string        = "tDd34J443e3" //"888888"
 	connectTimeout time.Duration = time.Second * 2
 )
 
 func startAClient(idx int) {
-	c := cmpp.NewClient(codec.V30)
-	defer wg.Done()
-	defer c.Disconnect()
-	err := c.Connect(":7890", user, password, connectTimeout)
+	c, err := zysms.Dial(":7890", zysms.CMPP3, user, password, connectTimeout)
 	if err != nil {
 		log.Printf("client %d: connect error: %s.", idx, err)
 		return
 	}
+	defer wg.Done()
+	defer c.Close()
+
 	log.Printf("client %d: connect and auth ok", idx)
 
 	t := time.NewTicker(time.Second * 5)
@@ -39,7 +39,7 @@ func startAClient(idx int) {
 				fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
 				return
 			}
-			p := &codec.Cmpp3SubmitReq{
+			p := &cmpp.Cmpp3SubmitReq{
 				PkTotal:            1,
 				PkNumber:           1,
 				RegisteredDelivery: 1,
@@ -62,7 +62,7 @@ func startAClient(idx int) {
 				MsgContent:         string(cont),
 			}
 
-			_, err = c.SendReq(p)
+			err = c.SendPkt(p, 0)
 			if err != nil {
 				log.Printf("client %d: send a cmpp3 submit request error: %s.", idx, err)
 			} else {
@@ -72,36 +72,35 @@ func startAClient(idx int) {
 		}
 
 		// recv packets
-		i, err := c.RecvAndUnpackPkt(0)
+		i, err := c.RecvPkt(0)
 		if err != nil {
 			log.Printf("client %d: client read and unpack pkt error: %s.", idx, err)
 			break
 		}
 
 		switch p := i.(type) {
-		case *codec.Cmpp3SubmitRsp:
-			log.Printf("client %d: receive a cmpp3 submit response: %d => %v.", idx, p.SeqId, p)
-
-		case *codec.CmppActiveTestReq:
+		case *cmpp.Cmpp3SubmitRsp:
+			log.Printf("client %d: receive a cmpp3 submit response: %d => %v.", idx, p.SeqId(), p)
+		case *cmpp.CmppActiveTestReq:
 			log.Printf("client %d: receive a cmpp active request: %v.", idx, p)
-			rsp := &codec.CmppActiveTestRsp{}
-			err := c.SendRsp(rsp, p.SeqId)
-			if err != nil {
-				log.Printf("client %d: send cmpp active response error: %s.", idx, err)
-				break
-			}
-		case *codec.CmppActiveTestRsp:
+			// rsp := &cmpp.CmppActiveTestRsp{}
+			// err := c.SendPkt(rsp, p.SeqId())
+			// if err != nil {
+			// 	log.Printf("client %d: send cmpp active response error: %s.", idx, err)
+			// 	break
+			// }
+		case *cmpp.CmppActiveTestRsp:
 			log.Printf("client %d: receive a cmpp activetest response: %v.", idx, p)
 
-		case *codec.CmppTerminateReq:
+		case *cmpp.CmppTerminateReq:
 			log.Printf("client %d: receive a cmpp terminate request: %v.", idx, p)
-			rsp := &codec.CmppTerminateRsp{}
-			err := c.SendRsp(rsp, p.SeqId)
+			rsp := &cmpp.CmppTerminateRsp{}
+			err := c.SendPkt(rsp, p.SeqId())
 			if err != nil {
 				log.Printf("client %d: send cmpp terminate response error: %s.", idx, err)
 				break
 			}
-		case *codec.CmppTerminateRsp:
+		case *cmpp.CmppTerminateRsp:
 			log.Printf("client %d: receive a cmpp terminate response: %v.", idx, p)
 		}
 	}
