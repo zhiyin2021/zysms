@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"crypto/md5"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
+	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
@@ -29,22 +32,30 @@ func main() {
 	sms.OnError = func(c *zysms.Conn, err error) {
 		c.Logger.Errorln("server: error: ", err)
 	}
-	sms.Handle(event.SmsEventAuthReq, func(c *zysms.Conn, p proto.Packer) error {
-		pkt := p.(*cmpp.CmppConnReq)
-		resp, err := handleLogin(pkt)
-		c.SendPkt(resp, pkt.SeqId())
+	sms.OnEvent = func(c *zysms.Conn, p proto.Packer) error {
+		var resp proto.Packer
+		var err error
+		switch req := p.(type) {
+		case *cmpp.Cmpp3SubmitReq:
+			resp, err = handleSubmit(req)
+		case *cmpp.CmppConnReq:
+			resp, err = handleLogin(req)
+		default:
+			c.Logger.Errorf("server: unknown event: %v", p)
+			err = smserror.ErrRespNotMatch
+		}
+		c.SendPkt(resp, p.SeqId())
 		return err
-	})
-	sms.Handle(event.SmsEventSubmitReq, func(c *zysms.Conn, p proto.Packer) error {
-		pkt := p.(*cmpp.Cmpp3SubmitReq)
-		resp, err := handleSubmit(pkt)
-		c.SendPkt(resp, pkt.SeqId())
-		return err
-	})
-	err := sms.Listen(":7890")
+	}
+
+	ln, err := sms.Listen(":7890")
 	if err != nil {
 		log.Println("cmpp ListenAndServ error:", err)
 	}
+	sig := make(chan os.Signal)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	<-sig
+	ln.Close()
 }
 func handleLogin(req *cmpp.CmppConnReq) (proto.Packer, error) {
 	resp := &cmpp.Cmpp3ConnRsp{

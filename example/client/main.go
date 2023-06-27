@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/utils"
 )
@@ -20,6 +20,7 @@ const (
 )
 
 func startAClient(idx int) {
+	defer wg.Done()
 	sms := zysms.New(proto.CMPP3)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
@@ -27,33 +28,24 @@ func startAClient(idx int) {
 	sms.OnDisconnect = func(c *zysms.Conn) {
 		log.Printf("client %d: disconnect", idx)
 	}
-
-	sms.Handle(event.SmsEventAuthRsp, func(c *zysms.Conn, p proto.Packer) error {
-		pkt := p.(*cmpp.Cmpp3ConnRsp)
-
-		c.Logger.Printf("client %d: receive a cmpp connect response: %v.", idx, pkt.Status)
+	sms.OnEvent = func(c *zysms.Conn, p proto.Packer) error {
+		switch req := p.(type) {
+		case *cmpp.Cmpp3ConnRsp:
+			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
+		case *cmpp.Cmpp3SubmitRsp:
+			log.Printf("client %d: receive a cmpp submit response: %v.", idx, req.MsgId)
+		case *cmpp.Cmpp3DeliverReq:
+			log.Printf("client %d: receive a cmpp deliver request: %v.", idx, req.MsgId)
+		default:
+			log.Printf("client %d: unknown event: %v", idx, p)
+		}
 		return nil
-	})
-
-	sms.Handle(event.SmsEventSubmitRsp, func(c *zysms.Conn, p proto.Packer) error {
-		pkt := p.(*cmpp.Cmpp3SubmitRsp)
-		c.Logger.Printf("client %d: receive a cmpp connect response: %v.", idx, pkt.MsgId)
-		return nil
-	})
-
-	sms.Handle(event.SmsEventDeliverReq, func(c *zysms.Conn, p proto.Packer) error {
-		pkt := p.(*cmpp.Cmpp3DeliverRsp)
-		c.Logger.Printf("client %d: receive a cmpp connect response: %v.", idx, pkt.MsgId)
-		return nil
-	})
-
+	}
 	c, err := sms.Dial(":7890", user, password, connectTimeout)
 	if err != nil {
-		c.Logger.Printf("client %d: connect error: %s.", idx, err)
+		logrus.Printf("client %d: connect error: %s.", idx, err)
 		return
 	}
-
-	defer wg.Done()
 
 	log.Printf("client %d: connect and auth ok", idx)
 

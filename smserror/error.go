@@ -24,4 +24,5 @@ var (
 	ErrNoHandlers         SmsError = errors.New("sms server: no connection handler")
 	ErrUnsupportedPkt     SmsError = errors.New("sms server read packet: receive a unsupported pkt")
 	ErrProtoNotSupport    SmsError = errors.New("sms  unsupported proto")
+	ErrPktIsNil           SmsError = errors.New("sms  packet is nil")
 )

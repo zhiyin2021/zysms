@@ -7,22 +7,19 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/enum"
-	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/smserror"
 )
 
 // errors for cmpp server
 type (
-	handleEvent func(*Conn, proto.Packer) error
-	sms         struct {
-		server       smsListener
-		client       smsConn
+	// handleEvent func(*Conn, proto.Packer) error
+	sms struct {
 		proto        proto.SmsProto
-		events       map[event.SmsEvent]handleEvent
 		OnConnect    func(*Conn)
 		OnDisconnect func(*Conn)
 		OnError      func(*Conn, error)
+		OnEvent      func(*Conn, proto.Packer) error
 	}
 	Conn struct {
 		smsConn
@@ -30,7 +27,7 @@ type (
 		Logger *logrus.Entry
 	}
 	smsListener interface {
-		Accept() (*Conn, error)
+		accept() (*Conn, error)
 		Close() error
 	}
 
@@ -46,13 +43,13 @@ type (
 )
 
 func New(proto proto.SmsProto) *sms {
-	return &sms{proto: proto, events: make(map[event.SmsEvent]handleEvent)}
+	return &sms{proto: proto}
 }
 
-func (s *sms) Listen(addr string) error {
+func (s *sms) Listen(addr string) (smsListener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var l smsListener
 	switch s.proto {
@@ -61,15 +58,16 @@ func (s *sms) Listen(addr string) error {
 	case proto.CMPP3:
 		l = newCmppListener(ln, cmpp.V30)
 	}
-	s.server = l
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			continue
+	go func() {
+		for {
+			conn, err := l.accept()
+			if err != nil {
+				return
+			}
+			go s.run(conn)
 		}
-
-		go s.run(conn)
-	}
+	}()
+	return l, nil
 }
 
 func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration) (*Conn, error) {
@@ -97,10 +95,6 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration) (*Conn, 
 	return zconn, nil
 }
 
-func (s *sms) Handle(e event.SmsEvent, f handleEvent) {
-	s.events[e] = f
-}
-
 func (s *sms) run(conn *Conn) {
 	if s.OnConnect != nil {
 		s.OnConnect(conn)
@@ -115,24 +109,16 @@ func (s *sms) run(conn *Conn) {
 	for {
 		pkt, err := conn.RecvPkt(0)
 		if err != nil {
-			s.doError(conn, err)
+			if s.OnError != nil {
+				s.OnError(conn, err)
+			}
 			return
 		}
-		if e, ok := s.events[pkt.Event()]; ok {
-			err = e(conn, pkt)
-			if err != nil {
-				return
-			}
-		} else if e, ok := s.events[event.SmsEventUnknown]; ok {
-			err = e(conn, pkt)
+		if s.OnEvent != nil {
+			err = s.OnEvent(conn, pkt)
 			if err != nil {
 				return
 			}
 		}
-	}
-}
-func (s *sms) doError(c *Conn, e error) {
-	if s.OnError != nil {
-		s.OnError(c, e)
 	}
 }
