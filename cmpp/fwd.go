@@ -3,6 +3,7 @@ package cmpp
 import (
 	"errors"
 
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 )
 
@@ -244,6 +245,9 @@ func (p *Cmpp2FwdReq) Unpack(data []byte) proto.Packer {
 	p.Reserve = pkt.ReadStr(8)
 	return p
 }
+func (p *Cmpp2FwdReq) Event() event.SmsEvent {
+	return event.SmsEventFwdReq
+}
 func (p *Cmpp2FwdReq) SeqId() uint32 {
 	return p.seqId
 }
@@ -283,6 +287,10 @@ func (p *Cmpp2FwdRsp) Unpack(data []byte) proto.Packer {
 	p.Result = pkt.ReadByte()
 	return p
 }
+func (p *Cmpp2FwdRsp) Event() event.SmsEvent {
+	return event.SmsEventFwdRsp
+}
+
 func (p *Cmpp2FwdRsp) SeqId() uint32 {
 	return p.seqId
 }
@@ -407,6 +415,10 @@ func (p *Cmpp3FwdReq) Unpack(data []byte) proto.Packer {
 	p.LinkId = pkt.ReadStr(20)
 	return p
 }
+func (p *Cmpp3FwdReq) Event() event.SmsEvent {
+	return event.SmsEventFwdReq
+}
+
 func (p *Cmpp3FwdReq) SeqId() uint32 {
 	return p.seqId
 }
@@ -444,6 +456,9 @@ func (p *Cmpp3FwdRsp) Unpack(data []byte) proto.Packer {
 	p.PkNumber = pkt.ReadByte()
 	p.Result = pkt.ReadU32()
 	return p
+}
+func (p *Cmpp3FwdRsp) Event() event.SmsEvent {
+	return event.SmsEventFwdRsp
 }
 
 func (p *Cmpp3FwdRsp) SeqId() uint32 {

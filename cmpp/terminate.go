@@ -1,6 +1,7 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 )
 
@@ -46,6 +47,9 @@ func (p *CmppTerminateReq) Unpack(data []byte) proto.Packer {
 	p.seqId = pkt.ReadU32()
 	return p
 }
+func (p *CmppTerminateReq) Event() event.SmsEvent {
+	return event.SmsEventTerminateReq
+}
 func (p *CmppTerminateReq) SeqId() uint32 {
 	return p.seqId
 }
@@ -77,6 +81,9 @@ func (p *CmppTerminateRsp) Unpack(data []byte) proto.Packer {
 	return p
 }
 
+func (p *CmppTerminateRsp) Event() event.SmsEvent {
+	return event.SmsEventTerminateRsp
+}
 func (p *CmppTerminateRsp) SeqId() uint32 {
 	return p.seqId
 }

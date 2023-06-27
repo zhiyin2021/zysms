@@ -1,4 +1,4 @@
-package proto
+package utils
 
 // Sequence32 32位序号生成器
 type Sequence32 interface {

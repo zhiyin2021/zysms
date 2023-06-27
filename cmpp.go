@@ -12,6 +12,7 @@ import (
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/proto"
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
 type cmppConn struct {
@@ -29,7 +30,7 @@ type cmppConn struct {
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newCmppConn(conn net.Conn, typ cmpp.Version) *cmppConn {
+func newCmppConn(conn net.Conn, typ cmpp.Version) *Conn {
 	c := &cmppConn{
 		Conn:   conn,
 		Typ:    typ,
@@ -41,11 +42,9 @@ func newCmppConn(conn net.Conn, typ cmpp.Version) *cmppConn {
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
 
-	return c
+	return &Conn{smsConn: c, Logger: c.logger}
 }
-func (c *cmppConn) Logger() *logrus.Entry {
-	return c.logger
-}
+
 func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
 	// Login to the server.
 	req := &cmpp.CmppConnReq{
@@ -68,13 +67,13 @@ func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
 		if rsp, ok := p.(*cmpp.Cmpp3ConnRsp); ok {
 			status = uint8(rsp.Status)
 		} else {
-			return enum.ErrRespNotMatch
+			return smserror.ErrRespNotMatch
 		}
 	} else {
 		if rsp, ok := p.(*cmpp.Cmpp2ConnRsp); ok {
 			status = rsp.Status
 		} else {
-			return enum.ErrRespNotMatch
+			return smserror.ErrRespNotMatch
 		}
 	}
 	if status != 0 {
@@ -112,7 +111,7 @@ func (c *cmppConn) seqId() uint32 {
 // SendPkt pack the cmpp packet structure and send it to the other peer.
 func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
 	if c.State == enum.CONN_CLOSED {
-		return enum.ErrConnIsClosed
+		return smserror.ErrConnIsClosed
 	}
 
 	if seqId == 0 {
@@ -152,7 +151,7 @@ func (c *cmppConn) RemoteAddr() net.Addr {
 // RecvAndUnpackPkt receives cmpp byte stream, and unpack it to some cmpp packet structure.
 func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 	if c.State == enum.CONN_CLOSED {
-		return nil, enum.ErrConnIsClosed
+		return nil, smserror.ErrConnIsClosed
 	}
 
 	rb := readBufferPool.Get().(*readBuffer)
@@ -170,9 +169,9 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 	}
 
 	if c.Typ == cmpp.V30 && (rb.totalLen < cmpp.CMPP3_PACKET_MIN || rb.totalLen > cmpp.CMPP3_PACKET_MAX) {
-		return nil, proto.ErrTotalLengthInvalid
+		return nil, smserror.ErrTotalLengthInvalid
 	} else if rb.totalLen < cmpp.CMPP2_PACKET_MIN || rb.totalLen > cmpp.CMPP2_PACKET_MAX {
-		return nil, proto.ErrTotalLengthInvalid
+		return nil, smserror.ErrTotalLengthInvalid
 	}
 
 	// Command_Id
@@ -184,7 +183,7 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 		netErr, ok := err.(net.Error)
 		if ok {
 			if netErr.Timeout() {
-				return nil, enum.ErrReadCmdIDTimeout
+				return nil, smserror.ErrReadCmdIDTimeout
 			}
 		}
 		return nil, err
@@ -192,7 +191,7 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 
 	if !((rb.commandId > cmpp.CMPP_REQUEST_MIN && rb.commandId < cmpp.CMPP_REQUEST_MAX) ||
 		(rb.commandId > cmpp.CMPP_RESPONSE_MIN && rb.commandId < cmpp.CMPP_RESPONSE_MAX)) {
-		return nil, proto.ErrCommandIdInvalid
+		return nil, smserror.ErrCommandIdInvalid
 	}
 
 	// The left packet data (start from seqId in header).
@@ -206,7 +205,6 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 	}
 	if fun, ok := cmpp.CmppPacket[rb.commandId]; ok {
 		p := fun(c.Typ, leftData)
-		c.logger.Infof("%d => %s", p.SeqId(), rb.commandId.String())
 		if rb.commandId == cmpp.CMPP_ACTIVE_TEST {
 			resp := &cmpp.CmppActiveTestRsp{}
 			c.SendPkt(resp, p.SeqId())
@@ -214,29 +212,30 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 		}
 		return p, nil
 	}
-	return nil, proto.ErrCommandIdNotSupported
+	return nil, smserror.ErrCommandIdNotSupported
 
 }
 
-type CmppListener struct {
+type cmppListener struct {
 	net.Listener
 	typ cmpp.Version
 }
 
-func newCmppListener(l net.Listener, v cmpp.Version) *CmppListener {
-	return &CmppListener{l, v}
+func newCmppListener(l net.Listener, v cmpp.Version) *cmppListener {
+	return &cmppListener{l, v}
 }
 
-func (l *CmppListener) Accept() (SmsConn, error) {
+func (l *cmppListener) Accept() (*Conn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
 	conn := newCmppConn(c, l.typ)
 	conn.SetState(enum.CONN_CONNECTED)
-	conn.startActiveTest()
+	conn.smsConn.(*cmppConn).startActiveTest()
 	return conn, nil
 }
+
 func (c *cmppConn) startActiveTest() {
 	go func() {
 		t := time.NewTicker(10 * time.Second)
@@ -259,6 +258,6 @@ func (c *cmppConn) startActiveTest() {
 		}
 	}()
 }
-func (l *CmppListener) Close() error {
+func (l *cmppListener) Close() error {
 	return l.Listener.Close()
 }

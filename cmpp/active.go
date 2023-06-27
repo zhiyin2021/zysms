@@ -1,6 +1,7 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 )
 
@@ -45,6 +46,10 @@ func (p *CmppActiveTestReq) SeqId() uint32 {
 	return p.seqId
 }
 
+func (p *CmppActiveTestReq) Event() event.SmsEvent {
+	return event.SmsEventActiveTestReq
+}
+
 // Pack packs the CmppActiveTestRsp to bytes stream for client side.
 func (p *CmppActiveTestRsp) Pack(seqId uint32) []byte {
 	buf := make([]byte, CmppActiveTestRspLen)
@@ -68,6 +73,9 @@ func (p *CmppActiveTestRsp) Unpack(data []byte) proto.Packer {
 	p.seqId = r.ReadU32()
 	p.Reserved = r.ReadByte()
 	return p
+}
+func (p *CmppActiveTestRsp) Event() event.SmsEvent {
+	return event.SmsEventActiveTestRsp
 }
 func (p *CmppActiveTestRsp) SeqId() uint32 {
 	return p.seqId

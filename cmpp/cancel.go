@@ -1,6 +1,7 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 )
 
@@ -51,6 +52,9 @@ func (p *CmppCancelReq) Unpack(data []byte) proto.Packer {
 func (p *CmppCancelReq) SeqId() uint32 {
 	return p.seqId
 }
+func (p *CmppCancelReq) Event() event.SmsEvent {
+	return event.SmsEventCancelReq
+}
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
 func (p *CmppCancelRsp) Pack(seqId uint32) []byte {
@@ -79,6 +83,9 @@ func (p *CmppCancelRsp) Unpack(data []byte) proto.Packer {
 	p.seqId = pkt.ReadU32()
 	p.SuccId = pkt.ReadU32()
 	return p
+}
+func (p *CmppCancelRsp) Event() event.SmsEvent {
+	return event.SmsEventCancelRsp
 }
 
 func (p *CmppCancelRsp) SeqId() uint32 {

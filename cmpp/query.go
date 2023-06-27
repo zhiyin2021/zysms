@@ -1,6 +1,7 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 )
 
@@ -69,6 +70,9 @@ func (p *CmppQueryReq) Unpack(data []byte) proto.Packer {
 	p.Reserve = pkt.ReadStr(8)
 	return p
 }
+func (p *CmppQueryReq) Event() event.SmsEvent {
+	return event.SmsEventQueryReq
+}
 
 func (p *CmppQueryReq) SeqId() uint32 {
 	return p.seqId
@@ -122,6 +126,10 @@ func (p *CmppQueryRsp) Unpack(data []byte) proto.Packer {
 	p.MoWt = pkt.ReadU32()
 	p.MoFl = pkt.ReadU32()
 	return p
+}
+
+func (p *CmppQueryRsp) Event() event.SmsEvent {
+	return event.SmsEventQueryRsp
 }
 
 func (p *CmppQueryRsp) SeqId() uint32 {

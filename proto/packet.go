@@ -3,23 +3,16 @@ package proto
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/utils"
 )
-
-// Common errors.
-var ErrMethodParamsInvalid = errors.New("params passed to method is invalid")
-
-// Protocol errors.
-var ErrTotalLengthInvalid = errors.New("total_length in Packet data is invalid")
-var ErrCommandIdInvalid = errors.New("command_Id in Packet data is invalid")
-var ErrCommandIdNotSupported = errors.New("command_Id in Packet data is not supported")
 
 type Packer interface {
 	SeqId() uint32
 	Pack(uint32) []byte
 	Unpack([]byte) Packer
+	Event() event.SmsEvent
 }
 type packet struct {
 	data  []byte

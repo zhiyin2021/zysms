@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/utils"
 )
@@ -152,6 +153,9 @@ func (p *CmppConnReq) Unpack(data []byte) proto.Packer {
 	p.Timestamp = pkt.ReadU32()
 	return p
 }
+func (p *CmppConnReq) Event() event.SmsEvent {
+	return event.SmsEventAuthReq
+}
 
 func (p *CmppConnReq) SeqId() uint32 {
 	return p.seqId
@@ -202,6 +206,9 @@ func (p *Cmpp2ConnRsp) Unpack(data []byte) proto.Packer {
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
 	return p
+}
+func (p *Cmpp2ConnRsp) Event() event.SmsEvent {
+	return event.SmsEventAuthRsp
 }
 func (p *Cmpp2ConnRsp) SeqId() uint32 {
 	return p.seqId
@@ -258,6 +265,9 @@ func (p *Cmpp3ConnRsp) Unpack(data []byte) proto.Packer {
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
 	return p
+}
+func (p *Cmpp3ConnRsp) Event() event.SmsEvent {
+	return event.SmsEventAuthRsp
 }
 
 func (p *Cmpp3ConnRsp) SeqId() uint32 {

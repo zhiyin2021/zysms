@@ -1,6 +1,9 @@
 package cmpp
 
-import "github.com/zhiyin2021/zysms/proto"
+import (
+	"github.com/zhiyin2021/zysms/event"
+	"github.com/zhiyin2021/zysms/proto"
+)
 
 type Version uint8
 
@@ -66,7 +69,29 @@ func (id CommandId) String() string {
 	}
 	return "UNKNOWN"
 }
+func (id CommandId) Event() event.SmsEvent {
+	if v, ok := cmdEvent[id]; ok {
+		return v
+	}
+	return event.SmsEventUnknown
+}
 
+var cmdEvent = map[CommandId]event.SmsEvent{
+	CMPP_CONNECT:          event.SmsEventAuthReq,       //   "CMPP_CONNECT",
+	CMPP_CONNECT_RESP:     event.SmsEventAuthRsp,       // "CMPP_CONNECT_RESP",
+	CMPP_TERMINATE:        event.SmsEventTerminateReq,  //   "CMPP_TERMINATE",
+	CMPP_TERMINATE_RESP:   event.SmsEventActiveTestRsp, //   "CMPP_TERMINATE_RESP",
+	CMPP_SUBMIT:           event.SmsEventSubmitReq,     //   "CMPP_SUBMIT",
+	CMPP_SUBMIT_RESP:      event.SmsEventSubmitRsp,     //   "CMPP_SUBMIT_RESP",
+	CMPP_DELIVER:          event.SmsEventDeliverReq,    //   "CMPP_DELIVER",
+	CMPP_DELIVER_RESP:     event.SmsEventDeliverRsp,    //   "CMPP_DELIVER_RESP",
+	CMPP_QUERY:            event.SmsEventQueryReq,      //   "CMPP_QUERY",
+	CMPP_QUERY_RESP:       event.SmsEventQueryRsp,      //   "CMPP_QUERY_RESP",
+	CMPP_CANCEL:           event.SmsEventCancelReq,     //   "CMPP_CANCEL",
+	CMPP_CANCEL_RESP:      event.SmsEventCancelRsp,     //   "CMPP_CANCEL_RESP",
+	CMPP_ACTIVE_TEST:      event.SmsEventActiveTestReq, //   "CMPP_ACTIVE_TEST",
+	CMPP_ACTIVE_TEST_RESP: event.SmsEventActiveTestRsp, //  "CMPP_ACTIVE_TEST_RESP",
+}
 var cmdStr = map[CommandId]string{
 	CMPP_REQUEST_MIN:      "CMPP_REQUEST_MIN",
 	CMPP_RESPONSE_MIN:     "CMPP_RESPONSE_MIN",

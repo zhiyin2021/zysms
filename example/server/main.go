@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/enum"
+	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/utils"
 )
@@ -19,67 +19,33 @@ const (
 )
 
 func main() {
-	ln, err := zysms.Listen(":7890", zysms.CMPP3)
+	sms := zysms.New(proto.CMPP3)
+	sms.OnConnect = func(c *zysms.Conn) {
+		c.Logger.Println("server: connect")
+	}
+	sms.OnDisconnect = func(c *zysms.Conn) {
+		c.Logger.Println("server: disconnect")
+	}
+	sms.OnError = func(c *zysms.Conn, err error) {
+		c.Logger.Errorln("server: error: ", err)
+	}
+	sms.Handle(event.SmsEventAuthReq, func(c *zysms.Conn, p proto.Packer) error {
+		pkt := p.(*cmpp.CmppConnReq)
+		resp, err := handleLogin(pkt)
+		c.SendPkt(resp, pkt.SeqId())
+		return err
+	})
+	sms.Handle(event.SmsEventSubmitReq, func(c *zysms.Conn, p proto.Packer) error {
+		pkt := p.(*cmpp.Cmpp3SubmitReq)
+		resp, err := handleSubmit(pkt)
+		c.SendPkt(resp, pkt.SeqId())
+		return err
+	})
+	err := sms.Listen(":7890")
 	if err != nil {
 		log.Println("cmpp ListenAndServ error:", err)
 	}
-	defer ln.Close()
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Println("cmpp Accept error:", err)
-			continue
-		}
-		go handleRun(conn)
-	}
 }
-func handleRun(conn zysms.SmsConn) {
-	defer conn.Close()
-	log.Println("cmpp Accept a new connection:", conn.RemoteAddr())
-
-	for {
-		pkt, err := conn.RecvPkt(0)
-		if err != nil {
-			logrus.Printf("handle.recv err: %v", err)
-			if err.Error() == "EOF" {
-				return
-			}
-			if _, ok := err.(enum.SmsError); ok {
-				continue
-			}
-			return
-		}
-		var resp proto.Packer
-
-		switch p := pkt.(type) {
-		case *cmpp.CmppConnReq:
-			{
-				resp, err = handleLogin(p)
-				if err != nil {
-					conn.Logger().Errorf("handleLogin error: %v", err)
-				}
-			}
-		case *cmpp.Cmpp3SubmitReq:
-			{
-				resp, err = handleSubmit(p)
-				if err != nil {
-					conn.Logger().Errorf("handleSubmit error: %v", err)
-				}
-			}
-		default:
-			continue
-		}
-		err1 := conn.SendPkt(resp, pkt.SeqId())
-		if err1 != nil {
-			conn.Logger().Errorf("sendPkt error: %v", err)
-			return
-		}
-		if err != nil {
-			return
-		}
-	}
-}
-
 func handleLogin(req *cmpp.CmppConnReq) (proto.Packer, error) {
 	resp := &cmpp.Cmpp3ConnRsp{
 		Version: cmpp.V30,
