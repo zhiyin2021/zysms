@@ -23,7 +23,12 @@ func (u *SgipUnbindReq) Pack(seqId []uint32) []byte {
 	return data
 }
 
-func (u *SgipUnbindReq) Unpack(data []byte) proto.Packer {
+func (u *SgipUnbindReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	u.SeqId = make([]uint32, 3)
@@ -44,7 +49,12 @@ func (r *SgipUnbindRsp) Pack(seqId []uint32) []byte {
 	return data
 }
 
-func (r *SgipUnbindRsp) Unpack(data []byte) proto.Packer {
+func (r *SgipUnbindRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	r.SeqId = make([]uint32, 3)

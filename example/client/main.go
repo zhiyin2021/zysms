@@ -21,23 +21,32 @@ const (
 
 func startAClient(idx int) {
 	defer wg.Done()
-	sms := zysms.New(proto.CMPP3)
+	sms := zysms.New(proto.CMPP2)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
 	sms.OnDisconnect = func(c *zysms.Conn) {
 		log.Printf("client %d: disconnect", idx)
 	}
+	sms.OnError = func(c *zysms.Conn, err error) {
+		log.Printf("client %d: err %s", idx, err)
+	}
 	sms.OnEvent = func(c *zysms.Conn, p proto.Packer) error {
 		switch req := p.(type) {
+		case *cmpp.Cmpp2ConnRsp:
+			log.Printf("client %d: receive a cmpp connect2 response: %v.", idx, req.Status)
+		case *cmpp.Cmpp2SubmitRsp:
+			log.Printf("client %d: receive a cmpp submit2 response: %v.", idx, req.MsgId)
+		case *cmpp.Cmpp2DeliverReq:
+			log.Printf("client %d: receive a cmpp deliver2 request: %v.", idx, req.MsgId)
 		case *cmpp.Cmpp3ConnRsp:
-			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
+			log.Printf("client %d: receive a cmpp connect3 response: %v.", idx, req.Status)
 		case *cmpp.Cmpp3SubmitRsp:
-			log.Printf("client %d: receive a cmpp submit response: %v.", idx, req.MsgId)
+			log.Printf("client %d: receive a cmpp submit3 response: %v.", idx, req.MsgId)
 		case *cmpp.Cmpp3DeliverReq:
-			log.Printf("client %d: receive a cmpp deliver request: %v.", idx, req.MsgId)
+			log.Printf("client %d: receive a cmpp deliver3 request: %v.", idx, req.MsgId)
 		default:
-			log.Printf("client %d: unknown event: %v", idx, p)
+			log.Printf("client %d => %d: unknown event: %v", p.Event(), idx, p)
 		}
 		return nil
 	}
@@ -59,7 +68,7 @@ func startAClient(idx int) {
 			fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
 			return
 		}
-		p := &cmpp.Cmpp3SubmitReq{
+		p := &cmpp.Cmpp2SubmitReq{
 			PkTotal:            1,
 			PkNumber:           1,
 			RegisteredDelivery: 1,
@@ -67,23 +76,23 @@ func startAClient(idx int) {
 			ServiceId:          "test",
 			FeeUserType:        2,
 			FeeTerminalId:      "13500002696",
-			FeeTerminalType:    0,
-			MsgFmt:             8,
-			MsgSrc:             "900001",
-			FeeType:            "02",
-			FeeCode:            "10",
-			ValidTime:          "151105131555101+",
-			AtTime:             "",
-			SrcId:              "900001",
-			DestUsrTl:          1,
-			DestTerminalId:     []string{"13500002696"},
-			DestTerminalType:   0,
-			MsgLength:          uint8(len(cont)),
-			MsgContent:         string(cont),
+			// FeeTerminalType:    0,
+			MsgFmt:         8,
+			MsgSrc:         "900001",
+			FeeType:        "02",
+			FeeCode:        "10",
+			ValidTime:      "151105131555101+",
+			AtTime:         "",
+			SrcId:          "900001",
+			DestUsrTl:      1,
+			DestTerminalId: []string{"13500002696"},
+			// DestTerminalType:   0,
+			MsgLength:  uint8(len(cont)),
+			MsgContent: string(cont),
 		}
 		err = c.SendPkt(p, 0)
 		if err != nil {
-			log.Printf("client %d: send a cmpp3 submit request error: %s.", idx, err)
+			log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
 			return
 		} else {
 			log.Printf("client %d: send a cmpp3 submit request ok", idx)

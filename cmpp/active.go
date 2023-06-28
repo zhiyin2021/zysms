@@ -36,11 +36,16 @@ func (p *CmppActiveTestReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppActiveTestReq variable.
 // After unpack, you will get all value of fields in
 // CmppActiveTestReq struct.
-func (p *CmppActiveTestReq) Unpack(data []byte) proto.Packer {
+func (p *CmppActiveTestReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var r = proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = r.ReadU32()
-	return p
+	return nil
 }
 func (p *CmppActiveTestReq) SeqId() uint32 {
 	return p.seqId
@@ -67,12 +72,17 @@ func (p *CmppActiveTestRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppActiveTestRsp variable.
 // After unpack, you will get all value of fields in
 // CmppActiveTestRsp struct.
-func (p *CmppActiveTestRsp) Unpack(data []byte) proto.Packer {
+func (p *CmppActiveTestRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var r = proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = r.ReadU32()
 	p.Reserved = r.ReadByte()
-	return p
+	return nil
 }
 func (p *CmppActiveTestRsp) Event() event.SmsEvent {
 	return event.SmsEventActiveTestRsp

@@ -43,7 +43,12 @@ func (p *CmppReceiptPkt) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppReceiptPkt variable.
 // After unpack, you will get all value of fields in
 // CmppReceiptPkt struct.
-func (p *CmppReceiptPkt) Unpack(data []byte) proto.Packer {
+func (p *CmppReceiptPkt) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	p.MsgId = pkt.ReadU64()
@@ -52,7 +57,7 @@ func (p *CmppReceiptPkt) Unpack(data []byte) proto.Packer {
 	p.DoneTime = pkt.ReadStr(10)
 	p.DestTerminalId = pkt.ReadStr(21)
 	p.SmscSequence = pkt.ReadU32()
-	return p
+	return nil
 }
 func (p *CmppReceiptPkt) Event() event.SmsEvent {
 	return event.SmsEventUnknown

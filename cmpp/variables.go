@@ -137,72 +137,111 @@ var CmppPacket = map[CommandId]func(Version, []byte) proto.Packer{
 	CMPP_RESPONSE_MAX:     nil,                  //  "CMPP_RESPONSE_MAX",
 }
 
-func newCmppConnReq(v Version, data []byte) proto.Packer {
-	return (&CmppConnReq{}).Unpack(data)
+func newCmppConnReq(v Version, data []byte) (p proto.Packer) {
+	p = &CmppConnReq{}
+	p.Unpack(data)
+	return
 }
-func newCmppConnRsp(v Version, data []byte) proto.Packer {
-	if v == V30 {
-		return (&Cmpp3ConnRsp{}).Unpack(data)
+func newCmppConnRsp(v Version, data []byte) (p proto.Packer) {
+	if v == V30 && len(data) == 25 {
+		p = &Cmpp3ConnRsp{}
+	} else {
+		p = &Cmpp2ConnRsp{}
 	}
-	return (&Cmpp2ConnRsp{}).Unpack(data)
+	p.Unpack(data)
+	return
 }
-func newCmppTerminateReq(v Version, data []byte) proto.Packer {
-	return (&CmppConnReq{}).Unpack(data)
+func newCmppTerminateReq(v Version, data []byte) (p proto.Packer) {
+	p = &CmppConnReq{}
+	p.Unpack(data)
+	return p
 }
-func newCmppTerminateRsp(v Version, data []byte) proto.Packer {
-	return (&CmppTerminateRsp{}).Unpack(data)
+func newCmppTerminateRsp(v Version, data []byte) (p proto.Packer) {
+	p = &CmppTerminateRsp{}
+	p.Unpack(data)
+	return
 }
-func newCmppSubmitReq(v Version, data []byte) proto.Packer {
+func newCmppSubmitReq(v Version, data []byte) (p proto.Packer) {
 	if v == V30 {
-		return (&Cmpp3SubmitReq{}).Unpack(data)
+		p = &Cmpp3SubmitReq{}
+	} else {
+		p = &Cmpp2SubmitReq{}
 	}
-	return (&Cmpp2SubmitReq{}).Unpack(data)
+	p.Unpack(data)
+	return
 }
-func newCmppSubmitRsp(v Version, data []byte) proto.Packer {
+func newCmppSubmitRsp(v Version, data []byte) (p proto.Packer) {
 	if v == V30 {
-		return (&Cmpp3SubmitRsp{}).Unpack(data)
+		p = &Cmpp3SubmitRsp{}
+	} else {
+		p = &Cmpp2SubmitRsp{}
 	}
-	return (&Cmpp2SubmitRsp{}).Unpack(data)
+	p.Unpack(data)
+	return
 }
-func newCmppDeliverReq(v Version, data []byte) proto.Packer {
+func newCmppDeliverReq(v Version, data []byte) (p proto.Packer) {
 	if v == V30 {
-		return (&Cmpp3DeliverReq{}).Unpack(data)
+		p = &Cmpp3DeliverReq{}
+	} else {
+		p = &Cmpp2DeliverReq{}
 	}
-	return (&Cmpp2DeliverReq{}).Unpack(data)
+	p.Unpack(data)
+	return
 }
-func newCmppDeliverRsp(v Version, data []byte) proto.Packer {
+func newCmppDeliverRsp(v Version, data []byte) (p proto.Packer) {
 	if v == V30 {
-		return (&Cmpp3DeliverRsp{}).Unpack(data)
+		p = &Cmpp3DeliverRsp{}
+	} else {
+		p = &Cmpp2DeliverRsp{}
 	}
-	return (&Cmpp2DeliverRsp{}).Unpack(data)
+	p.Unpack(data)
+	return
 }
-func newCmppQueryReq(v Version, data []byte) proto.Packer {
-	return (&CmppQueryReq{}).Unpack(data)
+func newCmppQueryReq(v Version, data []byte) (p proto.Packer) {
+	p = &CmppQueryReq{}
+	p.Unpack(data)
+	return
 }
-func newCmppQueryRsp(v Version, data []byte) proto.Packer {
-	return (&CmppQueryRsp{}).Unpack(data)
+func newCmppQueryRsp(v Version, data []byte) (p proto.Packer) {
+	p = &CmppQueryRsp{}
+	p.Unpack(data)
+	return
 }
-func newCmppCancelReq(v Version, data []byte) proto.Packer {
-	return (&CmppCancelReq{}).Unpack(data)
+func newCmppCancelReq(v Version, data []byte) (p proto.Packer) {
+	p = &CmppCancelReq{}
+	p.Unpack(data)
+	return
 }
-func newCmppCancelRsp(v Version, data []byte) proto.Packer {
-	return (&CmppCancelRsp{}).Unpack(data)
+func newCmppCancelRsp(v Version, data []byte) (p proto.Packer) {
+	p = &CmppCancelRsp{}
+	p.Unpack(data)
+	return
 }
-func newCmppActiveTestReq(v Version, data []byte) proto.Packer {
-	return (&CmppActiveTestReq{}).Unpack(data)
+func newCmppActiveTestReq(v Version, data []byte) (p proto.Packer) {
+	p = &CmppActiveTestReq{}
+	p.Unpack(data)
+	return
 }
-func newCmppActiveTestRsp(v Version, data []byte) proto.Packer {
-	return (&CmppActiveTestRsp{}).Unpack(data)
+func newCmppActiveTestRsp(v Version, data []byte) (p proto.Packer) {
+	p = &CmppActiveTestRsp{}
+	p.Unpack(data)
+	return
 }
-func newCmppFwdReq(v Version, data []byte) proto.Packer {
+func newCmppFwdReq(v Version, data []byte) (p proto.Packer) {
 	if v == V30 {
-		return (&Cmpp3FwdReq{}).Unpack(data)
+		p = &Cmpp3FwdReq{}
+	} else {
+		p = &Cmpp2FwdReq{}
 	}
-	return (&Cmpp2FwdReq{}).Unpack(data)
+	p.Unpack(data)
+	return
 }
-func newCmppFwdRsp(v Version, data []byte) proto.Packer {
+func newCmppFwdRsp(v Version, data []byte) (p proto.Packer) {
 	if v == V30 {
-		return (&Cmpp3FwdRsp{}).Unpack(data)
+		p = &Cmpp3FwdRsp{}
+	} else {
+		p = &Cmpp2FwdRsp{}
 	}
-	return (&Cmpp2FwdRsp{}).Unpack(data)
+	p.Unpack(data)
+	return
 }

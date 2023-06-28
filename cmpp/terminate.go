@@ -39,13 +39,18 @@ func (p *CmppTerminateReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppTerminateReq) Unpack(data []byte) proto.Packer {
+func (p *CmppTerminateReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return p
+	return nil
 }
 func (p *CmppTerminateReq) Event() event.SmsEvent {
 	return event.SmsEventTerminateReq
@@ -73,12 +78,17 @@ func (p *CmppTerminateRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppTerminateRsp) Unpack(data []byte) proto.Packer {
+func (p *CmppTerminateRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return p
+	return nil
 }
 
 func (p *CmppTerminateRsp) Event() event.SmsEvent {

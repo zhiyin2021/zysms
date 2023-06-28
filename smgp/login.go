@@ -66,7 +66,12 @@ func (p *SmgpLoginReq) Pack(seqId uint32) []byte {
 	return data
 }
 
-func (p *SmgpLoginReq) Unpack(data []byte) proto.Packer {
+func (p *SmgpLoginReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -103,7 +108,12 @@ func (p *SmgpLoginRsp) Pack(seqId uint32) []byte {
 	return data
 }
 
-func (p *SmgpLoginRsp) Unpack(data []byte) proto.Packer {
+func (p *SmgpLoginRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()

@@ -139,7 +139,12 @@ func (p *CmppConnReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppConnReq variable.
 // Usually it is used in server side. After unpack, you will get SeqId, SourceAddr,
 // AuthenticatorSource, Version and Timestamp.
-func (p *CmppConnReq) Unpack(data []byte) proto.Packer {
+func (p *CmppConnReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -151,7 +156,7 @@ func (p *CmppConnReq) Unpack(data []byte) proto.Packer {
 	p.Version = Version(pkt.ReadByte())
 	// Body: timestamp
 	p.Timestamp = pkt.ReadU32()
-	return p
+	return nil
 }
 func (p *CmppConnReq) Event() event.SmsEvent {
 	return event.SmsEventAuthReq
@@ -192,7 +197,12 @@ func (p *Cmpp2ConnRsp) Pack(seqId uint32) []byte {
 // Usually it is used in client side. After unpack, you will get SeqId, Status,
 // AuthenticatorIsmg, and Version.
 // Parameter data contains seqId in header and the whole packet body.
-func (p *Cmpp2ConnRsp) Unpack(data []byte) proto.Packer {
+func (p *Cmpp2ConnRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -205,7 +215,7 @@ func (p *Cmpp2ConnRsp) Unpack(data []byte) proto.Packer {
 
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
-	return p
+	return nil
 }
 func (p *Cmpp2ConnRsp) Event() event.SmsEvent {
 	return event.SmsEventAuthRsp
@@ -251,7 +261,12 @@ func (p *Cmpp3ConnRsp) Pack(seqId uint32) []byte {
 // Usually it is used in client side. After unpack, you will get SeqId, Status,
 // AuthenticatorIsmg, and Version.
 // Parameter data contains seqId in header and the whole packet body.
-func (p *Cmpp3ConnRsp) Unpack(data []byte) proto.Packer {
+func (p *Cmpp3ConnRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
@@ -264,7 +279,7 @@ func (p *Cmpp3ConnRsp) Unpack(data []byte) proto.Packer {
 	p.AuthIsmg = pkt.ReadStr(16)
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
-	return p
+	return nil
 }
 func (p *Cmpp3ConnRsp) Event() event.SmsEvent {
 	return event.SmsEventAuthRsp

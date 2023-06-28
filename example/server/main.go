@@ -51,6 +51,7 @@ func main() {
 	ln, err := sms.Listen(":7890")
 	if err != nil {
 		log.Println("cmpp ListenAndServ error:", err)
+		return
 	}
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)

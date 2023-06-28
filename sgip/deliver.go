@@ -77,7 +77,12 @@ func (d *SgipDeliverReq) Pack(seqId []uint32) []byte {
 	return data
 }
 
-func (d *SgipDeliverReq) Unpack(data []byte) proto.Packer {
+func (d *SgipDeliverReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	d.SeqId = make([]uint32, 3)
@@ -125,7 +130,12 @@ func (r *SgipDeliverRsp) Pack(seqId []uint32) []byte {
 	return data
 }
 
-func (r *SgipDeliverRsp) Unpack(data []byte) proto.Packer {
+func (r *SgipDeliverRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	r.SeqId = make([]uint32, 3)

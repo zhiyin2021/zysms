@@ -132,7 +132,12 @@ func (p *Cmpp2DeliverReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a Cmpp2DeliverReq variable.
 // After unpack, you will get all value of fields in
 // Cmpp2DeliverReq struct.
-func (p *Cmpp2DeliverReq) Unpack(data []byte) proto.Packer {
+func (p *Cmpp2DeliverReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 
 	pkt := proto.NewPacket(data)
 
@@ -158,7 +163,7 @@ func (p *Cmpp2DeliverReq) Unpack(data []byte) proto.Packer {
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 
 	p.Reserve = pkt.ReadStr(8)
-	return p
+	return nil
 }
 func (p *Cmpp2DeliverReq) Event() event.SmsEvent {
 	return event.SmsEventDeliverReq
@@ -190,13 +195,18 @@ func (p *Cmpp2DeliverRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a Cmpp2DeliverRsp variable.
 // After unpack, you will get all value of fields in
 // Cmpp2DeliverRsp struct.
-func (p *Cmpp2DeliverRsp) Unpack(data []byte) proto.Packer {
+func (p *Cmpp2DeliverRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
 	p.Result = pkt.ReadByte()
-	return p
+	return nil
 }
 func (p *Cmpp2DeliverRsp) Event() event.SmsEvent {
 	return event.SmsEventDeliverRsp
@@ -240,7 +250,12 @@ func (p *Cmpp3DeliverReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a Cmpp3DeliverReq variable.
 // After unpack, you will get all value of fields in
 // Cmpp3DeliverReq struct.
-func (p *Cmpp3DeliverReq) Unpack(data []byte) proto.Packer {
+func (p *Cmpp3DeliverReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
@@ -265,7 +280,7 @@ func (p *Cmpp3DeliverReq) Unpack(data []byte) proto.Packer {
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 
 	p.LinkId = pkt.ReadStr(20)
-	return p
+	return nil
 }
 func (p *Cmpp3DeliverReq) Event() event.SmsEvent {
 	return event.SmsEventDeliverReq
@@ -298,13 +313,18 @@ func (p *Cmpp3DeliverRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a Cmpp3DeliverRsp variable.
 // After unpack, you will get all value of fields in
 // Cmpp3DeliverRsp struct.
-func (p *Cmpp3DeliverRsp) Unpack(data []byte) proto.Packer {
+func (p *Cmpp3DeliverRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
 	p.Result = pkt.ReadU32()
-	return p
+	return nil
 }
 func (p *Cmpp3DeliverRsp) Event() event.SmsEvent {
 	return event.SmsEventDeliverRsp

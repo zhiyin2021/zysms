@@ -2,6 +2,7 @@ package zysms
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -41,7 +42,6 @@ func newCmppConn(conn net.Conn, typ cmpp.Version) *Conn {
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
-
 	return &Conn{smsConn: c, Logger: c.logger}
 }
 
@@ -153,7 +153,6 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 	if c.State == enum.CONN_CLOSED {
 		return nil, smserror.ErrConnIsClosed
 	}
-
 	rb := readBufferPool.Get().(*readBuffer)
 	defer readBufferPool.Put(rb)
 	defer c.SetReadDeadline(time.Time{})
@@ -202,14 +201,33 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if fun, ok := cmpp.CmppPacket[rb.commandId]; ok {
 		p := fun(c.Typ, leftData)
-		if rb.commandId == cmpp.CMPP_ACTIVE_TEST {
+		switch rb.commandId {
+		case cmpp.CMPP_ACTIVE_TEST: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 			resp := &cmpp.CmppActiveTestRsp{}
 			c.SendPkt(resp, p.SeqId())
+			return c.RecvPkt(timeout)
+		case cmpp.CMPP_ACTIVE_TEST_RESP: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 			atomic.AddInt32(&c.counter, -1)
+			return c.RecvPkt(timeout)
+		case cmpp.CMPP_CONNECT_RESP: // 当收到登录回复,内部先校验版本
+			if c.Typ == cmpp.V30 {
+				if _, ok := p.(*cmpp.Cmpp2ConnRsp); ok {
+					return nil, errors.New("cmpp version not match [ local: 3.0 != remote: 2.0 ]")
+				}
+			} else if _, ok := p.(*cmpp.Cmpp3ConnRsp); ok {
+				return nil, errors.New("cmpp version not match [ local: 2.0 != remote: 3.0 ]")
+			}
+			return p, nil
+		case cmpp.CMPP_CONNECT: // 当收到登录回复,内部先校验版本
+			if c.Typ != p.(*cmpp.CmppConnReq).Version {
+				return nil, smserror.ErrVersionNotMatch
+			}
+		default:
+			return p, nil
 		}
-		return p, nil
 	}
 	return nil, smserror.ErrCommandIdNotSupported
 

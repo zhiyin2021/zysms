@@ -102,7 +102,12 @@ func (p *SmgpDeliveryReq) Pack(seqId uint32) []byte {
 	return data
 }
 
-func (p *SmgpDeliveryReq) Unpack(data []byte) proto.Packer {
+func (p *SmgpDeliveryReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -151,7 +156,12 @@ func (p *SmgpDeliveryRsp) Pack(seqId uint32) []byte {
 	return data
 }
 
-func (p *SmgpDeliveryRsp) Unpack(data []byte) proto.Packer {
+func (p *SmgpDeliveryRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()

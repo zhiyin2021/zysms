@@ -11,7 +11,7 @@ import (
 type Packer interface {
 	SeqId() uint32
 	Pack(uint32) []byte
-	Unpack([]byte) Packer
+	Unpack([]byte) error
 	Event() event.SmsEvent
 }
 type packet struct {

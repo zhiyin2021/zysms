@@ -129,7 +129,12 @@ func (s *SgipSubmitReq) Pack(seqId []uint32) []byte {
 	return data
 }
 
-func (s *SgipSubmitReq) Unpack(data []byte) proto.Packer {
+func (s *SgipSubmitReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	s.SeqId = make([]uint32, 3)
@@ -217,7 +222,12 @@ type SgipSubmitRsp struct {
 	Reserve string   // 保留，扩展用【 8 bytes 】
 }
 
-func (r *SgipSubmitRsp) Unpack(data []byte) proto.Packer {
+func (r *SgipSubmitRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	r.SeqId = make([]uint32, 3)

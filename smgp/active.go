@@ -21,7 +21,12 @@ func (p *SmgpActiveTest) Pack(seqId uint32) []byte {
 	return data
 }
 
-func (p *SmgpActiveTest) Unpack(data []byte) proto.Packer {
+func (p *SmgpActiveTest) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -43,7 +48,12 @@ func (p *SmgpActiveTestRsp) Pack(seqId uint32) []byte {
 	return data
 }
 
-func (p *SmgpActiveTestRsp) Unpack(data []byte) proto.Packer {
+func (p *SmgpActiveTestRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	var pkt = proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()

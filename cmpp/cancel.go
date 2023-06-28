@@ -41,13 +41,18 @@ func (p *CmppCancelReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppCancelReq) Unpack(data []byte) proto.Packer {
+func (p *CmppCancelReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
-	return p
+	return nil
 }
 func (p *CmppCancelReq) SeqId() uint32 {
 	return p.seqId
@@ -76,13 +81,18 @@ func (p *CmppCancelRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppCancelRsp) Unpack(data []byte) proto.Packer {
+func (p *CmppCancelRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.SuccId = pkt.ReadU32()
-	return p
+	return nil
 }
 func (p *CmppCancelRsp) Event() event.SmsEvent {
 	return event.SmsEventCancelRsp

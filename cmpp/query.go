@@ -59,7 +59,12 @@ func (p *CmppQueryReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppQueryReq) Unpack(data []byte) proto.Packer {
+func (p *CmppQueryReq) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
@@ -68,7 +73,7 @@ func (p *CmppQueryReq) Unpack(data []byte) proto.Packer {
 	p.QueryType = pkt.ReadByte()
 	p.QueryCode = pkt.ReadStr(10)
 	p.Reserve = pkt.ReadStr(8)
-	return p
+	return nil
 }
 func (p *CmppQueryReq) Event() event.SmsEvent {
 	return event.SmsEventQueryReq
@@ -109,7 +114,12 @@ func (p *CmppQueryRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppQueryRsp) Unpack(data []byte) proto.Packer {
+func (p *CmppQueryRsp) Unpack(data []byte) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e = r.(error)
+		}
+	}()
 	pkt := proto.NewPacket(data)
 
 	// Sequence Id
@@ -125,7 +135,7 @@ func (p *CmppQueryRsp) Unpack(data []byte) proto.Packer {
 	p.MoScs = pkt.ReadU32()
 	p.MoWt = pkt.ReadU32()
 	p.MoFl = pkt.ReadU32()
-	return p
+	return nil
 }
 
 func (p *CmppQueryRsp) Event() event.SmsEvent {
