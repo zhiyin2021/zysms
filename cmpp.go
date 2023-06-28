@@ -221,14 +221,12 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 			} else if _, ok := p.(*cmpp.Cmpp3ConnRsp); ok {
 				return nil, errors.New("cmpp version not match [ local: 2.0 != remote: 3.0 ]")
 			}
-			return p, nil
 		case cmpp.CMPP_CONNECT: // 当收到登录回复,内部先校验版本
 			if c.Typ != p.(*cmpp.CmppConnReq).Version {
 				return nil, smserror.ErrVersionNotMatch
 			}
-		default:
-			return p, nil
 		}
+		return p, nil
 	}
 	return nil, smserror.ErrCommandIdNotSupported
 

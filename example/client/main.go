@@ -21,7 +21,7 @@ const (
 
 func startAClient(idx int) {
 	defer wg.Done()
-	sms := zysms.New(proto.CMPP2)
+	sms := zysms.New(proto.CMPP3)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
@@ -68,7 +68,7 @@ func startAClient(idx int) {
 			fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
 			return
 		}
-		p := &cmpp.Cmpp2SubmitReq{
+		p := &cmpp.Cmpp3SubmitReq{
 			PkTotal:            1,
 			PkNumber:           1,
 			RegisteredDelivery: 1,
