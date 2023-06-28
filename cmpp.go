@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/enum"
@@ -42,7 +43,7 @@ func newCmppConn(conn net.Conn, typ cmpp.Version) *Conn {
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
-	return &Conn{smsConn: c, Logger: c.logger}
+	return &Conn{smsConn: c, Logger: c.logger, UUID: uuid.New().String()}
 }
 
 func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {

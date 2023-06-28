@@ -63,7 +63,7 @@ func startAClient(idx int) {
 	for {
 		<-t.C
 		//submit a message
-		cont, err := utils.Utf8ToUcs2("测试gocmpp submit")
+		cont, err := utils.Utf8ToUcs2("测试 cmpp submit【百度网盘】")
 		if err != nil {
 			fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
 			return
