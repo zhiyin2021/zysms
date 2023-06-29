@@ -13,13 +13,18 @@ import (
 
 // errors for cmpp server
 type (
+	Packet struct {
+		Conn *Conn
+		Req  proto.Packer
+		Resp proto.Packer
+	}
 	// handleEvent func(*Conn, proto.Packer) error
 	sms struct {
 		proto        proto.SmsProto
 		OnConnect    func(*Conn)
 		OnDisconnect func(*Conn)
 		OnError      func(*Conn, error)
-		OnEvent      func(*Conn, proto.Packer) error
+		OnEvent      func(*Packet) error
 	}
 	Conn struct {
 		smsConn
@@ -116,7 +121,17 @@ func (s *sms) run(conn *Conn) {
 			return
 		}
 		if s.OnEvent != nil {
-			err = s.OnEvent(conn, pkt)
+			p := &Packet{conn, pkt, nil}
+			err = s.OnEvent(p)
+			if p.Resp != nil {
+				err := conn.SendPkt(p.Resp, pkt.SeqId())
+				if err != nil {
+					if s.OnError != nil {
+						s.OnError(conn, err)
+					}
+					return
+				}
+			}
 			if err != nil {
 				return
 			}

@@ -32,19 +32,17 @@ func main() {
 	sms.OnError = func(c *zysms.Conn, err error) {
 		c.Logger.Errorln("server: error: ", err)
 	}
-	sms.OnEvent = func(c *zysms.Conn, p proto.Packer) error {
-		var resp proto.Packer
+	sms.OnEvent = func(p *zysms.Packet) error {
 		var err error
-		switch req := p.(type) {
+		switch req := p.Req.(type) {
 		case *cmpp.Cmpp3SubmitReq:
-			resp, err = handleSubmit(req)
+			p.Resp, err = handleSubmit(req)
 		case *cmpp.CmppConnReq:
-			resp, err = handleLogin(req)
+			p.Resp, err = handleLogin(req)
 		default:
-			c.Logger.Errorf("server: unknown event: %v", p)
+			p.Conn.Logger.Errorf("server: unknown event: %v", p)
 			err = smserror.ErrRespNotMatch
 		}
-		c.SendPkt(resp, p.SeqId())
 		return err
 	}
 

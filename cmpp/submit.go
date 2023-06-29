@@ -118,7 +118,7 @@ type Cmpp3SubmitReq struct {
 	AtTime             string
 	SrcId              string
 	DestUsrTl          uint8
-	DestTerminalId     []string
+	DestTerminalId     []string // 接收短信的 MSISDN 号码。【32字节*DestUsr_tl】
 	DestTerminalType   uint8
 	MsgLength          uint8
 	MsgContent         string
@@ -300,7 +300,7 @@ func (p *Cmpp2SubmitRsp) SeqId() uint32 {
 // Before calling Pack, you should initialize a Cmpp3SubmitReq variable
 // with correct field value.
 func (p *Cmpp3SubmitReq) Pack(seqId uint32) []byte {
-	var pktLen uint32 = CMPP_HEADER_LEN + 129 + uint32(p.DestUsrTl)*32 + 1 + 1 + uint32(p.MsgLength) + 20
+	var pktLen uint32 = CMPP_HEADER_LEN + 129 + uint32(len(p.DestTerminalId)*32) + 1 + 1 + uint32(p.MsgLength) + 20
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
 	// Pack header
@@ -334,6 +334,7 @@ func (p *Cmpp3SubmitReq) Pack(seqId uint32) []byte {
 	pkt.WriteStr(p.ValidTime, 17)
 	pkt.WriteStr(p.AtTime, 17)
 	pkt.WriteStr(p.SrcId, 21)
+	p.DestUsrTl = uint8(len(p.DestTerminalId))
 	pkt.WriteByte(p.DestUsrTl)
 
 	for _, d := range p.DestTerminalId {

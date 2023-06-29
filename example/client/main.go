@@ -31,8 +31,8 @@ func startAClient(idx int) {
 	sms.OnError = func(c *zysms.Conn, err error) {
 		log.Printf("client %d: err %s", idx, err)
 	}
-	sms.OnEvent = func(c *zysms.Conn, p proto.Packer) error {
-		switch req := p.(type) {
+	sms.OnEvent = func(p *zysms.Packet) error {
+		switch req := p.Req.(type) {
 		case *cmpp.Cmpp2ConnRsp:
 			log.Printf("client %d: receive a cmpp connect2 response: %v.", idx, req.Status)
 		case *cmpp.Cmpp2SubmitRsp:
@@ -46,7 +46,7 @@ func startAClient(idx int) {
 		case *cmpp.Cmpp3DeliverReq:
 			log.Printf("client %d: receive a cmpp deliver3 request: %v.", idx, req.MsgId)
 		default:
-			log.Printf("client %d => %d: unknown event: %v", p.Event(), idx, p)
+			log.Printf("client %d => %d: unknown event: %v", p.Req.Event(), idx, p)
 		}
 		return nil
 	}
@@ -85,7 +85,7 @@ func startAClient(idx int) {
 			AtTime:         "",
 			SrcId:          "900001",
 			DestUsrTl:      1,
-			DestTerminalId: []string{"13500002696"},
+			DestTerminalId: []string{"+8613500002696", "8613500002697", "13500002698"},
 			// DestTerminalType:   0,
 			MsgLength:  uint8(len(cont)),
 			MsgContent: string(cont),
