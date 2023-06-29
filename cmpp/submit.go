@@ -140,6 +140,7 @@ type Cmpp3SubmitRsp struct {
 // Before calling Pack, you should initialize a Cmpp2SubmitReq variable
 // with correct field value.
 func (p *Cmpp2SubmitReq) Pack(seqId uint32) []byte {
+	p.DestUsrTl = byte(len(p.DestTerminalId))
 	var pktLen uint32 = CMPP_HEADER_LEN + 117 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
@@ -175,7 +176,6 @@ func (p *Cmpp2SubmitReq) Pack(seqId uint32) []byte {
 	pkt.WriteStr(p.AtTime, 17)
 	pkt.WriteStr(p.SrcId, 21)
 	pkt.WriteByte(p.DestUsrTl)
-
 	for _, d := range p.DestTerminalId {
 		pkt.WriteStr(d, 21)
 	}
