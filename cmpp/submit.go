@@ -237,7 +237,12 @@ func (p *Cmpp2SubmitReq) Unpack(data []byte) (e error) {
 	}
 
 	p.MsgLength = pkt.ReadByte()
-
+	// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
+	if p.MsgFmt == 8 {
+		p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+	} else {
+		p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+	}
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 
 	p.Reserve = pkt.ReadStr(8)

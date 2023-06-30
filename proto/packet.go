@@ -58,6 +58,15 @@ func (c *packet) ReadStr(count int) string {
 	last := c.index + count
 	return string(bytes.TrimLeft(c.data[c.index:last], "\x00"))
 }
+func (c *packet) ReadUCS2(count int) string {
+	defer func() {
+		c.index += count
+	}()
+	last := c.index + count
+	buf := bytes.TrimLeft(c.data[c.index:last], "\x00")
+	buf, _ = utils.Ucs2ToUtf8(buf)
+	return string(buf)
+}
 
 func (c *packet) Skip(count int) {
 	c.index += count
@@ -100,4 +109,12 @@ func (c *packet) WriteStr(data string, count int) {
 }
 func (c *packet) Index() int {
 	return c.index
+}
+func (c *packet) WriteUCS2(data string, count int) {
+	last := c.index + count
+	defer func() {
+		c.index = last
+	}()
+	tmp := utils.OctetString(data, count)
+	copy(c.data[c.index:last], tmp)
 }
