@@ -282,7 +282,12 @@ func (p *Cmpp3DeliverReq) Unpack(data []byte) (e error) {
 	p.RegisterDelivery = pkt.ReadByte()
 	p.MsgLength = pkt.ReadByte()
 
-	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+	// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
+	if p.MsgFmt == 8 {
+		p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+	} else {
+		p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+	}
 
 	p.LinkId = pkt.ReadStr(20)
 	return nil

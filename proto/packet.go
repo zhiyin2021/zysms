@@ -63,8 +63,7 @@ func (c *packet) ReadUCS2(count int) string {
 		c.index += count
 	}()
 	last := c.index + count
-	buf := bytes.TrimLeft(c.data[c.index:last], "\x00")
-	buf, _ = utils.Ucs2ToUtf8(buf)
+	buf, _ := utils.Ucs2ToUtf8(c.data[c.index:last])
 	return string(buf)
 }
 
