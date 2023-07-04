@@ -18,7 +18,7 @@ type SmgpDeliveryReq struct {
 	MsgLength  byte   // 【1字节】短消息长度
 	MsgContent string // 【MsgLength字节】短消息内容
 	// MsgBytes   []byte         // 消息内容按照Msg_Fmt编码后的数据
-	// Report     *Report        // 状态报告
+	//Report  *Report        // 状态报告
 	Reserve string         // 【8字节】保留
 	TlvList *utils.TlvList // 【TLV】可选项参数
 

@@ -20,8 +20,8 @@ const (
 )
 
 func startAClient(idx int) {
-	defer wg.Done()
-	sms := zysms.New(proto.CMPP3)
+	// defer wg.Done()
+	sms := zysms.New(proto.CMPP2)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
@@ -58,47 +58,48 @@ func startAClient(idx int) {
 
 	log.Printf("client %d: connect and auth ok", idx)
 
-	t := time.NewTicker(time.Second * 5)
+	t := time.NewTicker(time.Second * 1)
 	defer t.Stop()
-	for {
-		<-t.C
-		//submit a message
-		cont, err := utils.Utf8ToUcs2("测试 cmpp submit【百度网盘】")
-		if err != nil {
-			fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
-			return
-		}
-		p := &cmpp.Cmpp3SubmitReq{
-			PkTotal:            1,
-			PkNumber:           1,
-			RegisteredDelivery: 1,
-			MsgLevel:           1,
-			ServiceId:          "test",
-			FeeUserType:        2,
-			FeeTerminalId:      "13500002696",
-			// FeeTerminalType:    0,
-			MsgFmt:         8,
-			MsgSrc:         "900001",
-			FeeType:        "02",
-			FeeCode:        "10",
-			ValidTime:      "151105131555101+",
-			AtTime:         "",
-			SrcId:          "900001",
-			DestUsrTl:      1,
-			DestTerminalId: []string{"+8613500002696", "8613500002697", "13500002698"},
-			// DestTerminalType:   0,
-			MsgLength:  uint8(len(cont)),
-			MsgContent: string(cont),
-		}
-		err = c.SendPkt(p, 0)
-		if err != nil {
-			log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
-			return
-		} else {
-			log.Printf("client %d: send a cmpp3 submit request ok", idx)
-		}
-
+	for i := 0; i < 1; i++ {
+		go func() {
+			//submit a message
+			cont, err := utils.Utf8ToUcs2("测试 cmpp submit【百度网盘】")
+			if err != nil {
+				fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
+				return
+			}
+			p := &cmpp.Cmpp2SubmitReq{
+				PkTotal:            1,
+				PkNumber:           1,
+				RegisteredDelivery: 1,
+				MsgLevel:           1,
+				ServiceId:          "test",
+				FeeUserType:        2,
+				FeeTerminalId:      "13500002696",
+				// FeeTerminalType:    0,
+				MsgFmt:         8,
+				MsgSrc:         "900001",
+				FeeType:        "02",
+				FeeCode:        "10",
+				ValidTime:      "151105131555101+",
+				AtTime:         "",
+				SrcId:          "900001",
+				DestUsrTl:      1,
+				DestTerminalId: []string{"+8613500002696", "8613500002697", "13500002698"},
+				// DestTerminalType:   0,
+				MsgLength:  uint8(len(cont)),
+				MsgContent: string(cont),
+			}
+			err = c.SendPkt(p, 0)
+			if err != nil {
+				log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
+				return
+			} else {
+				log.Printf("client %d: send a cmpp3 submit request ok", idx)
+			}
+		}()
 	}
+
 }
 
 var wg sync.WaitGroup

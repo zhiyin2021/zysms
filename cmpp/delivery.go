@@ -60,11 +60,12 @@ type Cmpp2DeliverReq struct {
 	TpUdhi           uint8  // GSM协议类型。详细是解释请参考GSM03.40中的9.2.3.9 【1字节】
 	MsgFmt           uint8  // 信息格式 【1字节】
 	SrcTerminalId    string // 源终端MSISDN号码 【21字节】
-	RegisterDelivery uint8  // 是否要求返回状态确认报告
+	RegisterDelivery uint8  // 是否为状态报告
 	MsgLength        uint8  // 信息长度
 	MsgContent       string // 信息内容
 	Reserve          string // 保留
 
+	Report *CmppDeliverReport
 	//session info
 	seqId uint32 // sequence id
 }
@@ -89,7 +90,7 @@ type Cmpp3DeliverReq struct {
 	MsgLength        uint8
 	MsgContent       string
 	LinkId           string
-
+	Report           *CmppDeliverReport
 	//session info
 	seqId uint32
 }
@@ -99,6 +100,14 @@ type Cmpp3DeliverRsp struct {
 
 	//session info
 	seqId uint32
+}
+type CmppDeliverReport struct {
+	MsgId          uint64 // 消息标识 8字节
+	Stat           string // 状态 7字节
+	SubmitTime     string // YYMMDDHHMM 10字节
+	DoneTime       string // YYMMDDHHMM 10字节
+	DestTerminalId string // 接收短信的手机号 21字节
+	SmscSequence   uint32 // 短信中心的Sequence 4字节
 }
 
 // Pack packs the Cmpp2DeliverReq to bytes stream for client side.
@@ -112,7 +121,6 @@ func (p *Cmpp2DeliverReq) Pack(seqId uint32) []byte {
 
 	p.seqId = seqId
 	pkt.WriteU32(p.seqId)
-
 	// Pack Body
 	pkt.WriteU64(p.MsgId)
 	pkt.WriteStr(p.DestId, 21)
@@ -122,8 +130,19 @@ func (p *Cmpp2DeliverReq) Pack(seqId uint32) []byte {
 	pkt.WriteByte(p.MsgFmt)
 	pkt.WriteStr(p.SrcTerminalId, 21)
 	pkt.WriteByte(p.RegisterDelivery)
-	pkt.WriteByte(p.MsgLength)
-	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+
+	if p.RegisterDelivery == 1 && p.Report != nil {
+		pkt.WriteByte(60)
+		pkt.WriteU64(p.Report.MsgId)
+		pkt.WriteStr(p.Report.Stat, 7)
+		pkt.WriteStr(p.Report.SubmitTime, 10)
+		pkt.WriteStr(p.Report.DoneTime, 10)
+		pkt.WriteStr(p.Report.DestTerminalId, 21)
+		pkt.WriteU32(p.Report.SmscSequence)
+	} else {
+		pkt.WriteByte(p.MsgLength)
+		pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+	}
 	pkt.WriteStr(p.Reserve, 8)
 
 	return data
@@ -160,13 +179,23 @@ func (p *Cmpp2DeliverReq) Unpack(data []byte) (e error) {
 	p.RegisterDelivery = pkt.ReadByte()
 	p.MsgLength = pkt.ReadByte()
 
-	// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
-	if p.MsgFmt == 8 {
-		p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+	if p.RegisterDelivery == 1 {
+		p.Report = &CmppDeliverReport{
+			MsgId:          pkt.ReadU64(),
+			Stat:           pkt.ReadStr(7),
+			SubmitTime:     pkt.ReadStr(10),
+			DoneTime:       pkt.ReadStr(10),
+			DestTerminalId: pkt.ReadStr(21),
+			SmscSequence:   pkt.ReadU32(),
+		}
 	} else {
-		p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+		// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
+		if p.MsgFmt == 8 {
+			p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+		} else {
+			p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+		}
 	}
-
 	p.Reserve = pkt.ReadStr(8)
 	return nil
 }
@@ -245,8 +274,19 @@ func (p *Cmpp3DeliverReq) Pack(seqId uint32) []byte {
 	pkt.WriteStr(p.SrcTerminalId, 32)
 	pkt.WriteByte(p.SrcTerminalType)
 	pkt.WriteByte(p.RegisterDelivery)
-	pkt.WriteByte(p.MsgLength)
-	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+
+	if p.RegisterDelivery == 1 && p.Report != nil {
+		pkt.WriteByte(60)
+		pkt.WriteU64(p.Report.MsgId)
+		pkt.WriteStr(p.Report.Stat, 7)
+		pkt.WriteStr(p.Report.SubmitTime, 10)
+		pkt.WriteStr(p.Report.DoneTime, 10)
+		pkt.WriteStr(p.Report.DestTerminalId, 21)
+		pkt.WriteU32(p.Report.SmscSequence)
+	} else {
+		pkt.WriteByte(p.MsgLength)
+		pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+	}
 	pkt.WriteStr(p.LinkId, 20)
 
 	return data
@@ -282,13 +322,23 @@ func (p *Cmpp3DeliverReq) Unpack(data []byte) (e error) {
 	p.RegisterDelivery = pkt.ReadByte()
 	p.MsgLength = pkt.ReadByte()
 
-	// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
-	if p.MsgFmt == 8 {
-		p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+	if p.RegisterDelivery == 1 {
+		p.Report = &CmppDeliverReport{
+			MsgId:          pkt.ReadU64(),
+			Stat:           pkt.ReadStr(7),
+			SubmitTime:     pkt.ReadStr(10),
+			DoneTime:       pkt.ReadStr(10),
+			DestTerminalId: pkt.ReadStr(21),
+			SmscSequence:   pkt.ReadU32(),
+		}
 	} else {
-		p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+		// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
+		if p.MsgFmt == 8 {
+			p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+		} else {
+			p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+		}
 	}
-
 	p.LinkId = pkt.ReadStr(20)
 	return nil
 }
