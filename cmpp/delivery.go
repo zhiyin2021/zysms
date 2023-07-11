@@ -112,9 +112,9 @@ type CmppDeliverReport struct {
 
 // Pack packs the Cmpp3DeliverReq to bytes stream for client side.
 func (p *CmppDeliverReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	var pktLen uint32 = CMPP_HEADER_LEN + 77 + uint32(p.MsgLength) + 20
-	if sp == proto.CMPP2 {
-		pktLen = CMPP_HEADER_LEN + 65 + uint32(p.MsgLength) + 8
+	var pktLen uint32 = CMPP_HEADER_LEN + 65 + uint32(p.MsgLength) + 8
+	if sp == proto.CMPP30 {
+		pktLen = CMPP_HEADER_LEN + 77 + uint32(p.MsgLength) + 20
 	}
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
@@ -135,7 +135,7 @@ func (p *CmppDeliverReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	pkt.WriteByte(p.TpUdhi)
 	pkt.WriteByte(p.MsgFmt)
 	pkt.WriteStr(p.SrcTerminalId, 32)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteByte(p.SrcTerminalType)
 	}
 	pkt.WriteByte(p.RegisterDelivery)
@@ -152,7 +152,7 @@ func (p *CmppDeliverReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 		pkt.WriteByte(p.MsgLength)
 		pkt.WriteStr(p.MsgContent, int(p.MsgLength))
 	}
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteStr(p.LinkId, 20)
 	} else {
 		// cmpp2 写入reserved 保留字段8字节
@@ -187,7 +187,7 @@ func (p *CmppDeliverReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	p.MsgFmt = pkt.ReadByte()
 
 	p.SrcTerminalId = pkt.ReadStr(32)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.SrcTerminalType = pkt.ReadByte()
 	}
 	p.RegisterDelivery = pkt.ReadByte()
@@ -210,7 +210,7 @@ func (p *CmppDeliverReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 			p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 		}
 	}
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.LinkId = pkt.ReadStr(20)
 	} else {
 		// cmpp2 读取reserved 保留字段8字节
@@ -228,9 +228,9 @@ func (p *CmppDeliverReq) SeqId() uint32 {
 
 // Pack packs the Cmpp3DeliverRsp to bytes stream for client side.
 func (p *CmppDeliverRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	rspLen := Cmpp3DeliverRspLen
-	if sp == proto.CMPP2 {
-		rspLen = Cmpp2DeliverRspLen
+	rspLen := Cmpp2DeliverRspLen
+	if sp == proto.CMPP30 {
+		rspLen = Cmpp3DeliverRspLen
 	}
 	data := make([]byte, rspLen)
 	pkt := proto.NewPacket(data)
@@ -245,7 +245,7 @@ func (p *CmppDeliverRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 
 	// Pack Body
 	pkt.WriteU64(p.MsgId)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteU32(p.Result)
 	} else {
 		pkt.WriteByte(byte(p.Result))
@@ -266,7 +266,7 @@ func (p *CmppDeliverRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.Result = pkt.ReadU32()
 	} else {
 		p.Result = uint32(pkt.ReadByte())

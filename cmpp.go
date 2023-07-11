@@ -25,21 +25,23 @@ type cmppConn struct {
 	// for SeqId generator goroutine
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
-	_seqId  uint32
-	stop    func()
-	ctx     context.Context
-	counter int32
-	logger  *logrus.Entry
+	_seqId   uint32
+	stop     func()
+	ctx      context.Context
+	counter  int32
+	logger   *logrus.Entry
+	checkVer bool
 }
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newCmppConn(conn net.Conn, typ cmpp.Version) *Conn {
+func newCmppConn(conn net.Conn, typ cmpp.Version, checkVer bool) *Conn {
 	c := &cmppConn{
-		Conn:   conn,
-		Typ:    typ,
-		_seqId: 0,
-		logger: logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
+		Conn:     conn,
+		Typ:      typ,
+		_seqId:   0,
+		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
+		checkVer: checkVer,
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
 
@@ -71,7 +73,7 @@ func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
 	var status uint8
 
 	if rsp, ok := p.(*cmpp.CmppConnRsp); ok {
-		if rsp.Version != c.Typ {
+		if c.checkVer && rsp.Version != c.Typ {
 			return smserror.ErrVersionNotMatch
 		}
 		status = uint8(rsp.Status)
@@ -222,7 +224,7 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 			return c.RecvPkt(timeout)
 		case cmpp.CMPP_CONNECT_RESP: // 当收到登录回复,内部先校验版本
 			if v, ok := p.(*cmpp.CmppConnRsp); ok {
-				if v.Version != c.Typ {
+				if c.checkVer && v.Version != c.Typ {
 					return nil, fmt.Errorf("cmpp version not match [ local: %d != remote: %d ]", c.Typ, v.Version)
 				}
 			}
@@ -254,7 +256,7 @@ func (l *cmppListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newCmppConn(c, cmpp.V30)
+	conn := newCmppConn(c, cmpp.V30, false)
 	conn.SetState(enum.CONN_CONNECTED)
 	conn.smsConn.(*cmppConn).startActiveTest()
 	return conn, nil

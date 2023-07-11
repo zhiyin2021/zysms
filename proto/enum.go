@@ -3,8 +3,9 @@ package proto
 type SmsProto byte
 
 const (
-	CMPP2 SmsProto = iota
-	CMPP3
+	CMPP20 SmsProto = iota
+	CMPP21
+	CMPP30
 	SMGP
 	SGIP
 	SMPP

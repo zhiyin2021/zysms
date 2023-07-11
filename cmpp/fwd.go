@@ -300,9 +300,9 @@ type CmppFwdRsp struct {
 // Before calling Pack, you should initialize a Cmpp3FwdReq variable
 // with correct field value.
 func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	var pktLen uint32 = CMPP_HEADER_LEN + 198 + uint32(p.DestUsrTl)*21 + 32 + 1 + 1 + uint32(p.MsgLength) + 20
-	if sp == proto.CMPP2 {
-		pktLen = CMPP_HEADER_LEN + 131 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
+	var pktLen uint32 = CMPP_HEADER_LEN + 131 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
+	if sp == proto.CMPP30 {
+		pktLen = CMPP_HEADER_LEN + 198 + uint32(p.DestUsrTl)*21 + 32 + 1 + 1 + uint32(p.MsgLength) + 20
 	}
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
@@ -331,7 +331,7 @@ func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	pkt.WriteStr(p.ServiceId, 10)
 	pkt.WriteByte(p.FeeUserType)
 	pkt.WriteStr(p.FeeTerminalId, 21)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteStr(p.FeeTerminalPseudo, 32)
 		pkt.WriteByte(p.FeeTerminalUserType)
 	}
@@ -344,7 +344,7 @@ func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	pkt.WriteStr(p.ValidTime, 17)
 	pkt.WriteStr(p.AtTime, 17)
 	pkt.WriteStr(p.SrcId, 21)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteStr(p.SrcPseudo, 32)
 		pkt.WriteByte(p.SrcUserType)
 		pkt.WriteByte(p.SrcType)
@@ -353,13 +353,13 @@ func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	for _, d := range p.DestId {
 		pkt.WriteStr(d, 21)
 	}
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteStr(p.DestPseudo, 32)
 		pkt.WriteByte(p.DestUserType)
 	}
 	pkt.WriteByte(p.MsgLength)
 	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteStr(p.LinkId, 20)
 	} else {
 		pkt.WriteStr(p.LinkId, 8)
@@ -396,7 +396,7 @@ func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	p.FeeUserType = pkt.ReadByte()
 
 	p.FeeTerminalId = pkt.ReadStr(21)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.FeeTerminalPseudo = pkt.ReadStr(32)
 		p.FeeTerminalUserType = pkt.ReadByte()
 	}
@@ -416,7 +416,7 @@ func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	p.AtTime = pkt.ReadStr(17)
 
 	p.SrcId = pkt.ReadStr(21)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.SrcPseudo = pkt.ReadStr(32)
 		p.SrcUserType = pkt.ReadByte()
 		p.SrcType = pkt.ReadByte()
@@ -426,14 +426,14 @@ func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	for i := 0; i < int(p.DestUsrTl); i++ {
 		p.DestId = append(p.DestId, pkt.ReadStr(21))
 	}
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.DestPseudo = pkt.ReadStr(32)
 		p.DestUserType = pkt.ReadByte()
 	}
 	p.MsgLength = pkt.ReadByte()
 
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.LinkId = pkt.ReadStr(20)
 	} else {
 		p.LinkId = pkt.ReadStr(8)
@@ -452,9 +452,9 @@ func (p *CmppFwdReq) SeqId() uint32 {
 // Before calling Pack, you should initialize a Cmpp3FwdRsp variable
 // with correct field value.
 func (p *CmppFwdRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	rspLen := Cmpp3FwdRspLen
-	if sp == proto.CMPP2 {
-		rspLen = Cmpp2FwdRspLen
+	rspLen := Cmpp2FwdRspLen
+	if sp == proto.CMPP30 {
+		rspLen = Cmpp3FwdRspLen
 	}
 	data := make([]byte, rspLen)
 	pkt := proto.NewPacket(data)
@@ -469,7 +469,7 @@ func (p *CmppFwdRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	pkt.WriteU64(p.MsgId)
 	pkt.WriteByte(p.PkTotal)
 	pkt.WriteByte(p.PkNumber)
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		pkt.WriteU32(p.Result)
 	} else {
 		pkt.WriteByte(byte(p.Result))
@@ -492,7 +492,7 @@ func (p *CmppFwdRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 
 	p.PkTotal = pkt.ReadByte()
 	p.PkNumber = pkt.ReadByte()
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		p.Result = pkt.ReadU32()
 	} else {
 		p.Result = uint32(pkt.ReadByte())

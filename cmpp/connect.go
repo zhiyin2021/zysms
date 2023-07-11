@@ -130,9 +130,9 @@ func (p *CmppConnReq) SeqId() uint32 {
 }
 
 func (p *CmppConnRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	rspLen := Cmpp3ConnRspLen
-	if sp == proto.CMPP2 {
-		rspLen = Cmpp2ConnRspLen
+	rspLen := Cmpp2ConnRspLen
+	if sp == proto.CMPP30 {
+		rspLen = Cmpp3ConnRspLen
 	}
 	data := make([]byte, rspLen)
 	pkt := proto.NewPacket(data)
@@ -148,7 +148,7 @@ func (p *CmppConnRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	bs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bs, p.Status)
 
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		// pack body
 		pkt.WriteU32(p.Status)
 	} else {
@@ -177,7 +177,7 @@ func (p *CmppConnRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	if sp == proto.CMPP3 {
+	if sp == proto.CMPP30 {
 		// Body: Status
 		p.Status = pkt.ReadU32()
 	} else {

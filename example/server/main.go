@@ -21,7 +21,7 @@ const (
 )
 
 func main() {
-	sms := zysms.New(proto.CMPP3)
+	sms := zysms.New(proto.CMPP30)
 	sms.OnConnect = func(c *zysms.Conn) {
 		c.Logger().Println("server: connect")
 	}
@@ -31,7 +31,7 @@ func main() {
 	sms.OnError = func(c *zysms.Conn, err error) {
 		c.Logger().Errorln("server: error: ", err)
 	}
-	sms.OnEvent = func(p *zysms.Packet) error {
+	sms.OnRecv = func(p *zysms.Packet) error {
 		var err error
 		switch req := p.Req.(type) {
 		case *cmpp.CmppSubmitReq:

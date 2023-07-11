@@ -21,7 +21,7 @@ const (
 
 func startAClient(idx int) {
 	// defer wg.Done()
-	sms := zysms.New(proto.CMPP2)
+	sms := zysms.New(proto.CMPP20)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
@@ -31,7 +31,7 @@ func startAClient(idx int) {
 	sms.OnError = func(c *zysms.Conn, err error) {
 		log.Printf("client %d: err %s", idx, err)
 	}
-	sms.OnEvent = func(p *zysms.Packet) error {
+	sms.OnRecv = func(p *zysms.Packet) error {
 		switch req := p.Req.(type) {
 		case *cmpp.CmppConnRsp:
 			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
@@ -44,7 +44,7 @@ func startAClient(idx int) {
 		}
 		return nil
 	}
-	c, err := sms.Dial(":7890", user, password, connectTimeout)
+	c, err := sms.Dial(":7890", user, password, connectTimeout, false)
 	if err != nil {
 		logrus.Printf("client %d: connect error: %s.", idx, err)
 		return
@@ -57,7 +57,7 @@ func startAClient(idx int) {
 	for i := 0; i < 1; i++ {
 		go func() {
 			//submit a message
-			cont, err := utils.Utf8ToUcs2("测试 cmpp submit【百度网盘】")
+			cont, err := utils.Utf8ToUcs2("测试 p submit,测试 cmpp submit,测试 cmpp submit【百度网盘】")
 			if err != nil {
 				fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
 				return
@@ -82,7 +82,7 @@ func startAClient(idx int) {
 				DestTerminalId: []string{"+8613500002696", "8613500002697", "13500002698"},
 				// DestTerminalType:   0,
 				MsgLength:  uint8(len(cont)),
-				MsgContent: string(cont),
+				MsgContent: cont,
 			}
 			err = c.SendPkt(p, 0)
 			if err != nil {

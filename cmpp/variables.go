@@ -34,9 +34,9 @@ func (t Version) String() string {
 func (t Version) Proto() proto.SmsProto {
 
 	if t == V30 {
-		return proto.CMPP3
+		return proto.CMPP30
 	} else {
-		return proto.CMPP2
+		return proto.CMPP21
 	}
 }
 
@@ -152,9 +152,9 @@ func newCmppConnReq(v Version, data []byte) (p proto.Packer) {
 }
 func newCmppConnRsp(v Version, data []byte) (p proto.Packer) {
 	p = &CmppConnRsp{}
-	sp := proto.CMPP2
+	sp := proto.CMPP21
 	if len(data) == 25 {
-		sp = proto.CMPP3
+		sp = proto.CMPP30
 	}
 	p.Unpack(data, sp)
 	return
@@ -181,18 +181,18 @@ func newCmppSubmitRsp(v Version, data []byte) (p proto.Packer) {
 }
 func newCmppDeliverReq(v Version, data []byte) (p proto.Packer) {
 	p = &CmppDeliverReq{}
-	sp := proto.CMPP2
+	sp := proto.CMPP21
 	if v == V30 {
-		sp = proto.CMPP3
+		sp = proto.CMPP30
 	}
 	p.Unpack(data, sp)
 	return
 }
 func newCmppDeliverRsp(v Version, data []byte) (p proto.Packer) {
 	p = &CmppDeliverRsp{}
-	sp := proto.CMPP2
+	sp := proto.CMPP21
 	if v == V30 {
-		sp = proto.CMPP3
+		sp = proto.CMPP30
 	}
 	p.Unpack(data, sp)
 	return

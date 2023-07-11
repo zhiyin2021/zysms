@@ -24,7 +24,7 @@ type (
 		OnConnect    func(*Conn)
 		OnDisconnect func(*Conn)
 		OnError      func(*Conn, error)
-		OnEvent      func(*Packet) error
+		OnRecv       func(*Packet) error
 	}
 	Conn struct {
 		smsConn
@@ -61,7 +61,7 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 	}
 	var l smsListener
 	switch s.proto {
-	case proto.CMPP2, proto.CMPP3:
+	case proto.CMPP20, proto.CMPP21, proto.CMPP30:
 		l = newCmppListener(ln)
 	}
 	go func() {
@@ -76,7 +76,7 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 	return l, nil
 }
 
-func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration) (*Conn, error) {
+func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer bool) (*Conn, error) {
 	var err error
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
@@ -85,10 +85,12 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration) (*Conn, 
 	}
 	var zconn *Conn
 	switch s.proto {
-	case proto.CMPP2:
-		zconn = newCmppConn(conn, cmpp.V20)
-	case proto.CMPP3:
-		zconn = newCmppConn(conn, cmpp.V30)
+	case proto.CMPP20:
+		zconn = newCmppConn(conn, cmpp.V20, checkVer)
+	case proto.CMPP21:
+		zconn = newCmppConn(conn, cmpp.V21, checkVer)
+	case proto.CMPP30:
+		zconn = newCmppConn(conn, cmpp.V30, checkVer)
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
@@ -120,9 +122,9 @@ func (s *sms) run(conn *Conn) {
 			}
 			return
 		}
-		if s.OnEvent != nil {
+		if s.OnRecv != nil {
 			p := &Packet{conn, pkt, nil}
-			err = s.OnEvent(p)
+			err = s.OnRecv(p)
 			if p.Resp != nil {
 				err := conn.SendPkt(p.Resp, pkt.SeqId())
 				if err != nil {
