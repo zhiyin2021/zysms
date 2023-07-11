@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/proto"
@@ -24,23 +23,23 @@ const (
 func main() {
 	sms := zysms.New(proto.CMPP3)
 	sms.OnConnect = func(c *zysms.Conn) {
-		c.Logger.Println("server: connect")
+		c.Logger().Println("server: connect")
 	}
 	sms.OnDisconnect = func(c *zysms.Conn) {
-		c.Logger.Println("server: disconnect")
+		c.Logger().Println("server: disconnect")
 	}
 	sms.OnError = func(c *zysms.Conn, err error) {
-		c.Logger.Errorln("server: error: ", err)
+		c.Logger().Errorln("server: error: ", err)
 	}
 	sms.OnEvent = func(p *zysms.Packet) error {
 		var err error
 		switch req := p.Req.(type) {
-		case *cmpp.Cmpp3SubmitReq:
-			p.Resp, err = handleSubmit(req)
+		case *cmpp.CmppSubmitReq:
+			p.Resp, err = handleSubmit(p, req)
 		case *cmpp.CmppConnReq:
-			p.Resp, err = handleLogin(req)
+			p.Resp, err = handleLogin(p, req)
 		default:
-			p.Conn.Logger.Errorf("server: unknown event: %v", p)
+			p.Conn.Logger().Errorf("server: unknown event: %v", p)
 			err = smserror.ErrRespNotMatch
 		}
 		return err
@@ -56,9 +55,9 @@ func main() {
 	<-sig
 	ln.Close()
 }
-func handleLogin(req *cmpp.CmppConnReq) (proto.Packer, error) {
-	resp := &cmpp.Cmpp3ConnRsp{
-		Version: cmpp.V30,
+func handleLogin(p *zysms.Packet, req *cmpp.CmppConnReq) (proto.Packer, error) {
+	resp := &cmpp.CmppConnRsp{
+		Version: req.Version,
 	}
 
 	if req.SrcAddr != utils.OctetString(userS, 6) {
@@ -87,12 +86,12 @@ func handleLogin(req *cmpp.CmppConnReq) (proto.Packer, error) {
 	return resp, nil
 }
 
-func handleSubmit(req *cmpp.Cmpp3SubmitReq) (proto.Packer, error) {
-	resp := &cmpp.Cmpp3SubmitRsp{
+func handleSubmit(p *zysms.Packet, req *cmpp.CmppSubmitReq) (proto.Packer, error) {
+	resp := &cmpp.CmppSubmitRsp{
 		MsgId: 12878564852733378560,
 	}
 	for i, d := range req.DestTerminalId {
-		logrus.Printf("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s]\n",
+		p.Conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s]\n",
 			req.MsgSrc, req.SeqId(), resp.MsgId+uint64(i), req.SrcId, d)
 	}
 	return resp, nil

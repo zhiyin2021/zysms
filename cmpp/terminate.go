@@ -21,7 +21,7 @@ type CmppTerminateRsp struct {
 }
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
-func (p *CmppTerminateReq) Pack(seqId uint32) []byte {
+func (p *CmppTerminateReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	data := make([]byte, CmppTerminateReqLen)
 	pkt := proto.NewPacket(data)
 
@@ -39,7 +39,7 @@ func (p *CmppTerminateReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppTerminateReq) Unpack(data []byte) (e error) {
+func (p *CmppTerminateReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -60,7 +60,7 @@ func (p *CmppTerminateReq) SeqId() uint32 {
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
-func (p *CmppTerminateRsp) Pack(seqId uint32) []byte {
+func (p *CmppTerminateRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	data := make([]byte, CmppTerminateRspLen)
 	pkt := proto.NewPacket(data)
 
@@ -78,7 +78,7 @@ func (p *CmppTerminateRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppTerminateRsp) Unpack(data []byte) (e error) {
+func (p *CmppTerminateRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)

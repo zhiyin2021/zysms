@@ -31,6 +31,14 @@ func (t Version) String() string {
 	}
 	return "unknown"
 }
+func (t Version) Proto() proto.SmsProto {
+
+	if t == V30 {
+		return proto.CMPP3
+	} else {
+		return proto.CMPP2
+	}
+}
 
 // MajorMatch 主版本相匹配
 func (t Version) MajorMatch(v uint8) bool {
@@ -139,109 +147,93 @@ var CmppPacket = map[CommandId]func(Version, []byte) proto.Packer{
 
 func newCmppConnReq(v Version, data []byte) (p proto.Packer) {
 	p = &CmppConnReq{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppConnRsp(v Version, data []byte) (p proto.Packer) {
-	if v == V30 && len(data) == 25 {
-		p = &Cmpp3ConnRsp{}
-	} else {
-		p = &Cmpp2ConnRsp{}
+	p = &CmppConnRsp{}
+	sp := proto.CMPP2
+	if len(data) == 25 {
+		sp = proto.CMPP3
 	}
-	p.Unpack(data)
+	p.Unpack(data, sp)
 	return
 }
 func newCmppTerminateReq(v Version, data []byte) (p proto.Packer) {
 	p = &CmppConnReq{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return p
 }
 func newCmppTerminateRsp(v Version, data []byte) (p proto.Packer) {
 	p = &CmppTerminateRsp{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppSubmitReq(v Version, data []byte) (p proto.Packer) {
-	if v == V30 {
-		p = &Cmpp3SubmitReq{}
-	} else {
-		p = &Cmpp2SubmitReq{}
-	}
-	p.Unpack(data)
+	p = &CmppSubmitReq{}
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppSubmitRsp(v Version, data []byte) (p proto.Packer) {
-	if v == V30 {
-		p = &Cmpp3SubmitRsp{}
-	} else {
-		p = &Cmpp2SubmitRsp{}
-	}
-	p.Unpack(data)
+	p = &CmppSubmitRsp{}
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppDeliverReq(v Version, data []byte) (p proto.Packer) {
+	p = &CmppDeliverReq{}
+	sp := proto.CMPP2
 	if v == V30 {
-		p = &Cmpp3DeliverReq{}
-	} else {
-		p = &Cmpp2DeliverReq{}
+		sp = proto.CMPP3
 	}
-	p.Unpack(data)
+	p.Unpack(data, sp)
 	return
 }
 func newCmppDeliverRsp(v Version, data []byte) (p proto.Packer) {
+	p = &CmppDeliverRsp{}
+	sp := proto.CMPP2
 	if v == V30 {
-		p = &Cmpp3DeliverRsp{}
-	} else {
-		p = &Cmpp2DeliverRsp{}
+		sp = proto.CMPP3
 	}
-	p.Unpack(data)
+	p.Unpack(data, sp)
 	return
 }
 func newCmppQueryReq(v Version, data []byte) (p proto.Packer) {
 	p = &CmppQueryReq{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppQueryRsp(v Version, data []byte) (p proto.Packer) {
 	p = &CmppQueryRsp{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppCancelReq(v Version, data []byte) (p proto.Packer) {
 	p = &CmppCancelReq{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppCancelRsp(v Version, data []byte) (p proto.Packer) {
 	p = &CmppCancelRsp{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppActiveTestReq(v Version, data []byte) (p proto.Packer) {
 	p = &CmppActiveTestReq{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppActiveTestRsp(v Version, data []byte) (p proto.Packer) {
 	p = &CmppActiveTestRsp{}
-	p.Unpack(data)
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppFwdReq(v Version, data []byte) (p proto.Packer) {
-	if v == V30 {
-		p = &Cmpp3FwdReq{}
-	} else {
-		p = &Cmpp2FwdReq{}
-	}
-	p.Unpack(data)
+	p = &CmppFwdReq{}
+	p.Unpack(data, v.Proto())
 	return
 }
 func newCmppFwdRsp(v Version, data []byte) (p proto.Packer) {
-	if v == V30 {
-		p = &Cmpp3FwdRsp{}
-	} else {
-		p = &Cmpp2FwdRsp{}
-	}
-	p.Unpack(data)
+	p = &CmppFwdRsp{}
+	p.Unpack(data, v.Proto())
 	return
 }

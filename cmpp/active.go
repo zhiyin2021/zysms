@@ -22,7 +22,7 @@ type CmppActiveTestRsp struct {
 }
 
 // Pack packs the CmppActiveTestReq to bytes stream for client side.
-func (p *CmppActiveTestReq) Pack(seqId uint32) []byte {
+func (p *CmppActiveTestReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	buf := make([]byte, CmppActiveTestReqLen)
 	pkt := proto.NewPacket(buf)
 	// Pack header
@@ -36,7 +36,7 @@ func (p *CmppActiveTestReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppActiveTestReq variable.
 // After unpack, you will get all value of fields in
 // CmppActiveTestReq struct.
-func (p *CmppActiveTestReq) Unpack(data []byte) (e error) {
+func (p *CmppActiveTestReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -56,7 +56,7 @@ func (p *CmppActiveTestReq) Event() event.SmsEvent {
 }
 
 // Pack packs the CmppActiveTestRsp to bytes stream for client side.
-func (p *CmppActiveTestRsp) Pack(seqId uint32) []byte {
+func (p *CmppActiveTestRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	buf := make([]byte, CmppActiveTestRspLen)
 	pkt := proto.NewPacket(buf)
 	// Pack header
@@ -72,7 +72,7 @@ func (p *CmppActiveTestRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppActiveTestRsp variable.
 // After unpack, you will get all value of fields in
 // CmppActiveTestRsp struct.
-func (p *CmppActiveTestRsp) Unpack(data []byte) (e error) {
+func (p *CmppActiveTestRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)

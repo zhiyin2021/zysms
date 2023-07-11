@@ -29,9 +29,8 @@ type (
 	Conn struct {
 		smsConn
 		// Data   any
-		Logger *logrus.Entry
-		Proto  proto.SmsProto
-		UUID   string
+		// Logger *logrus.Entry
+		UUID string
 	}
 	smsListener interface {
 		accept() (*Conn, error)
@@ -46,6 +45,8 @@ type (
 		RecvPkt(time.Duration) (proto.Packer, error)
 		SendPkt(proto.Packer, uint32) error
 		SetState(enum.State)
+		Proto() proto.SmsProto
+		Logger() *logrus.Entry
 	}
 )
 
@@ -60,10 +61,8 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 	}
 	var l smsListener
 	switch s.proto {
-	case proto.CMPP2:
-		l = newCmppListener(ln, cmpp.V20)
-	case proto.CMPP3:
-		l = newCmppListener(ln, cmpp.V30)
+	case proto.CMPP2, proto.CMPP3:
+		l = newCmppListener(ln)
 	}
 	go func() {
 		for {
@@ -71,7 +70,6 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 			if err != nil {
 				return
 			}
-			conn.Proto = s.proto
 			go s.run(conn)
 		}
 	}()
@@ -94,7 +92,6 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration) (*Conn, 
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
-	zconn.Proto = s.proto
 	zconn.SetState(enum.CONN_CONNECTED)
 	err = zconn.Auth(uid, pwd, timeout)
 	if err != nil {

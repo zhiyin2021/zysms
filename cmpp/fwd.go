@@ -50,48 +50,39 @@ var (
 	errFwdNoPrivilege        = errors.New("fwd response status: msg has no fwd privilege")
 )
 
-type Cmpp2FwdReq struct {
-	SourceId           string
-	DestinationId      string
-	NodesCount         uint8
-	MsgFwdType         uint8
-	MsgId              uint64
-	PkTotal            uint8
-	PkNumber           uint8
-	RegisteredDelivery uint8
-	MsgLevel           uint8
-	ServiceId          string
-	FeeUserType        uint8
-	FeeTerminalId      string
-	TpPid              uint8
-	TpUdhi             uint8
-	MsgFmt             uint8
-	MsgSrc             string
-	FeeType            string
-	FeeCode            string
-	ValidTime          string
-	AtTime             string
-	SrcId              string
-	DestUsrTl          uint8
-	DestId             []string
-	MsgLength          uint8
-	MsgContent         string
-	Reserve            string
+// type Cmpp2FwdReq struct {
+// 	SourceId           string
+// 	DestinationId      string
+// 	NodesCount         uint8
+// 	MsgFwdType         uint8
+// 	MsgId              uint64
+// 	PkTotal            uint8
+// 	PkNumber           uint8
+// 	RegisteredDelivery uint8
+// 	MsgLevel           uint8
+// 	ServiceId          string
+// 	FeeUserType        uint8
+// 	FeeTerminalId      string
+// 	TpPid              uint8
+// 	TpUdhi             uint8
+// 	MsgFmt             uint8
+// 	MsgSrc             string
+// 	FeeType            string
+// 	FeeCode            string
+// 	ValidTime          string
+// 	AtTime             string
+// 	SrcId              string
+// 	DestUsrTl          uint8
+// 	DestId             []string
+// 	MsgLength          uint8
+// 	MsgContent         string
+// 	Reserve            string
 
-	// session info
-	seqId uint32
-}
+// 	// session info
+// 	seqId uint32
+// }
 
-type Cmpp2FwdRsp struct {
-	MsgId    uint64
-	PkTotal  uint8
-	PkNumber uint8
-	Result   uint8
-
-	// session info
-	seqId uint32
-}
-type Cmpp3FwdReq struct {
+type CmppFwdReq struct {
 	SourceId            string
 	DestinationId       string
 	NodesCount          uint8
@@ -103,9 +94,9 @@ type Cmpp3FwdReq struct {
 	MsgLevel            uint8
 	ServiceId           string
 	FeeUserType         uint8
-	FeeTerminalId       string
-	FeeTerminalPseudo   string
-	FeeTerminalUserType uint8
+	FeeTerminalId       string //被计费用户的号码(如本字节填空，则 表示本字段无效，对谁计费参见 Fee_UserType 字段。本字段与 Fee_UserType 字段互斥)  21字节
+	FeeTerminalPseudo   string // 被计费用户伪码 32字节 cmpp3.0
+	FeeTerminalUserType uint8  // 被计费用户号码类型,0:全球通,1神州行. 1字节 cmpp3.0
 	TpPid               uint8
 	TpUdhi              uint8
 	MsgFmt              uint8
@@ -115,26 +106,26 @@ type Cmpp3FwdReq struct {
 	ValidTime           string
 	AtTime              string
 	SrcId               string
-	SrcPseudo           string
-	SrcUserType         uint8
-	SrcType             uint8
+	SrcPseudo           string // 源号码的伪码 32字节 cmpp3.0
+	SrcUserType         uint8  // 源号码的用户类型，0:全球通，1:神州行 1字节 cmpp3.0
+	SrcType             uint8  // 传递给 SP 的源号码的类型，0:真实号 码;1:伪码 1字节 cmpp3.0
 	DestUsrTl           uint8
 	DestId              []string
-	DestPseudo          string
-	DestUserType        uint8
+	DestPseudo          string // 目的用户的伪码 32字节 cmpp3.0
+	DestUserType        uint8  // 目的号码的用户类型，0:全球通，1: 神州行 1字节 cmpp3.0
 	MsgLength           uint8
 	MsgContent          string
-	LinkId              string
+	LinkId              string // 20字节 cmpp3.0
 
 	// session info
 	seqId uint32
 }
 
-type Cmpp3FwdRsp struct {
+type CmppFwdRsp struct {
 	MsgId    uint64
 	PkTotal  uint8
 	PkNumber uint8
-	Result   uint32
+	Result   uint32 // cmpp3=4字节, cmpp2=1字节
 
 	// session info
 	seqId uint32
@@ -143,173 +134,176 @@ type Cmpp3FwdRsp struct {
 // Pack packs the Cmpp2FwdReq to bytes stream for client side.
 // Before calling Pack, you should initialize a Cmpp2FwdReq variable
 // with correct field value.
-func (p *Cmpp2FwdReq) Pack(seqId uint32) []byte {
-	var pktLen uint32 = CMPP_HEADER_LEN + 131 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
+// func (p *Cmpp2FwdReq) Pack(seqId uint32) []byte {
+// 	var pktLen uint32 = CMPP_HEADER_LEN + 131 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
+// 	data := make([]byte, pktLen)
+// 	pkt := proto.NewPacket(data)
 
-	// Pack header
-	pkt.WriteU32(pktLen)
-	pkt.WriteU32(CMPP_FWD.ToInt())
+// 	// Pack header
+// 	pkt.WriteU32(pktLen)
+// 	pkt.WriteU32(CMPP_FWD.ToInt())
 
-	p.seqId = seqId
+// 	p.seqId = seqId
 
-	pkt.WriteU32(p.seqId)
+// 	pkt.WriteU32(p.seqId)
 
-	// Pack Body
-	pkt.WriteStr(p.SourceId, 6)
-	pkt.WriteStr(p.DestinationId, 6)
-	pkt.WriteByte(p.NodesCount)
-	pkt.WriteByte(p.MsgFwdType)
-	pkt.WriteU64(p.MsgId)
+// 	// Pack Body
+// 	pkt.WriteStr(p.SourceId, 6)
+// 	pkt.WriteStr(p.DestinationId, 6)
+// 	pkt.WriteByte(p.NodesCount)
+// 	pkt.WriteByte(p.MsgFwdType)
+// 	pkt.WriteU64(p.MsgId)
 
-	if p.PkTotal == 0 && p.PkNumber == 0 {
-		p.PkTotal, p.PkNumber = 1, 1
-	}
-	pkt.WriteByte(p.PkTotal)
-	pkt.WriteByte(p.PkNumber)
+// 	if p.PkTotal == 0 && p.PkNumber == 0 {
+// 		p.PkTotal, p.PkNumber = 1, 1
+// 	}
+// 	pkt.WriteByte(p.PkTotal)
+// 	pkt.WriteByte(p.PkNumber)
 
-	pkt.WriteByte(p.RegisteredDelivery)
-	pkt.WriteByte(p.MsgLevel)
-	pkt.WriteStr(p.ServiceId, 10)
-	pkt.WriteByte(p.FeeUserType)
-	pkt.WriteStr(p.FeeTerminalId, 21)
-	pkt.WriteByte(p.TpPid)
-	pkt.WriteByte(p.TpUdhi)
-	pkt.WriteByte(p.MsgFmt)
-	pkt.WriteStr(p.MsgSrc, 6)
-	pkt.WriteStr(p.FeeType, 2)
-	pkt.WriteStr(p.FeeCode, 6)
-	pkt.WriteStr(p.ValidTime, 17)
-	pkt.WriteStr(p.AtTime, 17)
-	pkt.WriteStr(p.SrcId, 21)
-	pkt.WriteByte(p.DestUsrTl)
-	for _, d := range p.DestId {
-		pkt.WriteStr(d, 21)
-	}
-	pkt.WriteByte(p.MsgLength)
-	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
-	pkt.WriteStr(p.Reserve, 8)
+// 	pkt.WriteByte(p.RegisteredDelivery)
+// 	pkt.WriteByte(p.MsgLevel)
+// 	pkt.WriteStr(p.ServiceId, 10)
+// 	pkt.WriteByte(p.FeeUserType)
+// 	pkt.WriteStr(p.FeeTerminalId, 21)
+// 	pkt.WriteByte(p.TpPid)
+// 	pkt.WriteByte(p.TpUdhi)
+// 	pkt.WriteByte(p.MsgFmt)
+// 	pkt.WriteStr(p.MsgSrc, 6)
+// 	pkt.WriteStr(p.FeeType, 2)
+// 	pkt.WriteStr(p.FeeCode, 6)
+// 	pkt.WriteStr(p.ValidTime, 17)
+// 	pkt.WriteStr(p.AtTime, 17)
+// 	pkt.WriteStr(p.SrcId, 21)
+// 	pkt.WriteByte(p.DestUsrTl)
+// 	for _, d := range p.DestId {
+// 		pkt.WriteStr(d, 21)
+// 	}
+// 	pkt.WriteByte(p.MsgLength)
+// 	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+// 	pkt.WriteStr(p.Reserve, 8)
 
-	return data
-}
+// 	return data
+// }
 
-// Unpack unpack the binary byte stream to a Cmpp2FwdReq variable.
-// After unpack, you will get all value of fields in Cmpp2FwdReq struct.
-func (p *Cmpp2FwdReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
+// // Unpack unpack the binary byte stream to a Cmpp2FwdReq variable.
+// // After unpack, you will get all value of fields in Cmpp2FwdReq struct.
+// func (p *Cmpp2FwdReq) Unpack(data []byte) (e error) {
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			e = r.(error)
+// 		}
+// 	}()
+// 	pkt := proto.NewPacket(data)
+// 	// Sequence Id
+// 	p.seqId = pkt.ReadU32()
 
-	p.SourceId = pkt.ReadStr(6)
+// 	p.SourceId = pkt.ReadStr(6)
 
-	p.DestinationId = pkt.ReadStr(6)
-	p.NodesCount = pkt.ReadByte()
-	p.MsgFwdType = pkt.ReadByte()
+// 	p.DestinationId = pkt.ReadStr(6)
+// 	p.NodesCount = pkt.ReadByte()
+// 	p.MsgFwdType = pkt.ReadByte()
 
-	p.MsgId = pkt.ReadU64()
-	p.PkTotal = pkt.ReadByte()
-	p.PkNumber = pkt.ReadByte()
-	p.RegisteredDelivery = pkt.ReadByte()
-	p.MsgLevel = pkt.ReadByte()
+// 	p.MsgId = pkt.ReadU64()
+// 	p.PkTotal = pkt.ReadByte()
+// 	p.PkNumber = pkt.ReadByte()
+// 	p.RegisteredDelivery = pkt.ReadByte()
+// 	p.MsgLevel = pkt.ReadByte()
 
-	p.ServiceId = pkt.ReadStr(10)
-	p.FeeUserType = pkt.ReadByte()
+// 	p.ServiceId = pkt.ReadStr(10)
+// 	p.FeeUserType = pkt.ReadByte()
 
-	p.FeeTerminalId = pkt.ReadStr(21)
-	p.TpPid = pkt.ReadByte()
-	p.TpUdhi = pkt.ReadByte()
-	p.MsgFmt = pkt.ReadByte()
+// 	p.FeeTerminalId = pkt.ReadStr(21)
+// 	p.TpPid = pkt.ReadByte()
+// 	p.TpUdhi = pkt.ReadByte()
+// 	p.MsgFmt = pkt.ReadByte()
 
-	p.MsgSrc = pkt.ReadStr(6)
+// 	p.MsgSrc = pkt.ReadStr(6)
 
-	p.FeeType = pkt.ReadStr(2)
+// 	p.FeeType = pkt.ReadStr(2)
 
-	p.FeeCode = pkt.ReadStr(6)
+// 	p.FeeCode = pkt.ReadStr(6)
 
-	p.ValidTime = pkt.ReadStr(17)
+// 	p.ValidTime = pkt.ReadStr(17)
 
-	p.AtTime = pkt.ReadStr(17)
+// 	p.AtTime = pkt.ReadStr(17)
 
-	p.SrcId = pkt.ReadStr(21)
+// 	p.SrcId = pkt.ReadStr(21)
 
-	p.DestUsrTl = pkt.ReadByte()
-	for i := 0; i < int(p.DestUsrTl); i++ {
-		p.DestId = append(p.DestId, pkt.ReadStr(21))
-	}
+// 	p.DestUsrTl = pkt.ReadByte()
+// 	for i := 0; i < int(p.DestUsrTl); i++ {
+// 		p.DestId = append(p.DestId, pkt.ReadStr(21))
+// 	}
 
-	p.MsgLength = pkt.ReadByte()
+// 	p.MsgLength = pkt.ReadByte()
 
-	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+// 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 
-	p.Reserve = pkt.ReadStr(8)
-	return nil
-}
-func (p *Cmpp2FwdReq) Event() event.SmsEvent {
-	return event.SmsEventFwdReq
-}
-func (p *Cmpp2FwdReq) SeqId() uint32 {
-	return p.seqId
-}
+// 	p.Reserve = pkt.ReadStr(8)
+// 	return nil
+// }
+// func (p *Cmpp2FwdReq) Event() event.SmsEvent {
+// 	return event.SmsEventFwdReq
+// }
+// func (p *Cmpp2FwdReq) SeqId() uint32 {
+// 	return p.seqId
+// }
 
-// Pack packs the Cmpp2FwdRsp to bytes stream for server side.
-// Before calling Pack, you should initialize a Cmpp2FwdRsp variable
-// with correct field value.
-func (p *Cmpp2FwdRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, Cmpp2FwdRspLen)
-	pkt := proto.NewPacket(data)
-	// Pack header
-	pkt.WriteU32(Cmpp2FwdRspLen)
-	pkt.WriteU32(CMPP_FWD_RESP.ToInt())
+// // Pack packs the Cmpp2FwdRsp to bytes stream for server side.
+// // Before calling Pack, you should initialize a Cmpp2FwdRsp variable
+// // with correct field value.
+// func (p *Cmpp2FwdRsp) Pack(seqId uint32) []byte {
+// 	data := make([]byte, Cmpp2FwdRspLen)
+// 	pkt := proto.NewPacket(data)
+// 	// Pack header
+// 	pkt.WriteU32(Cmpp2FwdRspLen)
+// 	pkt.WriteU32(CMPP_FWD_RESP.ToInt())
 
-	p.seqId = seqId
+// 	p.seqId = seqId
 
-	pkt.WriteU32(p.seqId)
+// 	pkt.WriteU32(p.seqId)
 
-	// Pack Body
-	pkt.WriteU64(p.MsgId)
-	pkt.WriteByte(p.PkTotal)
-	pkt.WriteByte(p.PkNumber)
-	pkt.WriteByte(p.Result)
-	return data
-}
+// 	// Pack Body
+// 	pkt.WriteU64(p.MsgId)
+// 	pkt.WriteByte(p.PkTotal)
+// 	pkt.WriteByte(p.PkNumber)
+// 	pkt.WriteByte(p.Result)
+// 	return data
+// }
 
-// Unpack unpack the binary byte stream to a Cmpp2FwdRsp variable.
-// After unpack, you will get all value of fields in Cmpp2FwdRsp struct.
-func (p *Cmpp2FwdRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	p.MsgId = pkt.ReadU64()
+// // Unpack unpack the binary byte stream to a Cmpp2FwdRsp variable.
+// // After unpack, you will get all value of fields in Cmpp2FwdRsp struct.
+// func (p *Cmpp2FwdRsp) Unpack(data []byte) (e error) {
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			e = r.(error)
+// 		}
+// 	}()
+// 	pkt := proto.NewPacket(data)
+// 	// Sequence Id
+// 	p.seqId = pkt.ReadU32()
+// 	p.MsgId = pkt.ReadU64()
 
-	p.PkTotal = pkt.ReadByte()
-	p.PkNumber = pkt.ReadByte()
-	p.Result = pkt.ReadByte()
-	return nil
-}
-func (p *Cmpp2FwdRsp) Event() event.SmsEvent {
-	return event.SmsEventFwdRsp
-}
+// 	p.PkTotal = pkt.ReadByte()
+// 	p.PkNumber = pkt.ReadByte()
+// 	p.Result = pkt.ReadByte()
+// 	return nil
+// }
+// func (p *Cmpp2FwdRsp) Event() event.SmsEvent {
+// 	return event.SmsEventFwdRsp
+// }
 
-func (p *Cmpp2FwdRsp) SeqId() uint32 {
-	return p.seqId
-}
+// func (p *Cmpp2FwdRsp) SeqId() uint32 {
+// 	return p.seqId
+// }
 
 // Pack packs the Cmpp3FwdReq to bytes stream for client side.
 // Before calling Pack, you should initialize a Cmpp3FwdReq variable
 // with correct field value.
-func (p *Cmpp3FwdReq) Pack(seqId uint32) []byte {
+func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	var pktLen uint32 = CMPP_HEADER_LEN + 198 + uint32(p.DestUsrTl)*21 + 32 + 1 + 1 + uint32(p.MsgLength) + 20
+	if sp == proto.CMPP2 {
+		pktLen = CMPP_HEADER_LEN + 131 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
+	}
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
 
@@ -337,8 +331,10 @@ func (p *Cmpp3FwdReq) Pack(seqId uint32) []byte {
 	pkt.WriteStr(p.ServiceId, 10)
 	pkt.WriteByte(p.FeeUserType)
 	pkt.WriteStr(p.FeeTerminalId, 21)
-	pkt.WriteStr(p.FeeTerminalPseudo, 32)
-	pkt.WriteByte(p.FeeTerminalUserType)
+	if sp == proto.CMPP3 {
+		pkt.WriteStr(p.FeeTerminalPseudo, 32)
+		pkt.WriteByte(p.FeeTerminalUserType)
+	}
 	pkt.WriteByte(p.TpPid)
 	pkt.WriteByte(p.TpUdhi)
 	pkt.WriteByte(p.MsgFmt)
@@ -348,26 +344,33 @@ func (p *Cmpp3FwdReq) Pack(seqId uint32) []byte {
 	pkt.WriteStr(p.ValidTime, 17)
 	pkt.WriteStr(p.AtTime, 17)
 	pkt.WriteStr(p.SrcId, 21)
-	pkt.WriteStr(p.SrcPseudo, 32)
-	pkt.WriteByte(p.SrcUserType)
-	pkt.WriteByte(p.SrcType)
+	if sp == proto.CMPP3 {
+		pkt.WriteStr(p.SrcPseudo, 32)
+		pkt.WriteByte(p.SrcUserType)
+		pkt.WriteByte(p.SrcType)
+	}
 	pkt.WriteByte(p.DestUsrTl)
-
 	for _, d := range p.DestId {
 		pkt.WriteStr(d, 21)
 	}
-	pkt.WriteStr(p.DestPseudo, 32)
-	pkt.WriteByte(p.DestUserType)
+	if sp == proto.CMPP3 {
+		pkt.WriteStr(p.DestPseudo, 32)
+		pkt.WriteByte(p.DestUserType)
+	}
 	pkt.WriteByte(p.MsgLength)
 	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
-	pkt.WriteStr(p.LinkId, 20)
+	if sp == proto.CMPP3 {
+		pkt.WriteStr(p.LinkId, 20)
+	} else {
+		pkt.WriteStr(p.LinkId, 8)
+	}
 
 	return data
 }
 
 // Unpack unpack the binary byte stream to a Cmpp3FwdReq variable.
 // After unpack, you will get all value of fields in Cmpp3FwdReq struct.
-func (p *Cmpp3FwdReq) Unpack(data []byte) (e error) {
+func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -393,8 +396,10 @@ func (p *Cmpp3FwdReq) Unpack(data []byte) (e error) {
 	p.FeeUserType = pkt.ReadByte()
 
 	p.FeeTerminalId = pkt.ReadStr(21)
-	p.FeeTerminalPseudo = pkt.ReadStr(32)
-	p.FeeTerminalUserType = pkt.ReadByte()
+	if sp == proto.CMPP3 {
+		p.FeeTerminalPseudo = pkt.ReadStr(32)
+		p.FeeTerminalUserType = pkt.ReadByte()
+	}
 
 	p.TpPid = pkt.ReadByte()
 	p.TpUdhi = pkt.ReadByte()
@@ -411,41 +416,50 @@ func (p *Cmpp3FwdReq) Unpack(data []byte) (e error) {
 	p.AtTime = pkt.ReadStr(17)
 
 	p.SrcId = pkt.ReadStr(21)
-
-	p.SrcPseudo = pkt.ReadStr(32)
-	p.SrcUserType = pkt.ReadByte()
-	p.SrcType = pkt.ReadByte()
+	if sp == proto.CMPP3 {
+		p.SrcPseudo = pkt.ReadStr(32)
+		p.SrcUserType = pkt.ReadByte()
+		p.SrcType = pkt.ReadByte()
+	}
 
 	p.DestUsrTl = pkt.ReadByte()
 	for i := 0; i < int(p.DestUsrTl); i++ {
 		p.DestId = append(p.DestId, pkt.ReadStr(21))
 	}
-	p.DestPseudo = pkt.ReadStr(32)
-	p.DestUserType = pkt.ReadByte()
-
+	if sp == proto.CMPP3 {
+		p.DestPseudo = pkt.ReadStr(32)
+		p.DestUserType = pkt.ReadByte()
+	}
 	p.MsgLength = pkt.ReadByte()
 
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
-
-	p.LinkId = pkt.ReadStr(20)
+	if sp == proto.CMPP3 {
+		p.LinkId = pkt.ReadStr(20)
+	} else {
+		p.LinkId = pkt.ReadStr(8)
+	}
 	return nil
 }
-func (p *Cmpp3FwdReq) Event() event.SmsEvent {
+func (p *CmppFwdReq) Event() event.SmsEvent {
 	return event.SmsEventFwdReq
 }
 
-func (p *Cmpp3FwdReq) SeqId() uint32 {
+func (p *CmppFwdReq) SeqId() uint32 {
 	return p.seqId
 }
 
 // Pack packs the Cmpp3FwdRsp to bytes stream for server side.
 // Before calling Pack, you should initialize a Cmpp3FwdRsp variable
 // with correct field value.
-func (p *Cmpp3FwdRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, Cmpp3FwdRspLen)
+func (p *CmppFwdRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
+	rspLen := Cmpp3FwdRspLen
+	if sp == proto.CMPP2 {
+		rspLen = Cmpp2FwdRspLen
+	}
+	data := make([]byte, rspLen)
 	pkt := proto.NewPacket(data)
 	// Pack header
-	pkt.WriteU32(Cmpp3FwdRspLen)
+	pkt.WriteU32(rspLen)
 	pkt.WriteU32(CMPP_FWD_RESP.ToInt())
 
 	p.seqId = seqId
@@ -455,13 +469,17 @@ func (p *Cmpp3FwdRsp) Pack(seqId uint32) []byte {
 	pkt.WriteU64(p.MsgId)
 	pkt.WriteByte(p.PkTotal)
 	pkt.WriteByte(p.PkNumber)
-	pkt.WriteU32(p.Result)
+	if sp == proto.CMPP3 {
+		pkt.WriteU32(p.Result)
+	} else {
+		pkt.WriteByte(byte(p.Result))
+	}
 	return data
 }
 
 // Unpack unpack the binary byte stream to a Cmpp3FwdRsp variable.
 // After unpack, you will get all value of fields in Cmpp3FwdRsp struct.
-func (p *Cmpp3FwdRsp) Unpack(data []byte) (e error) {
+func (p *CmppFwdRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -474,13 +492,17 @@ func (p *Cmpp3FwdRsp) Unpack(data []byte) (e error) {
 
 	p.PkTotal = pkt.ReadByte()
 	p.PkNumber = pkt.ReadByte()
-	p.Result = pkt.ReadU32()
+	if sp == proto.CMPP3 {
+		p.Result = pkt.ReadU32()
+	} else {
+		p.Result = uint32(pkt.ReadByte())
+	}
 	return nil
 }
-func (p *Cmpp3FwdRsp) Event() event.SmsEvent {
+func (p *CmppFwdRsp) Event() event.SmsEvent {
 	return event.SmsEventFwdRsp
 }
 
-func (p *Cmpp3FwdRsp) SeqId() uint32 {
+func (p *CmppFwdRsp) SeqId() uint32 {
 	return p.seqId
 }

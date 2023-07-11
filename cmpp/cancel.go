@@ -22,7 +22,7 @@ type CmppCancelRsp struct {
 }
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
-func (p *CmppCancelReq) Pack(seqId uint32) []byte {
+func (p *CmppCancelReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	data := make([]byte, CmppCancelReqLen)
 	pkt := proto.NewPacket(data)
 
@@ -41,7 +41,7 @@ func (p *CmppCancelReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppCancelReq) Unpack(data []byte) (e error) {
+func (p *CmppCancelReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -62,7 +62,7 @@ func (p *CmppCancelReq) Event() event.SmsEvent {
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
-func (p *CmppCancelRsp) Pack(seqId uint32) []byte {
+func (p *CmppCancelRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	data := make([]byte, CmppCancelRspLen)
 	pkt := proto.NewPacket(data)
 
@@ -81,7 +81,7 @@ func (p *CmppCancelRsp) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppCancelRsp) Unpack(data []byte) (e error) {
+func (p *CmppCancelRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)

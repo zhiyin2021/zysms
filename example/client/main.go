@@ -33,18 +33,12 @@ func startAClient(idx int) {
 	}
 	sms.OnEvent = func(p *zysms.Packet) error {
 		switch req := p.Req.(type) {
-		case *cmpp.Cmpp2ConnRsp:
-			log.Printf("client %d: receive a cmpp connect2 response: %v.", idx, req.Status)
-		case *cmpp.Cmpp2SubmitRsp:
-			log.Printf("client %d: receive a cmpp submit2 response: %v.", idx, req.MsgId)
-		case *cmpp.Cmpp2DeliverReq:
-			log.Printf("client %d: receive a cmpp deliver2 request: %v.", idx, req.MsgId)
-		case *cmpp.Cmpp3ConnRsp:
-			log.Printf("client %d: receive a cmpp connect3 response: %v.", idx, req.Status)
-		case *cmpp.Cmpp3SubmitRsp:
-			log.Printf("client %d: receive a cmpp submit3 response: %v.", idx, req.MsgId)
-		case *cmpp.Cmpp3DeliverReq:
-			log.Printf("client %d: receive a cmpp deliver3 request: %v.", idx, req.MsgId)
+		case *cmpp.CmppConnRsp:
+			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
+		case *cmpp.CmppSubmitRsp:
+			log.Printf("client %d: receive a cmpp submit response: %v.", idx, req.MsgId)
+		case *cmpp.CmppDeliverReq:
+			log.Printf("client %d: receive a cmpp deliver request: %v.", idx, req.MsgId)
 		default:
 			log.Printf("client %d => %d: unknown event: %v", p.Req.Event(), idx, p)
 		}
@@ -68,7 +62,7 @@ func startAClient(idx int) {
 				fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
 				return
 			}
-			p := &cmpp.Cmpp2SubmitReq{
+			p := &cmpp.CmppSubmitReq{
 				PkTotal:            1,
 				PkNumber:           1,
 				RegisteredDelivery: 1,

@@ -1,8 +1,9 @@
 package zysms
 
 import (
+	"context"
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -25,7 +26,8 @@ type cmppConn struct {
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
 	_seqId  uint32
-	done    chan struct{}
+	stop    func()
+	ctx     context.Context
 	counter int32
 	logger  *logrus.Entry
 }
@@ -37,15 +39,18 @@ func newCmppConn(conn net.Conn, typ cmpp.Version) *Conn {
 		Conn:   conn,
 		Typ:    typ,
 		_seqId: 0,
-		done:   make(chan struct{}, 1),
-		logger: logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr(), "v": typ}),
+		logger: logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
 	}
+	c.ctx, c.stop = context.WithCancel(context.Background())
+
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
-	return &Conn{smsConn: c, Logger: c.logger, UUID: uuid.New().String()}
+	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
-
+func (c *cmppConn) Proto() proto.SmsProto {
+	return c.Typ.Proto()
+}
 func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
 	// Login to the server.
 	req := &cmpp.CmppConnReq{
@@ -64,19 +69,16 @@ func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
 		return err
 	}
 	var status uint8
-	if c.Typ == cmpp.V30 {
-		if rsp, ok := p.(*cmpp.Cmpp3ConnRsp); ok {
-			status = uint8(rsp.Status)
-		} else {
-			return smserror.ErrRespNotMatch
+
+	if rsp, ok := p.(*cmpp.CmppConnRsp); ok {
+		if rsp.Version != c.Typ {
+			return smserror.ErrVersionNotMatch
 		}
+		status = uint8(rsp.Status)
 	} else {
-		if rsp, ok := p.(*cmpp.Cmpp2ConnRsp); ok {
-			status = rsp.Status
-		} else {
-			return smserror.ErrRespNotMatch
-		}
+		return smserror.ErrRespNotMatch
 	}
+
 	if status != 0 {
 		if status <= cmpp.ErrnoConnOthers { //ErrnoConnOthers = 5
 			err = cmpp.ConnRspStatusErrMap[status]
@@ -95,7 +97,7 @@ func (c *cmppConn) Close() {
 		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
-		c.done <- struct{}{}
+		c.stop()
 	}
 }
 
@@ -118,7 +120,9 @@ func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
 	if seqId == 0 {
 		seqId = c.seqId()
 	}
-	data := pkt.Pack(seqId)
+	c.Logger().Infof("send pkt:%T , %s", pkt, c.Typ)
+
+	data := pkt.Pack(seqId, c.Typ.Proto())
 
 	_, err := c.Conn.Write(data) //block write
 	if err != nil {
@@ -147,6 +151,9 @@ var readBufferPool = sync.Pool{
 
 func (c *cmppConn) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
+}
+func (c *cmppConn) Logger() *logrus.Entry {
+	return c.logger
 }
 
 // RecvAndUnpackPkt receives cmpp byte stream, and unpack it to some cmpp packet structure.
@@ -214,15 +221,17 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 			atomic.AddInt32(&c.counter, -1)
 			return c.RecvPkt(timeout)
 		case cmpp.CMPP_CONNECT_RESP: // 当收到登录回复,内部先校验版本
-			if c.Typ == cmpp.V30 {
-				if _, ok := p.(*cmpp.Cmpp2ConnRsp); ok {
-					return nil, errors.New("cmpp version not match [ local: 3.0 != remote: 2.0 ]")
+			if v, ok := p.(*cmpp.CmppConnRsp); ok {
+				if v.Version != c.Typ {
+					return nil, fmt.Errorf("cmpp version not match [ local: %d != remote: %d ]", c.Typ, v.Version)
 				}
-			} else if _, ok := p.(*cmpp.Cmpp3ConnRsp); ok {
-				return nil, errors.New("cmpp version not match [ local: 2.0 != remote: 3.0 ]")
 			}
 		case cmpp.CMPP_CONNECT: // 当收到登录回复,内部先校验版本
-			if c.Typ != p.(*cmpp.CmppConnReq).Version {
+			if v, ok := p.(*cmpp.CmppConnReq); ok {
+				// 服务端自适应版本
+				c.Typ = v.Version
+				c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
+			} else {
 				return nil, smserror.ErrVersionNotMatch
 			}
 		}
@@ -234,11 +243,10 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 
 type cmppListener struct {
 	net.Listener
-	typ cmpp.Version
 }
 
-func newCmppListener(l net.Listener, v cmpp.Version) *cmppListener {
-	return &cmppListener{l, v}
+func newCmppListener(l net.Listener) *cmppListener {
+	return &cmppListener{l}
 }
 
 func (l *cmppListener) accept() (*Conn, error) {
@@ -246,7 +254,7 @@ func (l *cmppListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newCmppConn(c, l.typ)
+	conn := newCmppConn(c, cmpp.V30)
 	conn.SetState(enum.CONN_CONNECTED)
 	conn.smsConn.(*cmppConn).startActiveTest()
 	return conn, nil
@@ -258,7 +266,7 @@ func (c *cmppConn) startActiveTest() {
 		defer t.Stop()
 		for {
 			select {
-			case <-c.done:
+			case <-c.ctx.Done():
 				// once conn close, the goroutine should exit
 				return
 			case <-t.C:

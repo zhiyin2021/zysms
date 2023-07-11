@@ -41,20 +41,6 @@ var (
 	errConnOthers         = errors.New("connect response status: other errors")
 )
 
-// func now() (string, uint32) {
-// 	s := time.Now().Format("0102150405")
-// 	i, _ := strconv.Atoi(s)
-// 	return s, uint32(i)
-// }
-
-// CmppConnReq represents a Cmpp2 or Cmpp3 connect request packet.
-//
-// when used in client side(pack), you should initialize it with
-// correct SourceAddr(SrcAddr), Secret and Version.
-//
-// when used in server side(unpack), nothing needed to be initialized.
-// unpack will fill the SourceAddr(SrcAddr), AuthSrc, Version, Timestamp
-// and SeqId
 type CmppConnReq struct {
 	// header 消息头 12字节
 	SrcAddr   string  // +6 = 18：源地址，此处为 SP_Id
@@ -65,31 +51,8 @@ type CmppConnReq struct {
 	seqId     uint32  // 序列编号
 }
 
-// Cmpp2ConnRsp represents a Cmpp2 connect response packet.
-//
-// when used in server side(pack), you should initialize it with
-// correct Status, AuthSrc, Secret and Version.
-//
-// when used in client side(unpack), nothing needed to be initialized.
-// unpack will fill the Status, AuthImsg, Version and SeqId
-type Cmpp2ConnRsp struct {
-	Status   uint8   // 1字节 0：正确 1：消息结构错 2：非法源地址 3：认证错 4：版本太高 5~ ：其他错误
-	AuthIsmg string  // 16字节 ISMG认证码，用于鉴别ISMG。其值通过单向MD5 hash计算得出，表示如下： AuthenticatorISMG =MD5（Status+AuthenticatorSource+shared secret），Shared secret 由中国移动与源地址实体事先商定，AuthenticatorSource为源地址实体发送给ISMG的对应消息CMPP_Connect中的值。 认证出错时，此项为空。
-	Version  Version // 1字节 服务器支持的最高版本号，对于3.0的版本，高4bit为3，低4位为0
-	Secret   string  // 非协议内容
-	AuthSrc  string  // 非协议内容
-	seqId    uint32  // 序列编号
-}
-
-// Cmpp3ConnRsp represents a Cmpp3 connect response packet.
-//
-// when used in server side(pack), you should initialize it with
-// correct Status, AuthSrc, Secret and Version.
-//
-// when used in client side(unpack), nothing needed to be initialized.
-// unpack will fill the Status, AuthImsg, Version and SeqId
-type Cmpp3ConnRsp struct {
-	Status   uint32  // 4字节 0：正确 1：消息结构错 2：非法源地址 3：认证错 4：版本太高 5~ ：其他错误
+type CmppConnRsp struct {
+	Status   uint32  // (cmpp3 = 4字节, cmpp2 = 1字节) 0：正确 1：消息结构错 2：非法源地址 3：认证错 4：版本太高 5~ ：其他错误
 	AuthIsmg string  // 16字节 ISMG认证码，用于鉴别ISMG。其值通过单向MD5 hash计算得出，表示如下： AuthenticatorISMG =MD5（Status+AuthenticatorSource+shared secret），Shared secret 由中国移动与源地址实体事先商定，AuthenticatorSource为源地址实体发送给ISMG的对应消息CMPP_Connect中的值。 认证出错时，此项为空。
 	Version  Version // 1字节 服务器支持的最高版本号，对于3.0的版本，高4bit为3，低4位为0
 	Secret   string  // 非协议内容
@@ -100,7 +63,7 @@ type Cmpp3ConnRsp struct {
 // Pack packs the CmppConnReq to bytes stream for client side.
 // Before calling Pack, you should initialize a CmppConnReq variable
 // with correct SourceAddr(SrcAddr), Secret and Version.
-func (p *CmppConnReq) Pack(seqId uint32) []byte {
+func (p *CmppConnReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	buf := make([]byte, CmppConnReqLen)
 	pkt := proto.NewPacket(buf)
 
@@ -139,7 +102,7 @@ func (p *CmppConnReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a CmppConnReq variable.
 // Usually it is used in server side. After unpack, you will get SeqId, SourceAddr,
 // AuthenticatorSource, Version and Timestamp.
-func (p *CmppConnReq) Unpack(data []byte) (e error) {
+func (p *CmppConnReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -166,84 +129,31 @@ func (p *CmppConnReq) SeqId() uint32 {
 	return p.seqId
 }
 
-// Pack packs the Cmpp2ConnRsp to bytes stream for server side.
-// Before calling Pack, you should initialize a Cmpp2ConnRsp variable
-// with correct Status,AuthenticatorSource, Secret and Version.
-func (p *Cmpp2ConnRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, Cmpp2ConnRspLen)
+func (p *CmppConnRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
+	rspLen := Cmpp3ConnRspLen
+	if sp == proto.CMPP2 {
+		rspLen = Cmpp2ConnRspLen
+	}
+	data := make([]byte, rspLen)
 	pkt := proto.NewPacket(data)
 
 	// pack header
-	pkt.WriteU32(Cmpp2ConnRspLen)
-	pkt.WriteU32(CMPP_CONNECT_RESP.ToInt())
+	pkt.WriteU32(rspLen)
 
+	pkt.WriteU32(CMPP_CONNECT_RESP.ToInt())
 	p.seqId = seqId
 
 	pkt.WriteU32(p.seqId)
-	// pack body
-	pkt.WriteByte(p.Status)
-
-	md5 := md5.Sum(bytes.Join([][]byte{{p.Status},
-		[]byte(p.AuthSrc),
-		[]byte(p.Secret)},
-		nil))
-	p.AuthIsmg = string(md5[:])
-	pkt.WriteStr(p.AuthIsmg, len(p.AuthIsmg))
-	pkt.WriteByte(byte(p.Version))
-	return data
-}
-
-// Unpack unpack the binary byte stream to a Cmpp2ConnRsp variable.
-// Usually it is used in client side. After unpack, you will get SeqId, Status,
-// AuthenticatorIsmg, and Version.
-// Parameter data contains seqId in header and the whole packet body.
-func (p *Cmpp2ConnRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-
-	// Body: Status
-	p.Status = pkt.ReadByte()
-
-	// Body: AuthenticatorISMG
-	p.AuthIsmg = pkt.ReadStr(16)
-
-	// Body: Version
-	p.Version = Version(pkt.ReadByte())
-	return nil
-}
-func (p *Cmpp2ConnRsp) Event() event.SmsEvent {
-	return event.SmsEventAuthRsp
-}
-func (p *Cmpp2ConnRsp) SeqId() uint32 {
-	return p.seqId
-}
-
-// Pack packs the Cmpp3ConnRsp to bytes stream for server side.
-// Before calling Pack, you should initialize a Cmpp3ConnRsp variable
-// with correct Status,AuthenticatorSource, Secret and Version.
-func (p *Cmpp3ConnRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, Cmpp3ConnRspLen)
-	pkt := proto.NewPacket(data)
-
-	// pack header
-	pkt.WriteU32(Cmpp3ConnRspLen)
-	pkt.WriteU32(CMPP_CONNECT_RESP.ToInt())
-
-	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-
-	// pack body
-	pkt.WriteU32(p.Status)
 
 	bs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bs, p.Status)
+
+	if sp == proto.CMPP3 {
+		// pack body
+		pkt.WriteU32(p.Status)
+	} else {
+		pkt.WriteByte(bs[3])
+	}
 
 	hash := md5.Sum(bytes.Join([][]byte{bs,
 		[]byte(p.AuthSrc),
@@ -257,11 +167,7 @@ func (p *Cmpp3ConnRsp) Pack(seqId uint32) []byte {
 	return data
 }
 
-// Unpack unpack the binary byte stream to a Cmpp3ConnRsp variable.
-// Usually it is used in client side. After unpack, you will get SeqId, Status,
-// AuthenticatorIsmg, and Version.
-// Parameter data contains seqId in header and the whole packet body.
-func (p *Cmpp3ConnRsp) Unpack(data []byte) (e error) {
+func (p *CmppConnRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -271,9 +177,12 @@ func (p *Cmpp3ConnRsp) Unpack(data []byte) (e error) {
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-
-	// Body: Status
-	p.Status = pkt.ReadU32()
+	if sp == proto.CMPP3 {
+		// Body: Status
+		p.Status = pkt.ReadU32()
+	} else {
+		p.Status = uint32(pkt.ReadByte())
+	}
 
 	// Body: AuthenticatorISMG
 	p.AuthIsmg = pkt.ReadStr(16)
@@ -281,10 +190,10 @@ func (p *Cmpp3ConnRsp) Unpack(data []byte) (e error) {
 	p.Version = Version(pkt.ReadByte())
 	return nil
 }
-func (p *Cmpp3ConnRsp) Event() event.SmsEvent {
+func (p *CmppConnRsp) Event() event.SmsEvent {
 	return event.SmsEventAuthRsp
 }
 
-func (p *Cmpp3ConnRsp) SeqId() uint32 {
+func (p *CmppConnRsp) SeqId() uint32 {
 	return p.seqId
 }

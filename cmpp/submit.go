@@ -3,6 +3,7 @@ package cmpp
 import (
 	"errors"
 
+	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/event"
 	"github.com/zhiyin2021/zysms/proto"
 )
@@ -63,42 +64,7 @@ var (
 	errSubmitInvalidDestTerminalId = errors.New("submit response status: invalid destTerminalId")
 )
 
-type Cmpp2SubmitReq struct {
-	MsgId              uint64   // 信息标识，由 SP 接入的短信网关本身产生，本处填空(0)。【8字节】
-	PkTotal            uint8    // 相同 Msg_Id 的信息总条数，从 1 开始。【1字节】
-	PkNumber           uint8    // 相同 Msg_Id 的信息序号，从 1 开始。【1字节】
-	RegisteredDelivery uint8    // 是否要求返回状态确认报告：0：不需要；1：需要。【1字节】
-	MsgLevel           uint8    // 信息级别。【1字节】
-	ServiceId          string   // 业务类型，是数字、字母和符号的组合。【10字节】
-	FeeUserType        uint8    // 计费用户类型字段：0：对目的终端 MSISDN 计费；1：对源终端 MSISDN 计费；2：对 SP 计费；3：表示本字段无效，对谁计费参见 Fee_terminal_Id 字段。【1字节】
-	FeeTerminalId      string   // 被计费用户的号码。【21字节】
-	TpPid              uint8    // GSM 协议类型。详细解释请参考 GSM03.40 中的
-	TpUdhi             uint8    // GSM 协议类型。详细解释请参考 GSM03.40 中的
-	MsgFmt             uint8    // 信息格式：0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
-	MsgSrc             string   // 信息内容来源(SP_Id)。【6字节】
-	FeeType            string   // 资费类别：01：对“计费用户号码”免费；02：对“计费用户号码”按条计信息费；03：对“计费用户号码”按包月收取信息费。【2字节】
-	FeeCode            string   // 资费代码（以分为单位）。【6字节】
-	ValidTime          string   // 存活有效期，格式遵循 SMPP3.3 协议。【17字节】
-	AtTime             string   // 定时发送时间，格式遵从 SMPP3.3 协议。【17字节】
-	SrcId              string   // 源号码。【21字节】
-	DestUsrTl          uint8    // 接收信息的用户数量(小于 100 个用户)。【1字节】
-	DestTerminalId     []string // 接收短信的 MSISDN 号码。【21字节*DestUsr_tl】
-	MsgLength          uint8    // 信息长度(Msg_Fmt 值为 0 时：< 160 个字节；其它<=140 个字节)。【1字节】
-	MsgContent         string   // 信息内容。【Msg_Length 字节】
-	Reserve            string   // 保留，扩展用。【8字节】
-	// session info
-	seqId uint32
-}
-
-type Cmpp2SubmitRsp struct {
-	MsgId  uint64
-	Result uint8
-
-	// session info
-	seqId uint32
-}
-
-type Cmpp3SubmitReq struct {
+type CmppSubmitReq struct {
 	MsgId              uint64
 	PkTotal            uint8
 	PkNumber           uint8
@@ -106,8 +72,8 @@ type Cmpp3SubmitReq struct {
 	MsgLevel           uint8
 	ServiceId          string
 	FeeUserType        uint8
-	FeeTerminalId      string
-	FeeTerminalType    uint8
+	FeeTerminalId      string // cmpp3.0=32字节, cmpp2.0=21字节
+	FeeTerminalType    uint8  // 被计费用户的号码类型，0：真实号码；1：伪码。【1字节】cmpp3.0
 	TpPid              uint8
 	TpUdhi             uint8
 	MsgFmt             uint8
@@ -118,194 +84,32 @@ type Cmpp3SubmitReq struct {
 	AtTime             string
 	SrcId              string
 	DestUsrTl          uint8
-	DestTerminalId     []string // 接收短信的 MSISDN 号码。【32字节*DestUsr_tl】
-	DestTerminalType   uint8
+	DestTerminalId     []string // 接收短信的 MSISDN 号码。cmpp3.0 = 32字节*DestUsr_tl, cmpp2.0 = 21*DestUsr_tl
+	DestTerminalType   uint8    // 接收短信的用户的号码类型，0：真实号码；1：伪码。【1字节】 cmpp3.0
 	MsgLength          uint8
 	MsgContent         string
-	LinkId             string
+	LinkId             string // 点播业务使用 LinkID,非点播业务的MT流程不使用该字段  cmpp3.0 = 20字节, cmpp2.0 = 8字节
 
 	// session info
 	seqId uint32
 }
 
-type Cmpp3SubmitRsp struct {
+type CmppSubmitRsp struct {
 	MsgId  uint64
-	Result uint32
+	Result uint32 // 3.0 = 4字节, 2.0 = 1字节
 
 	// session info
 	seqId uint32
 }
 
-// Pack packs the Cmpp2SubmitReq to bytes stream for client side.
-// Before calling Pack, you should initialize a Cmpp2SubmitReq variable
-// with correct field value.
-func (p *Cmpp2SubmitReq) Pack(seqId uint32) []byte {
-	p.DestUsrTl = byte(len(p.DestTerminalId))
-	var pktLen uint32 = CMPP_HEADER_LEN + 117 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(pktLen)
-	pkt.WriteU32(CMPP_SUBMIT.ToInt())
-
-	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-
-	// Pack Body
-	pkt.WriteU64(p.MsgId)
-
-	if p.PkTotal == 0 && p.PkNumber == 0 {
-		p.PkTotal, p.PkNumber = 1, 1
-	}
-	pkt.WriteByte(p.PkTotal)
-	pkt.WriteByte(p.PkNumber)
-	pkt.WriteByte(p.RegisteredDelivery)
-	pkt.WriteByte(p.MsgLevel)
-	pkt.WriteStr(p.ServiceId, 10)
-	pkt.WriteByte(p.FeeUserType)
-	pkt.WriteStr(p.FeeTerminalId, 21)
-	pkt.WriteByte(p.TpPid)
-	pkt.WriteByte(p.TpUdhi)
-	pkt.WriteByte(p.MsgFmt)
-	pkt.WriteStr(p.MsgSrc, 6)
-	pkt.WriteStr(p.FeeType, 2)
-	pkt.WriteStr(p.FeeCode, 6)
-	pkt.WriteStr(p.ValidTime, 17)
-	pkt.WriteStr(p.AtTime, 17)
-	pkt.WriteStr(p.SrcId, 21)
-	pkt.WriteByte(p.DestUsrTl)
-	for _, d := range p.DestTerminalId {
-		pkt.WriteStr(d, 21)
-	}
-	pkt.WriteByte(p.MsgLength)
-	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
-	pkt.WriteStr(p.Reserve, 8)
-
-	return data
-}
-
-// Unpack unpack the binary byte stream to a Cmpp2SubmitReq variable.
-// Usually it is used in server side. After unpack, you will get all value of fields in
-// Cmpp2SubmitReq struct.
-func (p *Cmpp2SubmitReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	p.MsgId = pkt.ReadU64()
-
-	p.PkTotal = pkt.ReadByte()
-	p.PkNumber = pkt.ReadByte()
-	p.RegisteredDelivery = pkt.ReadByte()
-	p.MsgLevel = pkt.ReadByte()
-
-	serviceId := pkt.ReadStr(10)
-	p.ServiceId = string(serviceId)
-
-	p.FeeUserType = pkt.ReadByte()
-
-	feeTerminalId := pkt.ReadStr(21)
-	p.FeeTerminalId = string(feeTerminalId)
-
-	p.TpPid = pkt.ReadByte()
-	p.TpUdhi = pkt.ReadByte()
-	p.MsgFmt = pkt.ReadByte()
-
-	p.MsgSrc = pkt.ReadStr(6)
-
-	p.FeeType = pkt.ReadStr(2)
-
-	p.FeeCode = pkt.ReadStr(6)
-
-	p.ValidTime = pkt.ReadStr(17)
-
-	p.AtTime = pkt.ReadStr(17)
-
-	p.SrcId = pkt.ReadStr(21)
-
-	p.DestUsrTl = pkt.ReadByte()
-
-	for i := 0; i < int(p.DestUsrTl); i++ {
-		p.DestTerminalId = append(p.DestTerminalId, pkt.ReadStr(21))
-	}
-
-	p.MsgLength = pkt.ReadByte()
-	// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
-	if p.MsgFmt == 8 {
-		p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
-	} else {
-		p.MsgContent = pkt.ReadStr(int(p.MsgLength))
-	}
-	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
-
-	p.Reserve = pkt.ReadStr(8)
-	return nil
-}
-func (p *Cmpp2SubmitReq) Event() event.SmsEvent {
-	return event.SmsEventSubmitReq
-}
-func (p *Cmpp2SubmitReq) SeqId() uint32 {
-	return p.seqId
-}
-
-// Pack packs the Cmpp2SubmitRsp to bytes stream for Server side.
-// Before calling Pack, you should initialize a Cmpp2SubmitRsp variable
-// with correct field value.
-func (p *Cmpp2SubmitRsp) Pack(seqId uint32) []byte {
-	var pktLen uint32 = CMPP_HEADER_LEN + 8 + 1
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
-	// Pack header
-	pkt.WriteU32(pktLen)
-	pkt.WriteU32(CMPP_SUBMIT_RESP.ToInt())
-
-	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-
-	// Pack Body
-	pkt.WriteU64(p.MsgId)
-	pkt.WriteByte(p.Result)
-	return data
-}
-
-// Unpack unpack the binary byte stream to a Cmpp2SubmitRsp variable.
-// Usually it is used in client side. After unpack, you will get all value of fields in
-// Cmpp2SubmitRsp struct.
-func (p *Cmpp2SubmitRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	p.MsgId = pkt.ReadU64()
-
-	p.Result = pkt.ReadByte()
-	return nil
-}
-func (p *Cmpp2SubmitRsp) Event() event.SmsEvent {
-	return event.SmsEventSubmitRsp
-}
-func (p *Cmpp2SubmitRsp) SeqId() uint32 {
-	return p.seqId
-}
-
-// Pack packs the Cmpp3SubmitReq to bytes stream for client side.
-// Before calling Pack, you should initialize a Cmpp3SubmitReq variable
-// with correct field value.
-func (p *Cmpp3SubmitReq) Pack(seqId uint32) []byte {
+func (p *CmppSubmitReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	var pktLen uint32 = CMPP_HEADER_LEN + 129 + uint32(len(p.DestTerminalId)*32) + 1 + 1 + uint32(p.MsgLength) + 20
+	numLen := 32
+	if sp == proto.CMPP2 {
+		pktLen = CMPP_HEADER_LEN + 117 + uint32(len(p.DestTerminalId))*21 + 1 + uint32(p.MsgLength) + 8
+		numLen = 21
+	}
+	logrus.Infof("submit.pack %d,%d", pktLen, numLen)
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
 	// Pack header
@@ -328,8 +132,10 @@ func (p *Cmpp3SubmitReq) Pack(seqId uint32) []byte {
 	pkt.WriteByte(p.MsgLevel)
 	pkt.WriteStr(p.ServiceId, 10)
 	pkt.WriteByte(p.FeeUserType)
-	pkt.WriteStr(p.FeeTerminalId, 32)
-	pkt.WriteByte(p.FeeTerminalType)
+	pkt.WriteStr(p.FeeTerminalId, numLen) // numLen => cmpp3.0=32字节, cmpp2.0=21字节
+	if sp == proto.CMPP3 {
+		pkt.WriteByte(p.FeeTerminalType)
+	}
 	pkt.WriteByte(p.TpPid)
 	pkt.WriteByte(p.TpUdhi)
 	pkt.WriteByte(p.MsgFmt)
@@ -343,12 +149,19 @@ func (p *Cmpp3SubmitReq) Pack(seqId uint32) []byte {
 	pkt.WriteByte(p.DestUsrTl)
 
 	for _, d := range p.DestTerminalId {
-		pkt.WriteStr(d, 32)
+		pkt.WriteStr(d, numLen) // numLen => cmpp3.0=32字节, cmpp2.0=21字节
 	}
-	pkt.WriteByte(p.DestTerminalType)
+	if sp == proto.CMPP3 {
+		pkt.WriteByte(p.DestTerminalType)
+	}
 	pkt.WriteByte(p.MsgLength)
 	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
-	pkt.WriteStr(p.LinkId, 20)
+
+	if sp == proto.CMPP3 {
+		pkt.WriteStr(p.LinkId, 20)
+	} else {
+		pkt.WriteStr(p.LinkId, 8)
+	}
 
 	return data
 }
@@ -356,12 +169,16 @@ func (p *Cmpp3SubmitReq) Pack(seqId uint32) []byte {
 // Unpack unpack the binary byte stream to a Cmpp3SubmitReq variable.
 // Usually it is used in server side. After unpack, you will get all value of fields in
 // Cmpp3SubmitReq struct.
-func (p *Cmpp3SubmitReq) Unpack(data []byte) (e error) {
+func (p *CmppSubmitReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
 		}
 	}()
+	numLen := 32
+	if sp == proto.CMPP2 {
+		numLen = 21
+	}
 	pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -376,9 +193,10 @@ func (p *Cmpp3SubmitReq) Unpack(data []byte) (e error) {
 
 	p.FeeUserType = pkt.ReadByte()
 
-	p.FeeTerminalId = pkt.ReadStr(32)
-
-	p.FeeTerminalType = pkt.ReadByte()
+	p.FeeTerminalId = pkt.ReadStr(numLen)
+	if sp == proto.CMPP3 {
+		p.FeeTerminalType = pkt.ReadByte()
+	}
 	p.TpPid = pkt.ReadByte()
 	p.TpUdhi = pkt.ReadByte()
 	p.MsgFmt = pkt.ReadByte()
@@ -398,10 +216,11 @@ func (p *Cmpp3SubmitReq) Unpack(data []byte) (e error) {
 	p.DestUsrTl = pkt.ReadByte()
 
 	for i := 0; i < int(p.DestUsrTl); i++ {
-		p.DestTerminalId = append(p.DestTerminalId, pkt.ReadStr(32))
+		p.DestTerminalId = append(p.DestTerminalId, pkt.ReadStr(numLen))
 	}
-
-	p.DestTerminalType = pkt.ReadByte()
+	if sp == proto.CMPP3 {
+		p.DestTerminalType = pkt.ReadByte()
+	}
 	p.MsgLength = pkt.ReadByte()
 	// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
 	if p.MsgFmt == 8 {
@@ -409,22 +228,28 @@ func (p *Cmpp3SubmitReq) Unpack(data []byte) (e error) {
 	} else {
 		p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 	}
-
-	p.LinkId = pkt.ReadStr(20)
+	if sp == proto.CMPP3 {
+		p.LinkId = pkt.ReadStr(20)
+	} else {
+		p.LinkId = pkt.ReadStr(8)
+	}
 	return nil
 }
-func (p *Cmpp3SubmitReq) Event() event.SmsEvent {
+func (p *CmppSubmitReq) Event() event.SmsEvent {
 	return event.SmsEventSubmitReq
 }
-func (p *Cmpp3SubmitReq) SeqId() uint32 {
+func (p *CmppSubmitReq) SeqId() uint32 {
 	return p.seqId
 }
 
 // Pack packs the Cmpp3SubmitRsp to bytes stream for Server side.
 // Before calling Pack, you should initialize a Cmpp3SubmitRsp variable
 // with correct field value.
-func (p *Cmpp3SubmitRsp) Pack(seqId uint32) []byte {
+func (p *CmppSubmitRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	var pktLen uint32 = CMPP_HEADER_LEN + 8 + 4
+	if sp == proto.CMPP2 {
+		pktLen = CMPP_HEADER_LEN + 8 + 1
+	}
 	data := make([]byte, pktLen)
 	pkt := proto.NewPacket(data)
 
@@ -438,15 +263,18 @@ func (p *Cmpp3SubmitRsp) Pack(seqId uint32) []byte {
 
 	// Pack Body
 	pkt.WriteU64(p.MsgId)
-	pkt.WriteU32(p.Result)
-
+	if sp == proto.CMPP3 {
+		pkt.WriteU32(p.Result)
+	} else {
+		pkt.WriteByte(byte(p.Result))
+	}
 	return data
 }
 
 // Unpack unpack the binary byte stream to a Cmpp3SubmitRsp variable.
 // Usually it is used in client side. After unpack, you will get all value of fields in
 // Cmpp3SubmitRsp struct.
-func (p *Cmpp3SubmitRsp) Unpack(data []byte) (e error) {
+func (p *CmppSubmitRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = r.(error)
@@ -457,13 +285,17 @@ func (p *Cmpp3SubmitRsp) Unpack(data []byte) (e error) {
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
-	p.Result = pkt.ReadU32()
+	if sp == proto.CMPP3 {
+		p.Result = pkt.ReadU32()
+	} else {
+		p.Result = uint32(pkt.ReadByte())
+	}
 	return nil
 }
-func (p *Cmpp3SubmitRsp) Event() event.SmsEvent {
+func (p *CmppSubmitRsp) Event() event.SmsEvent {
 	return event.SmsEventSubmitRsp
 }
 
-func (p *Cmpp3SubmitRsp) SeqId() uint32 {
+func (p *CmppSubmitRsp) SeqId() uint32 {
 	return p.seqId
 }
