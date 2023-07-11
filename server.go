@@ -30,6 +30,7 @@ type (
 		smsConn
 		// Data   any
 		Logger *logrus.Entry
+		Proto  proto.SmsProto
 		UUID   string
 	}
 	smsListener interface {
@@ -70,6 +71,7 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 			if err != nil {
 				return
 			}
+			conn.Proto = s.proto
 			go s.run(conn)
 		}
 	}()
@@ -92,6 +94,7 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration) (*Conn, 
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
+	zconn.Proto = s.proto
 	zconn.SetState(enum.CONN_CONNECTED)
 	err = zconn.Auth(uid, pwd, timeout)
 	if err != nil {
