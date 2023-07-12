@@ -88,7 +88,7 @@ type CmppSubmitReq struct {
 	FeeTerminalId      string // cmpp3.0=32字节, cmpp2.0=21字节
 	FeeTerminalType    uint8  // 被计费用户的号码类型，0：真实号码；1：伪码。【1字节】cmpp3.0
 	TpPid              uint8
-	TpUdhi             uint8
+	TpUdhi             uint8 // 0：消息内容体不带协议头；1：消息内容体带协议头。【1字节】
 	MsgFmt             uint8
 	MsgSrc             string
 	FeeType            string
@@ -102,7 +102,6 @@ type CmppSubmitReq struct {
 	MsgLength          uint8
 	MsgContent         []byte // 信息内容
 	LinkId             string // 点播业务使用 LinkID,非点播业务的MT流程不使用该字段  cmpp3.0 = 20字节, cmpp2.0 = 8字节
-
 	// session info
 	seqId uint32
 }

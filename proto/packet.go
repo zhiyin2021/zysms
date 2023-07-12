@@ -29,7 +29,9 @@ func (c *packet) ReadBytes(count int) []byte {
 		c.index += count
 	}()
 	last := c.index + count
-	return c.data[c.index:last]
+	buf := make([]byte, count)
+	copy(buf, c.data[c.index:last])
+	return buf
 }
 func (c *packet) ReadByte() byte {
 	defer func() {
@@ -52,18 +54,12 @@ func (c *packet) ReadU64() uint64 {
 }
 
 func (c *packet) ReadStr(count int) string {
-	defer func() {
-		c.index += count
-	}()
-	last := c.index + count
-	return string(bytes.TrimLeft(c.data[c.index:last], "\x00"))
+	buf := c.ReadBytes(count)
+	return string(bytes.TrimLeft(buf, "\x00"))
 }
 func (c *packet) ReadUCS2(count int) string {
-	defer func() {
-		c.index += count
-	}()
-	last := c.index + count
-	buf, _ := utils.Ucs2ToUtf8(c.data[c.index:last])
+	buf := c.ReadBytes(count)
+	buf, _ = utils.Ucs2ToUtf8(buf)
 	return string(buf)
 }
 

@@ -129,7 +129,7 @@ func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
 		for _, content := range contentList {
 			p.MsgLength = byte(len(content))
 			p.MsgContent = content
-			data := pkt.Pack(c.seqId(), c.Typ.Proto())
+			data := p.Pack(c.seqId(), c.Typ.Proto())
 			_, err := c.Conn.Write(data) //block write
 			if err != nil {
 				return err
@@ -152,6 +152,7 @@ func (c *cmppConn) splitSubmitContent(req *cmpp.CmppSubmitReq) [][]byte {
 	if req.MsgFmt == 0 {
 		cLen = 160
 	}
+	cLen -= 7 // 减去7字节的消息头
 	if len(req.MsgContent) <= cLen {
 		return [][]byte{req.MsgContent}
 	}
@@ -160,8 +161,14 @@ func (c *cmppConn) splitSubmitContent(req *cmpp.CmppSubmitReq) [][]byte {
 		count++
 	}
 	contentList := make([][]byte, count)
-	idx := uint16(time.Now().UnixMilli() % 0xffff)
-	dhi := []byte{0x06, 0x00, 0x04, byte(idx >> 8), byte(idx), byte(count), 0x01}
+	idx := uint16(time.Now().UnixMilli() % 0xff)
+	// 0x06 数据头长度
+	// 0x00 信息标识
+	// 0x04 后续信息头长度
+	// 0x00,0x00 信息序列号
+	// 0x00 总条数
+	// 0x01 当前条数
+	dhi := []byte{0x05, 0x00, 0x04, byte(idx), byte(count), 0x01}
 	for i := 0; i < count; i++ {
 		dhi[5] = byte(i + 1)
 		if i == count-1 {

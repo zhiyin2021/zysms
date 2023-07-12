@@ -1,11 +1,8 @@
 package cmpp
 
 import (
-	"sync/atomic"
 	"time"
 )
-
-var _seqId = uint32(1)
 
 type msgId struct {
 	tm       time.Time
@@ -13,17 +10,12 @@ type msgId struct {
 	sequence uint32
 }
 
-func NewMsgId(gatewayId uint32) *msgId {
+func NewMsgId(gatewayId uint32, seqId uint32) *msgId {
 	return &msgId{
 		tm:       time.Now(),
 		gateway:  gatewayId,
-		sequence: seqId(),
+		sequence: seqId,
 	}
-}
-
-func seqId() uint32 {
-	sid := atomic.AddUint32(&_seqId, 1)
-	return sid
 }
 
 func (m *msgId) UInt64() uint64 {
@@ -38,5 +30,3 @@ func (m *msgId) UInt64() uint64 {
 	return uint64(uid)
 
 }
-
-//111010111010111010110100100000000000000110011110000000000000011
