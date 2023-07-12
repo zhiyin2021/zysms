@@ -28,13 +28,15 @@ func seqId() uint32 {
 
 func (m *msgId) UInt64() uint64 {
 	uid := uint64(0)
-	uid |= uint64(m.tm.Month() << 60)
-	uid |= uint64(m.tm.Day() << 55)
-	uid |= uint64(m.tm.Hour() << 50)
-	uid |= uint64(m.tm.Minute() << 44)
-	uid |= uint64(m.tm.Second() << 38)
-	uid |= uint64(m.gateway << 16)
-	uid |= uint64(m.sequence & 0xffff)
+	uid |= uint64(m.tm.Month()) << 60
+	uid |= uint64(m.tm.Day()) << 55
+	uid |= uint64(m.tm.Hour()) << 50
+	uid |= uint64(m.tm.Minute()) << 44
+	uid |= uint64(m.tm.Second()) << 38
+	uid |= uint64(m.gateway) << 16
+	uid |= uint64(m.sequence) & 0xffff
 	return uint64(uid)
 
 }
+
+//111010111010111010110100100000000000000110011110000000000000011

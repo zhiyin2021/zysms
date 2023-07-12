@@ -119,18 +119,58 @@ func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
 	if pkt == nil {
 		return smserror.ErrPktIsNil
 	}
-	if seqId == 0 {
-		seqId = c.seqId()
-	}
 	c.Logger().Infof("send pkt:%T , %s", pkt, c.Typ)
-
-	data := pkt.Pack(seqId, c.Typ.Proto())
-
-	_, err := c.Conn.Write(data) //block write
-	if err != nil {
-		return err
+	if p, ok := pkt.(*cmpp.CmppSubmitReq); ok {
+		contentList := c.splitSubmitContent(p)
+		p.TpUdhi = 0
+		if len(contentList) > 1 {
+			p.TpUdhi = 1
+		}
+		for _, content := range contentList {
+			p.MsgLength = byte(len(content))
+			p.MsgContent = content
+			data := pkt.Pack(c.seqId(), c.Typ.Proto())
+			_, err := c.Conn.Write(data) //block write
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if seqId == 0 {
+			seqId = c.seqId()
+		}
+		data := pkt.Pack(seqId, c.Typ.Proto())
+		_, err := c.Conn.Write(data) //block write
+		if err != nil {
+			return err
+		}
 	}
 	return nil
+}
+func (c *cmppConn) splitSubmitContent(req *cmpp.CmppSubmitReq) [][]byte {
+	cLen := 140
+	if req.MsgFmt == 0 {
+		cLen = 160
+	}
+	if len(req.MsgContent) <= cLen {
+		return [][]byte{req.MsgContent}
+	}
+	count := len(req.MsgContent) / cLen
+	if len(req.MsgContent)%cLen > 0 {
+		count++
+	}
+	contentList := make([][]byte, count)
+	idx := uint16(time.Now().UnixMilli() % 0xffff)
+	dhi := []byte{0x06, 0x00, 0x04, byte(idx >> 8), byte(idx), byte(count), 0x01}
+	for i := 0; i < count; i++ {
+		dhi[5] = byte(i + 1)
+		if i == count-1 {
+			contentList[i] = append(dhi, req.MsgContent[i*cLen:]...)
+		} else {
+			contentList[i] = append(dhi, req.MsgContent[i*cLen:(i+1)*cLen]...)
+		}
+	}
+	return contentList
 }
 
 const (
