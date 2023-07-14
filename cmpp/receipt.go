@@ -22,42 +22,33 @@ type CmppReceiptPkt struct {
 
 // Pack packs the CmppReceiptPkt to bytes stream for client side.
 func (p *CmppReceiptPkt) Pack(seqId uint32) []byte {
-	data := make([]byte, CmppReceiptPktLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(CmppReceiptPktLen)
+	pkt := proto.NewCmppBuffer(CmppReceiptPktLen, CMPP_DELIVER_RESP.ToInt(), seqId)
 
 	p.seqId = seqId
 
-	pkt.WriteU32(p.seqId)
-
 	pkt.WriteU64(p.MsgId)
-	pkt.WriteStr(p.Stat, 7)
-	pkt.WriteStr(p.SubmitTime, 10)
-	pkt.WriteStr(p.DoneTime, 10)
-	pkt.WriteStr(p.DestTerminalId, 21)
+	pkt.WriteCStrN(p.Stat, 7)
+	pkt.WriteCStrN(p.SubmitTime, 10)
+	pkt.WriteCStrN(p.DoneTime, 10)
+	pkt.WriteCStrN(p.DestTerminalId, 21)
 	pkt.WriteU32(p.SmscSequence)
 
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppReceiptPkt variable.
 // After unpack, you will get all value of fields in
 // CmppReceiptPkt struct.
-func (p *CmppReceiptPkt) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+func (p *CmppReceiptPkt) Unpack(data []byte) error {
+	pkt := proto.NewBuffer(data)
 
 	p.MsgId = pkt.ReadU64()
-	p.Stat = pkt.ReadStr(7)
-	p.SubmitTime = pkt.ReadStr(10)
-	p.DoneTime = pkt.ReadStr(10)
-	p.DestTerminalId = pkt.ReadStr(21)
+	p.Stat = pkt.ReadCStrN(7)
+	p.SubmitTime = pkt.ReadCStrN(10)
+	p.DoneTime = pkt.ReadCStrN(10)
+	p.DestTerminalId = pkt.ReadCStrN(21)
 	p.SmscSequence = pkt.ReadU32()
-	return nil
+	return pkt.Err()
 }
 func (p *CmppReceiptPkt) Event() event.SmsEvent {
 	return event.SmsEventUnknown

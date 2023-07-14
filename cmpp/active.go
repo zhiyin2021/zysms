@@ -23,29 +23,20 @@ type CmppActiveTestRsp struct {
 
 // Pack packs the CmppActiveTestReq to bytes stream for client side.
 func (p *CmppActiveTestReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	buf := make([]byte, CmppActiveTestReqLen)
-	pkt := proto.NewPacket(buf)
-	// Pack header
-	pkt.WriteU32(CmppActiveTestReqLen)
-	pkt.WriteU32(CMPP_ACTIVE_TEST.ToInt())
+	// buf := make([]byte, CmppActiveTestReqLen)
+	pkt := proto.NewCmppBuffer(CmppActiveTestReqLen, CMPP_ACTIVE_TEST.ToInt(), seqId)
 	p.seqId = seqId
-	pkt.WriteU32(p.seqId)
-	return buf
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppActiveTestReq variable.
 // After unpack, you will get all value of fields in
 // CmppActiveTestReq struct.
-func (p *CmppActiveTestReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var r = proto.NewPacket(data)
+func (p *CmppActiveTestReq) Unpack(data []byte, sp proto.SmsProto) error {
+	var r = proto.NewBuffer(data)
 	// Sequence Id
 	p.seqId = r.ReadU32()
-	return nil
+	return r.Err()
 }
 func (p *CmppActiveTestReq) SeqId() uint32 {
 	return p.seqId
@@ -57,32 +48,21 @@ func (p *CmppActiveTestReq) Event() event.SmsEvent {
 
 // Pack packs the CmppActiveTestRsp to bytes stream for client side.
 func (p *CmppActiveTestRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	buf := make([]byte, CmppActiveTestRspLen)
-	pkt := proto.NewPacket(buf)
-	// Pack header
-	pkt.WriteU32(CmppActiveTestRspLen)
-	pkt.WriteU32(CMPP_ACTIVE_TEST_RESP.ToInt())
-
+	pkt := proto.NewCmppBuffer(CmppActiveTestRspLen, CMPP_ACTIVE_TEST_RESP.ToInt(), seqId)
 	p.seqId = seqId
-	pkt.WriteU32(p.seqId)
 	pkt.WriteByte(p.Reserved)
-	return buf
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppActiveTestRsp variable.
 // After unpack, you will get all value of fields in
 // CmppActiveTestRsp struct.
-func (p *CmppActiveTestRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var r = proto.NewPacket(data)
+func (p *CmppActiveTestRsp) Unpack(data []byte, sp proto.SmsProto) error {
+	var r = proto.NewBuffer(data)
 	// Sequence Id
 	p.seqId = r.ReadU32()
 	p.Reserved = r.ReadByte()
-	return nil
+	return r.Err()
 }
 func (p *CmppActiveTestRsp) Event() event.SmsEvent {
 	return event.SmsEventActiveTestRsp

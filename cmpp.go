@@ -260,7 +260,10 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 	}
 
 	if fun, ok := cmpp.CmppPacket[rb.commandId]; ok {
-		p := fun(c.Typ, leftData)
+		p, e := fun(c.Typ, leftData)
+		if e != nil {
+			return nil, e
+		}
 		switch rb.commandId {
 		case cmpp.CMPP_ACTIVE_TEST: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 			resp := &cmpp.CmppActiveTestRsp{}

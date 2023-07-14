@@ -22,35 +22,20 @@ type CmppTerminateRsp struct {
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
 func (p *CmppTerminateReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	data := make([]byte, CmppTerminateReqLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(CmppTerminateReqLen)
-	pkt.WriteU32(CMPP_TERMINATE.ToInt())
-
+	pkt := proto.NewCmppBuffer(CmppTerminateReqLen, CMPP_TERMINATE.ToInt(), seqId)
 	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppTerminateReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-
-	pkt := proto.NewPacket(data)
+func (p *CmppTerminateReq) Unpack(data []byte, sp proto.SmsProto) error {
+	pkt := proto.NewBuffer(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return nil
+	return pkt.Err()
 }
 func (p *CmppTerminateReq) Event() event.SmsEvent {
 	return event.SmsEventTerminateReq
@@ -61,34 +46,20 @@ func (p *CmppTerminateReq) SeqId() uint32 {
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
 func (p *CmppTerminateRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	data := make([]byte, CmppTerminateRspLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(CmppTerminateRspLen)
-	pkt.WriteU32(CMPP_TERMINATE_RESP.ToInt())
+	pkt := proto.NewCmppBuffer(CmppTerminateRspLen, CMPP_TERMINATE_RESP.ToInt(), seqId)
 
 	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppTerminateRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-
+func (p *CmppTerminateRsp) Unpack(data []byte, sp proto.SmsProto) error {
+	pkt := proto.NewBuffer(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return nil
+	return pkt.Err()
 }
 
 func (p *CmppTerminateRsp) Event() event.SmsEvent {

@@ -23,36 +23,22 @@ type CmppCancelRsp struct {
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
 func (p *CmppCancelReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	data := make([]byte, CmppCancelReqLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(CmppCancelReqLen)
-	pkt.WriteU32(CMPP_CANCEL.ToInt())
-
+	pkt := proto.NewCmppBuffer(CmppCancelReqLen, CMPP_CANCEL.ToInt(), seqId)
 	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-
 	pkt.WriteU64(p.MsgId)
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
 func (p *CmppCancelReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-
+	pkt := proto.NewBuffer(data)
+	// pkt := proto.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
-	return nil
+	return pkt.Err()
 }
 func (p *CmppCancelReq) SeqId() uint32 {
 	return p.seqId
@@ -63,36 +49,23 @@ func (p *CmppCancelReq) Event() event.SmsEvent {
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
 func (p *CmppCancelRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	data := make([]byte, CmppCancelRspLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(CmppCancelRspLen)
-	pkt.WriteU32(CMPP_CANCEL_RESP.ToInt())
-
+	pkt := proto.NewCmppBuffer(CmppCancelRspLen, CMPP_CANCEL_RESP.ToInt(), seqId)
 	p.seqId = seqId
-	pkt.WriteU32(p.seqId)
-
 	// Pack body
 	pkt.WriteU32(p.SuccId)
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppCancelRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
-
+func (p *CmppCancelRsp) Unpack(data []byte, sp proto.SmsProto) error {
+	pkt := proto.NewBuffer(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.SuccId = pkt.ReadU32()
-	return nil
+
+	return pkt.Err()
 }
 func (p *CmppCancelRsp) Event() event.SmsEvent {
 	return event.SmsEventCancelRsp

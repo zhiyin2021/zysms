@@ -116,25 +116,18 @@ func (p *CmppDeliverReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	if sp == proto.CMPP30 {
 		pktLen = CMPP_HEADER_LEN + 77 + uint32(p.MsgLength) + 20
 	}
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(pktLen)
-	pkt.WriteU32(CMPP_DELIVER.ToInt())
+	pkt := proto.NewCmppBuffer(pktLen, CMPP_DELIVER.ToInt(), seqId)
 
 	p.seqId = seqId
 
-	pkt.WriteU32(p.seqId)
-
 	// Pack Body
 	pkt.WriteU64(p.MsgId)
-	pkt.WriteStr(p.DestId, 21)
-	pkt.WriteStr(p.ServiceId, 10)
+	pkt.WriteCStrN(p.DestId, 21)
+	pkt.WriteCStrN(p.ServiceId, 10)
 	pkt.WriteByte(p.TpPid)
 	pkt.WriteByte(p.TpUdhi)
 	pkt.WriteByte(p.MsgFmt)
-	pkt.WriteStr(p.SrcTerminalId, 32)
+	pkt.WriteCStrN(p.SrcTerminalId, 21)
 	if sp == proto.CMPP30 {
 		pkt.WriteByte(p.SrcTerminalType)
 	}
@@ -143,35 +136,31 @@ func (p *CmppDeliverReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	if p.RegisterDelivery == 1 && p.Report != nil {
 		pkt.WriteByte(60)
 		pkt.WriteU64(p.Report.MsgId)
-		pkt.WriteStr(p.Report.Stat, 7)
-		pkt.WriteStr(p.Report.SubmitTime, 10)
-		pkt.WriteStr(p.Report.DoneTime, 10)
-		pkt.WriteStr(p.Report.DestTerminalId, 21)
+		pkt.WriteCStrN(p.Report.Stat, 7)
+		pkt.WriteCStrN(p.Report.SubmitTime, 10)
+		pkt.WriteCStrN(p.Report.DoneTime, 10)
+		pkt.WriteCStrN(p.Report.DestTerminalId, 21)
 		pkt.WriteU32(p.Report.SmscSequence)
 	} else {
 		pkt.WriteByte(p.MsgLength)
-		pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+		pkt.WriteCStrN(p.MsgContent, int(p.MsgLength))
 	}
 	if sp == proto.CMPP30 {
-		pkt.WriteStr(p.LinkId, 20)
+		pkt.WriteCStrN(p.LinkId, 20)
 	} else {
 		// cmpp2 写入reserved 保留字段8字节
-		pkt.WriteStr(p.LinkId, 8)
+		pkt.WriteCStrN(p.LinkId, 8)
 	}
 
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a Cmpp3DeliverReq variable.
 // After unpack, you will get all value of fields in
 // Cmpp3DeliverReq struct.
-func (p *CmppDeliverReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+func (p *CmppDeliverReq) Unpack(data []byte, sp proto.SmsProto) error {
+
+	pkt := proto.NewBuffer(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
@@ -179,14 +168,14 @@ func (p *CmppDeliverReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	// Body
 	p.MsgId = pkt.ReadU64()
 
-	p.DestId = pkt.ReadStr(21)
+	p.DestId = pkt.ReadCStrN(21)
 
-	p.ServiceId = pkt.ReadStr(10)
+	p.ServiceId = pkt.ReadCStrN(10)
 	p.TpPid = pkt.ReadByte()
 	p.TpUdhi = pkt.ReadByte()
 	p.MsgFmt = pkt.ReadByte()
 
-	p.SrcTerminalId = pkt.ReadStr(32)
+	p.SrcTerminalId = pkt.ReadCStrN(21)
 	if sp == proto.CMPP30 {
 		p.SrcTerminalType = pkt.ReadByte()
 	}
@@ -196,27 +185,28 @@ func (p *CmppDeliverReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	if p.RegisterDelivery == 1 {
 		p.Report = &CmppDeliverReport{
 			MsgId:          pkt.ReadU64(),
-			Stat:           pkt.ReadStr(7),
-			SubmitTime:     pkt.ReadStr(10),
-			DoneTime:       pkt.ReadStr(10),
-			DestTerminalId: pkt.ReadStr(21),
+			Stat:           pkt.ReadCStrN(7),
+			SubmitTime:     pkt.ReadCStrN(10),
+			DoneTime:       pkt.ReadCStrN(10),
+			DestTerminalId: pkt.ReadCStrN(21),
 			SmscSequence:   pkt.ReadU32(),
 		}
 	} else {
 		// 0：ASCII 码；3：短信写卡操作；4：二进制信息；8：UCS2 编码；15：含 GBK 汉字。【1字节】
-		if p.MsgFmt == 8 {
-			p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
-		} else {
-			p.MsgContent = pkt.ReadStr(int(p.MsgLength))
-		}
+		// if p.MsgFmt == 8 {
+		// 	p.MsgContent = pkt.ReadUCS2(int(p.MsgLength))
+		// } else {
+		// 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+		// }
+		p.MsgContent = pkt.ReadCStrN(int(p.MsgLength))
 	}
 	if sp == proto.CMPP30 {
-		p.LinkId = pkt.ReadStr(20)
+		p.LinkId = pkt.ReadCStrN(20)
 	} else {
 		// cmpp2 读取reserved 保留字段8字节
-		p.LinkId = pkt.ReadStr(8)
+		p.LinkId = pkt.ReadCStrN(8)
 	}
-	return nil
+	return pkt.Err()
 }
 func (p *CmppDeliverReq) Event() event.SmsEvent {
 	return event.SmsEventDeliverReq
@@ -232,16 +222,8 @@ func (p *CmppDeliverRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	if sp == proto.CMPP30 {
 		rspLen = Cmpp3DeliverRspLen
 	}
-	data := make([]byte, rspLen)
-	pkt := proto.NewPacket(data)
-
-	// Pack header
-	pkt.WriteU32(rspLen)
-	pkt.WriteU32(CMPP_DELIVER_RESP.ToInt())
-
+	pkt := proto.NewCmppBuffer(rspLen, CMPP_DELIVER_RESP.ToInt(), seqId)
 	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
 
 	// Pack Body
 	pkt.WriteU64(p.MsgId)
@@ -250,19 +232,14 @@ func (p *CmppDeliverRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	} else {
 		pkt.WriteByte(byte(p.Result))
 	}
-	return data
+	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a Cmpp3DeliverRsp variable.
 // After unpack, you will get all value of fields in
 // Cmpp3DeliverRsp struct.
 func (p *CmppDeliverRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+	pkt := proto.NewBuffer(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
@@ -271,7 +248,7 @@ func (p *CmppDeliverRsp) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	} else {
 		p.Result = uint32(pkt.ReadByte())
 	}
-	return nil
+	return pkt.Err()
 }
 func (p *CmppDeliverRsp) Event() event.SmsEvent {
 	return event.SmsEventDeliverRsp
