@@ -3,7 +3,7 @@ package smgp
 import (
 	"fmt"
 
-	"github.com/zhiyin2021/zysms/proto"
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
@@ -35,54 +35,11 @@ type SmgpDeliveryRsp struct {
 	// Version Version
 }
 
-// func NewDeliver(ac *proto.AuthConf, phone string, destNo string, txt string, seq uint32) proto.RequestPdu {
-// 	baseLen := uint32(89)
-// 	dlv := &Delivery{Version: Version(ac.Version)}
-// 	dlv.RequestId = SMGP_DELIVER
-// 	dlv.SequenceId = seq
-// 	dlv.msgId = proto.BcdSeq.NextVal()
-// 	dlv.isReport = 0
-// 	dlv.msgFormat = 15
-// 	dlv.recvTime = time.Now().Format("20060102150405")
-// 	dlv.srcTermID = phone
-// 	dlv.destTermID = ac.SmsDisplayNo + destNo
-// 	// 上行最长70字符
-// 	subTxt := txt
-// 	rs := []rune(txt)
-// 	if len(rs) > 70 {
-// 		rs = rs[:70]
-// 		subTxt = string(rs)
-// 	}
-// 	gbs, _ := GbEncoder.String(subTxt)
-// 	msg := []byte(gbs)
-// 	dlv.msgBytes = msg
-// 	dlv.msgLength = byte(len(msg))
-// 	dlv.msgContent = subTxt
-// 	dlv.PacketLength = baseLen + uint32(dlv.msgLength)
-// 	return dlv
-// }
-
-// func NewDeliveryReport(ac *proto.AuthConf, mt *Submit, seq uint32, msgId []byte) *Delivery {
-// 	baseLen := uint32(89)
-// 	dlv := &Delivery{Version: Version(ac.Version)}
-// 	dlv.RequestId = SMGP_DELIVER
-// 	dlv.SequenceId = seq
-// 	dlv.msgId = proto.BcdSeq.NextVal()
-// 	dlv.report = NewReport(msgId)
-// 	dlv.msgLength = 115
-// 	dlv.isReport = 1
-// 	dlv.msgFormat = 0
-// 	dlv.recvTime = time.Now().Format("20060102150405")
-// 	dlv.srcTermID = mt.destTermID[0]
-// 	dlv.destTermID = mt.srcTermID
-// 	dlv.PacketLength = baseLen + uint32(RptLen)
-// 	return dlv
-// }
-
 func (p *SmgpDeliveryReq) Pack(seqId uint32) []byte {
 	pktLen := SMGP_HEADEER_LEN + 10 + 1 + 1 + 14 + 21 + 21 + 1 + uint32(p.MsgLength) + 8
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
+
+	pkt := codec.NewWriter(pktLen, SMGP_DELIVER.ToInt())
+	pkt.WriteU32(seqId)
 	pkt.WriteU32(pktLen)
 	pkt.WriteU32(SMGP_DELIVER.ToInt())
 	if seqId > 0 {
@@ -99,16 +56,11 @@ func (p *SmgpDeliveryReq) Pack(seqId uint32) []byte {
 	pkt.WriteByte(p.MsgLength)
 	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
 	pkt.WriteStr(p.Reserve, 8)
-	return data
+	return pkt.Bytes()
 }
 
-func (p *SmgpDeliveryReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (p *SmgpDeliveryReq) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadStr(10)
@@ -120,54 +72,30 @@ func (p *SmgpDeliveryReq) Unpack(data []byte) (e error) {
 	p.MsgLength = pkt.ReadByte()
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 	p.Reserve = pkt.ReadStr(8)
-	return p
+	return pkt.Err()
 }
 func (p *SmgpDeliveryReq) SeqId() uint32 {
 	return p.seqId
 }
 
-// func (p *SmgpDeliveryReq) String() string {
-// 	content := ""
-// 	if p.IsReport() {
-// 		content = p.report.String()
-// 	} else {
-// 		content = strings.ReplaceAll(p.msgContent, "\n", " ")
-// 	}
-// 	return fmt.Sprintf("{ header: %v, msgId: %x, isReport: %v, msgFormat: %v, recvTime: %v,"+
-// 		" SrcTermID: %v, destTermID: %v, msgLength: %v, "+
-// 		"msgContent: \"%s\", reserve: %v, tlv: %v }",
-// 		p.MessageHeader, p.msgId, p.isReport, p.msgFormat, p.recvTime,
-// 		p.srcTermID, p.destTermID, p.msgLength,
-// 		content, p.reserve, p.tlvList,
-// 	)
-// }
-
 func (p *SmgpDeliveryRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, 12)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(12)
-	pkt.WriteU32(SMGP_DELIVER_RESP.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
+	pktLen := SMGP_HEADEER_LEN + 10 + 4
+
+	pkt := codec.NewWriter(pktLen, SMGP_DELIVER_RESP.ToInt())
+	pkt.WriteU32(seqId)
+	p.seqId = seqId
 	pkt.WriteStr(p.MsgId, 10)
 	pkt.WriteU32(uint32(p.Status))
-	return data
+	return pkt.Bytes()
 }
 
-func (p *SmgpDeliveryRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (p *SmgpDeliveryRsp) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadStr(10)
 	p.Status = Status(pkt.ReadU32())
-	return p
+	return pkt.Err()
 }
 
 func (p *SmgpDeliveryRsp) SeqId() uint32 {

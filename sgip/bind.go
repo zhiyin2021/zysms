@@ -1,6 +1,6 @@
 package sgip
 
-import "github.com/zhiyin2021/zysms/proto"
+import "github.com/zhiyin2021/zysms/codec"
 
 const SgipBindPkgLen = 61
 const SgipBindRspPkgLen = 21
@@ -19,7 +19,7 @@ type SgipBindRsp struct {
 	Status Status
 }
 
-// func NewBind(ac *proto.AuthConf, loginType byte) *Bind {
+// func NewBind(ac *codec.AuthConf, loginType byte) *Bind {
 // 	b := &Bind{}
 // 	b.CommandId = SGIP_BIND
 // 	b.PacketLength = BindPkgLen
@@ -30,14 +30,12 @@ type SgipBindRsp struct {
 // 	return b
 // }
 
-func (b *SgipBindReq) Pack(seqId []uint32) []byte {
+func (b *SgipBindReq) Pack(seqId uint32) []byte {
 	data := make([]byte, SgipBindPkgLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SgipBindPkgLen)
-	pkt.WriteU32(SGIP_BIND.ToInt())
-	pkt.WriteU32(seqId[0])
-	pkt.WriteU32(seqId[1])
-	pkt.WriteU32(seqId[2])
+	pkt := codec.NewWriter(SgipBindPkgLen, SGIP_BIND.ToInt())
+	pkt.WriteU32(seqId)
+	pkt.WriteU32(getTm())
+	pkt.WriteU32(seqId)
 	pkt.WriteByte(b.LoginType)
 	pkt.WriteStr(b.LoginName, 16)
 	pkt.WriteStr(b.LoginPassword, 16)
@@ -45,13 +43,8 @@ func (b *SgipBindReq) Pack(seqId []uint32) []byte {
 	return data
 }
 
-func (b *SgipBindReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (b *SgipBindReq) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	b.SeqId = make([]uint32, 3)
 	b.SeqId[0] = pkt.ReadU32()
@@ -61,32 +54,26 @@ func (b *SgipBindReq) Unpack(data []byte) (e error) {
 	b.LoginName = pkt.ReadStr(16)
 	b.LoginPassword = pkt.ReadStr(16)
 	b.Reserve = pkt.ReadStr(8)
-	return b
+	return pkt.Err()
 }
 
-func (r *SgipBindRsp) Pack(seqId []uint32) []byte {
-	data := make([]byte, SgipBindRspPkgLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SgipBindRspPkgLen)
-	pkt.WriteU32(SGIP_BIND_RESP.ToInt())
-	pkt.WriteU32(seqId[0])
-	pkt.WriteU32(seqId[1])
-	pkt.WriteU32(seqId[2])
+func (r *SgipBindRsp) Pack(seqId uint32) []byte {
+	pkt := codec.NewWriter(SgipBindRspPkgLen, SGIP_BIND_RESP.ToInt())
+	pkt.WriteU32(seqId)
+
+	pkt.WriteU32(getTm())
+	pkt.WriteU32(seqId)
 	pkt.WriteByte(byte(r.Status))
-	return data
+	return pkt.Bytes()
 }
 
-func (r *SgipBindRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (r *SgipBindRsp) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	r.SeqId = make([]uint32, 3)
 	r.SeqId[0] = pkt.ReadU32()
 	r.SeqId[1] = pkt.ReadU32()
 	r.SeqId[2] = pkt.ReadU32()
 	r.Status = Status(pkt.ReadByte())
+	return pkt.Err()
 }

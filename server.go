@@ -6,8 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
-	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/smserror"
 )
 
@@ -15,12 +15,12 @@ import (
 type (
 	Packet struct {
 		Conn *Conn
-		Req  proto.Packer
-		Resp proto.Packer
+		Req  codec.Packer
+		Resp codec.Packer
 	}
-	// handleEvent func(*Conn, proto.Packer) error
+	// handleEvent func(*Conn, codec.Packer) error
 	sms struct {
-		proto        proto.SmsProto
+		proto        codec.SmsProto
 		OnConnect    func(*Conn)
 		OnDisconnect func(*Conn)
 		OnError      func(*Conn, error)
@@ -42,15 +42,15 @@ type (
 		Auth(uid string, pwd string, timeout time.Duration) error
 		RemoteAddr() net.Addr
 		// Recv() ([]byte, error)
-		RecvPkt(time.Duration) (proto.Packer, error)
-		SendPkt(proto.Packer, uint32) error
+		RecvPkt(time.Duration) (codec.Packer, error)
+		SendPkt(codec.Packer, uint32) error
 		SetState(enum.State)
-		Proto() proto.SmsProto
+		Proto() codec.SmsProto
 		Logger() *logrus.Entry
 	}
 )
 
-func New(proto proto.SmsProto) *sms {
+func New(proto codec.SmsProto) *sms {
 	return &sms{proto: proto}
 }
 
@@ -61,7 +61,7 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 	}
 	var l smsListener
 	switch s.proto {
-	case proto.CMPP20, proto.CMPP21, proto.CMPP30:
+	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
 		l = newCmppListener(ln)
 	}
 	go func() {
@@ -85,11 +85,11 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 	}
 	var zconn *Conn
 	switch s.proto {
-	case proto.CMPP20:
+	case codec.CMPP20:
 		zconn = newCmppConn(conn, cmpp.V20, checkVer)
-	case proto.CMPP21:
+	case codec.CMPP21:
 		zconn = newCmppConn(conn, cmpp.V21, checkVer)
-	case proto.CMPP30:
+	case codec.CMPP30:
 		zconn = newCmppConn(conn, cmpp.V30, checkVer)
 	default:
 		return nil, smserror.ErrProtoNotSupport

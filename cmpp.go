@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
-	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/smserror"
 )
 
@@ -50,7 +50,7 @@ func newCmppConn(conn net.Conn, typ cmpp.Version, checkVer bool) *Conn {
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
 	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
-func (c *cmppConn) Proto() proto.SmsProto {
+func (c *cmppConn) Proto() codec.SmsProto {
 	return c.Typ.Proto()
 }
 func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
@@ -112,7 +112,7 @@ func (c *cmppConn) seqId() uint32 {
 }
 
 // SendPkt pack the cmpp packet structure and send it to the other peer.
-func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
+func (c *cmppConn) SendPkt(pkt codec.Packer, seqId uint32) error {
 	if c.State == enum.CONN_CLOSED {
 		return smserror.ErrConnIsClosed
 	}
@@ -121,14 +121,15 @@ func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
 	}
 	c.Logger().Infof("send pkt:%T , %s", pkt, c.Typ)
 	if p, ok := pkt.(*cmpp.CmppSubmitReq); ok {
-		contentList := c.splitSubmitContent(p)
+		multiMsg, _ := p.Message.Split()
 		p.TpUdhi = 0
-		if len(contentList) > 1 {
+		if len(multiMsg) > 1 {
 			p.TpUdhi = 1
 		}
-		for _, content := range contentList {
-			p.MsgLength = byte(len(content))
-			p.MsgContent = content
+		for _, msg := range multiMsg {
+			// p.MsgLength = byte(len(content))
+			// p.MsgContent = content
+			p.Message = *msg
 			data := p.Pack(c.seqId(), c.Typ.Proto())
 			_, err := c.Conn.Write(data) //block write
 			if err != nil {
@@ -147,38 +148,39 @@ func (c *cmppConn) SendPkt(pkt proto.Packer, seqId uint32) error {
 	}
 	return nil
 }
-func (c *cmppConn) splitSubmitContent(req *cmpp.CmppSubmitReq) [][]byte {
-	cLen := 140
-	if req.MsgFmt == 0 {
-		cLen = 160
-	}
-	cLen -= 7 // 减去7字节的消息头
-	if len(req.MsgContent) <= cLen {
-		return [][]byte{req.MsgContent}
-	}
-	count := len(req.MsgContent) / cLen
-	if len(req.MsgContent)%cLen > 0 {
-		count++
-	}
-	contentList := make([][]byte, count)
-	idx := uint16(time.Now().UnixMilli() % 0xff)
-	// 0x06 数据头长度
-	// 0x00 信息标识
-	// 0x04 后续信息头长度
-	// 0x00,0x00 信息序列号
-	// 0x00 总条数
-	// 0x01 当前条数
-	dhi := []byte{0x05, 0x00, 0x04, byte(idx), byte(count), 0x01}
-	for i := 0; i < count; i++ {
-		dhi[5] = byte(i + 1)
-		if i == count-1 {
-			contentList[i] = append(dhi, req.MsgContent[i*cLen:]...)
-		} else {
-			contentList[i] = append(dhi, req.MsgContent[i*cLen:(i+1)*cLen]...)
-		}
-	}
-	return contentList
-}
+
+// func (c *cmppConn) splitSubmitContent(req *cmpp.CmppSubmitReq) [][]byte {
+// 	cLen := 140
+// 	if req.MsgFmt == 0 {
+// 		cLen = 160
+// 	}
+// 	cLen -= 6 // 减去7字节的消息头
+// 	if len(req.MsgContent) <= cLen {
+// 		return [][]byte{req.MsgContent}
+// 	}
+// 	count := len(req.MsgContent) / cLen
+// 	if len(req.MsgContent)%cLen > 0 {
+// 		count++
+// 	}
+// 	contentList := make([][]byte, count)
+// 	idx := uint16(time.Now().UnixMilli() % 0xff)
+// 	// 0x06 数据头长度
+// 	// 0x00 信息标识
+// 	// 0x04 后续信息头长度
+// 	// 0x00,0x00 信息序列号
+// 	// 0x00 总条数
+// 	// 0x01 当前条数
+// 	dhi := []byte{0x05, 0x00, 0x04, byte(idx), byte(count), 0x01}
+// 	for i := 0; i < count; i++ {
+// 		dhi[5] = byte(i + 1)
+// 		if i == count-1 {
+// 			contentList[i] = append(dhi, req.MsgContent[i*cLen:]...)
+// 		} else {
+// 			contentList[i] = append(dhi, req.MsgContent[i*cLen:(i+1)*cLen]...)
+// 		}
+// 	}
+// 	return contentList
+// }
 
 const (
 	defaultReadBufferSize = 4096
@@ -204,35 +206,35 @@ func (c *cmppConn) RemoteAddr() net.Addr {
 func (c *cmppConn) Logger() *logrus.Entry {
 	return c.logger
 }
+func (c *cmppConn) SetReadDeadline(timeout time.Duration) {
+	if timeout > 0 {
+		c.Conn.SetReadDeadline(time.Now().Add(timeout))
+	}
+}
 
 // RecvAndUnpackPkt receives cmpp byte stream, and unpack it to some cmpp packet structure.
-func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
+func (c *cmppConn) RecvPkt(timeout time.Duration) (codec.Packer, error) {
 	if c.State == enum.CONN_CLOSED {
 		return nil, smserror.ErrConnIsClosed
 	}
 	rb := readBufferPool.Get().(*readBuffer)
 	defer readBufferPool.Put(rb)
-	defer c.SetReadDeadline(time.Time{})
+	defer c.Conn.SetReadDeadline(time.Time{})
 
-	// Total_Length in packet
-	if timeout != 0 {
-		c.SetReadDeadline(time.Now().Add(timeout))
-	}
+	c.SetReadDeadline(timeout)
 	err := binary.Read(c.Conn, binary.BigEndian, &rb.totalLen)
 	if err != nil {
 		return nil, err
 	}
-
-	if c.Typ == cmpp.V30 && (rb.totalLen < cmpp.CMPP3_PACKET_MIN || rb.totalLen > cmpp.CMPP3_PACKET_MAX) {
-		return nil, smserror.ErrTotalLengthInvalid
-	} else if rb.totalLen < cmpp.CMPP2_PACKET_MIN || rb.totalLen > cmpp.CMPP2_PACKET_MAX {
+	maxLen := cmpp.CMPP2_PACKET_MAX
+	if c.Typ == cmpp.V30 {
+		maxLen = cmpp.CMPP3_PACKET_MAX
+	}
+	if rb.totalLen < cmpp.CMPP_HEADER_LEN || rb.totalLen > maxLen {
 		return nil, smserror.ErrTotalLengthInvalid
 	}
 
-	// Command_Id
-	if timeout != 0 {
-		c.SetReadDeadline(time.Now().Add(timeout))
-	}
+	c.SetReadDeadline(timeout)
 	err = binary.Read(c.Conn, binary.BigEndian, &rb.commandId)
 	if err != nil {
 		netErr, ok := err.(net.Error)
@@ -248,11 +250,9 @@ func (c *cmppConn) RecvPkt(timeout time.Duration) (proto.Packer, error) {
 		(rb.commandId > cmpp.CMPP_RESPONSE_MIN && rb.commandId < cmpp.CMPP_RESPONSE_MAX)) {
 		return nil, smserror.ErrCommandIdInvalid
 	}
-
 	// The left packet data (start from seqId in header).
-	if timeout != 0 {
-		c.SetReadDeadline(time.Now().Add(timeout))
-	}
+
+	c.SetReadDeadline(timeout)
 	var leftData = rb.leftData[0:(rb.totalLen - 8)]
 	_, err = io.ReadFull(c.Conn, leftData)
 	if err != nil {

@@ -1,9 +1,6 @@
 package sgip
 
-import (
-	"github.com/zhiyin2021/zysms/proto"
-	"github.com/zhiyin2021/zysms/utils"
-)
+import "github.com/zhiyin2021/zysms/codec"
 
 type SgipSubmitReq struct {
 	SeqId            []uint32
@@ -58,12 +55,12 @@ const (
 	MtBaseLen        = 143
 )
 
-// func NewSubmit(ac *proto.AuthConf, phones []string, content string, options ...proto.OptionFunc) (messages []proto.RequestPdu) {
+// func NewSubmit(ac *codec.AuthConf, phones []string, content string, options ...codec.OptionFunc) (messages []codec.RequestPdu) {
 // 	mt := &Submit{}
 // 	mt.PacketLength = MtBaseLen
 // 	mt.CommandId = SGIP_SUBMIT
 // 	mt.SequenceNumber = Sequencer.NextVal()
-// 	mt.SetOptions(ac, proto.LoadMtOptions(options...))
+// 	mt.SetOptions(ac, codec.LoadMtOptions(options...))
 // 	mt.UserCount = byte(len(phones))
 // 	mt.UserNumber = phones
 // 	mt.MessageCoding = utils.MsgFmt(content)
@@ -74,7 +71,7 @@ const (
 // 		mt.MessageLength = uint32(len(slices[0]))
 // 		mt.MessageContent = slices[0]
 // 		mt.PacketLength = uint32(MtBaseLen + len(phones)*21 + len(slices[0]))
-// 		return []proto.RequestPdu{mt}
+// 		return []codec.RequestPdu{mt}
 // 	} else {
 // 		mt.TpUdhi = 1
 // 		for i, msgBytes := range slices {
@@ -93,15 +90,13 @@ const (
 // 	}
 // }
 
-func (s *SgipSubmitReq) Pack(seqId []uint32) []byte {
-	pktLen := int(SgipSubmitReqLen) + 21*len(s.UserNumber) + int(s.MessageLength)
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(uint32(pktLen))
-	pkt.WriteU32(SGIP_SUBMIT.ToInt())
-	pkt.WriteU32(seqId[0])
-	pkt.WriteU32(seqId[1])
-	pkt.WriteU32(seqId[2])
+func (s *SgipSubmitReq) Pack(seqId uint32) []byte {
+	pktLen := SgipSubmitReqLen + 21*uint32(len(s.UserNumber)) + s.MessageLength
+
+	pkt := codec.NewWriter(pktLen, SGIP_SUBMIT.ToInt())
+	pkt.WriteU32(seqId)
+	pkt.WriteU32(getTm())
+	pkt.WriteU32(seqId)
 	pkt.WriteStr(s.SPNumber, 21)
 	pkt.WriteStr(s.ChargeNumber, 21)
 	pkt.WriteByte(s.UserCount)
@@ -124,18 +119,13 @@ func (s *SgipSubmitReq) Pack(seqId []uint32) []byte {
 	pkt.WriteByte(s.MessageCoding)
 	pkt.WriteByte(s.MessageType)
 	pkt.WriteU32(s.MessageLength)
-	pkt.WriteBytes(s.MessageContent, int(s.MessageLength))
+	pkt.WriteBytes(s.MessageContent)
 	pkt.WriteStr(s.Reserve, 8)
-	return data
+	return pkt.Bytes()
 }
 
 func (s *SgipSubmitReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	s.SeqId = make([]uint32, 3)
 	s.SeqId[0] = pkt.ReadU32()
@@ -165,17 +155,14 @@ func (s *SgipSubmitReq) Unpack(data []byte) (e error) {
 	s.MessageCoding = pkt.ReadByte()
 	s.MessageType = pkt.ReadByte()
 	s.MessageLength = pkt.ReadU32()
-	content := pkt.ReadBytes(int(s.MessageLength))
 	s.Reserve = pkt.ReadStr(8)
-	s.MessageContent = content
-	if content[0] == 0x05 && content[1] == 0x00 && content[2] == 0x03 {
-		content = content[6:]
-		s.MessageContent, _ = utils.Ucs2ToUtf8(content)
-	}
+	s.MessageContent = pkt.ReadN(int(s.MessageLength))
+
 	s.Reserve = ""
+	return pkt.Err()
 }
 
-// func (s *Submit) SetOptions(ac *proto.AuthConf, ops *proto.MtOptions) {
+// func (s *Submit) SetOptions(ac *codec.AuthConf, ops *codec.MtOptions) {
 // 	s.SPNumber = ac.SmsDisplayNo
 // 	if ops.SpSubNo != "" {
 // 		s.SPNumber += ops.SpSubNo
@@ -222,13 +209,8 @@ type SgipSubmitRsp struct {
 	Reserve string   // 保留，扩展用【 8 bytes 】
 }
 
-func (r *SgipSubmitRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (r *SgipSubmitRsp) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	r.SeqId = make([]uint32, 3)
 	r.SeqId[0] = pkt.ReadU32()
@@ -236,17 +218,15 @@ func (r *SgipSubmitRsp) Unpack(data []byte) (e error) {
 	r.SeqId[2] = pkt.ReadU32()
 	r.Status = Status(pkt.ReadByte())
 	r.Reserve = pkt.ReadStr(8)
+	return pkt.Err()
 }
 
-func (r *SgipSubmitRsp) Pack(seqId []uint32) []byte {
-	data := make([]byte, SgipSubmitRspLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SgipSubmitRspLen)
-	pkt.WriteU32(SGIP_SUBMIT_RESP.ToInt())
-	pkt.WriteU32(seqId[0])
-	pkt.WriteU32(seqId[1])
-	pkt.WriteU32(seqId[2])
+func (r *SgipSubmitRsp) Pack(seqId uint32) []byte {
+	pkt := codec.NewWriter(SgipSubmitRspLen, SGIP_SUBMIT_RESP.ToInt())
+	pkt.WriteU32(seqId)
+	pkt.WriteU32(getTm())
+	pkt.WriteU32(seqId)
 	pkt.WriteByte(byte(r.Status))
 	pkt.WriteStr(r.Reserve, 8)
-	return data
+	return pkt.Bytes()
 }

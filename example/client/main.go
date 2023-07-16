@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -9,10 +8,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/proto"
-	"github.com/zhiyin2021/zysms/utils"
+	"github.com/zhiyin2021/zysms/codec"
 )
 
+// 11101100 01000110 11000100 0000000 00101101 11000000 00000000 00000011
 const (
 	user           string        = "010000"      // "900001" //010000,pwd:tDd34J443e3
 	password       string        = "tDd34J443e3" //"888888"
@@ -21,7 +20,7 @@ const (
 
 func startAClient(idx int) {
 	// defer wg.Done()
-	sms := zysms.New(proto.CMPP20)
+	sms := zysms.New(codec.CMPP30)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
@@ -57,11 +56,8 @@ func startAClient(idx int) {
 	for i := 0; i < 1; i++ {
 		go func() {
 			//submit a message
-			cont, err := utils.Utf8ToUcs2("测试 p submit,测试 cmpp submit,测试 cmpp submit【百度网盘】")
-			if err != nil {
-				fmt.Printf("client %d: utf8 to ucs2 transform err: %s.", idx, err)
-				return
-			}
+
+			msg := "测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789【百度网盘】"
 			p := &cmpp.CmppSubmitReq{
 				PkTotal:            1,
 				PkNumber:           1,
@@ -80,10 +76,8 @@ func startAClient(idx int) {
 				SrcId:          "900001",
 				DestUsrTl:      1,
 				DestTerminalId: []string{"+8613500002696", "8613500002697", "13500002698"},
-				// DestTerminalType:   0,
-				MsgLength:  uint8(len(cont)),
-				MsgContent: cont,
 			}
+			p.Message.SetMessage(msg, codec.UCS2)
 			err = c.SendPkt(p, 0)
 			if err != nil {
 				log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
@@ -92,6 +86,7 @@ func startAClient(idx int) {
 				log.Printf("client %d: send a cmpp3 submit request ok", idx)
 			}
 		}()
+		time.Sleep(time.Second * 5)
 	}
 
 }

@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/event"
-	"github.com/zhiyin2021/zysms/proto"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
@@ -62,9 +62,10 @@ type CmppConnRsp struct {
 // Pack packs the CmppConnReq to bytes stream for client side.
 // Before calling Pack, you should initialize a CmppConnReq variable
 // with correct SourceAddr(SrcAddr), Secret and Version.
-func (p *CmppConnReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
+func (p *CmppConnReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
 
-	pkt := proto.NewCmppBuffer(CmppConnReqLen, CMPP_CONNECT.ToInt(), seqId)
+	pkt := codec.NewWriter(CmppConnReqLen, CMPP_CONNECT.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
 	var ts string
 	if p.Timestamp == 0 {
@@ -74,7 +75,7 @@ func (p *CmppConnReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	}
 
 	// Pack body
-	pkt.WriteCStrN(p.SrcAddr, 6)
+	pkt.WriteStr(p.SrcAddr, 6)
 
 	md5 := md5.Sum(bytes.Join([][]byte{[]byte(p.SrcAddr),
 		make([]byte, 9),
@@ -83,7 +84,7 @@ func (p *CmppConnReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 		nil))
 	p.AuthSrc = string(md5[:])
 
-	pkt.WriteCStrN(p.AuthSrc, 16)
+	pkt.WriteStr(p.AuthSrc, 16)
 	pkt.WriteByte(byte(p.Version))
 	pkt.WriteU32(p.Timestamp)
 
@@ -93,14 +94,14 @@ func (p *CmppConnReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 // Unpack unpack the binary byte stream to a CmppConnReq variable.
 // Usually it is used in server side. After unpack, you will get SeqId, SourceAddr,
 // AuthenticatorSource, Version and Timestamp.
-func (p *CmppConnReq) Unpack(data []byte, sp proto.SmsProto) error {
-	pkt := proto.NewBuffer(data)
+func (p *CmppConnReq) Unpack(data []byte, sp codec.SmsProto) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	// Body: Source_Addr
-	p.SrcAddr = pkt.ReadCStrN(6)
+	p.SrcAddr = pkt.ReadStr(6)
 	// Body: AuthSrc
-	p.AuthSrc = pkt.ReadCStrN(16)
+	p.AuthSrc = pkt.ReadStr(16)
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
 	// Body: timestamp
@@ -115,19 +116,20 @@ func (p *CmppConnReq) SeqId() uint32 {
 	return p.seqId
 }
 
-func (p *CmppConnRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
+func (p *CmppConnRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
 	rspLen := Cmpp2ConnRspLen
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		rspLen = Cmpp3ConnRspLen
 	}
-	pkt := proto.NewCmppBuffer(rspLen, CMPP_CONNECT_RESP.ToInt(), seqId)
+	pkt := codec.NewWriter(rspLen, CMPP_CONNECT_RESP.ToInt())
+	pkt.WriteU32(seqId)
 
 	p.seqId = seqId
 
 	bs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bs, p.Status)
 
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		// pack body
 		pkt.WriteU32(p.Status)
 	} else {
@@ -139,19 +141,19 @@ func (p *CmppConnRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 		[]byte(p.Secret)},
 		nil))
 	p.AuthIsmg = string(hash[:])
-	pkt.WriteCStrN(p.AuthIsmg, 16)
+	pkt.WriteStr(p.AuthIsmg, 16)
 
 	pkt.WriteByte(byte(p.Version))
 
 	return pkt.Bytes()
 }
 
-func (p *CmppConnRsp) Unpack(data []byte, sp proto.SmsProto) error {
-	pkt := proto.NewBuffer(data)
+func (p *CmppConnRsp) Unpack(data []byte, sp codec.SmsProto) error {
+	pkt := codec.NewReader(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		// Body: Status
 		p.Status = pkt.ReadU32()
 	} else {
@@ -159,7 +161,7 @@ func (p *CmppConnRsp) Unpack(data []byte, sp proto.SmsProto) error {
 	}
 
 	// Body: AuthenticatorISMG
-	p.AuthIsmg = pkt.ReadCStrN(16)
+	p.AuthIsmg = pkt.ReadStr(16)
 	// Body: Version
 	p.Version = Version(pkt.ReadByte())
 	return pkt.Err()

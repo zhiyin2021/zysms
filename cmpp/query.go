@@ -1,8 +1,8 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/event"
-	"github.com/zhiyin2021/zysms/proto"
 )
 
 // Packet length const for cmpp terminate request and response packets.
@@ -38,30 +38,31 @@ type CmppQueryRsp struct {
 }
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
-func (p *CmppQueryReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	pkt := proto.NewCmppBuffer(CmppQueryReqLen, CMPP_QUERY.ToInt(), seqId)
+func (p *CmppQueryReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
+	pkt := codec.NewWriter(CmppQueryReqLen, CMPP_QUERY.ToInt())
+	pkt.WriteU32(seqId)
 
 	p.seqId = seqId
 
 	// Pack body
-	pkt.WriteCStrN(p.Time, 8)
+	pkt.WriteStr(p.Time, 8)
 	pkt.WriteByte(p.QueryType)
-	pkt.WriteCStrN(p.QueryCode, 10)
-	pkt.WriteCStrN(p.Reserve, 8)
+	pkt.WriteStr(p.QueryCode, 10)
+	pkt.WriteStr(p.Reserve, 8)
 	return pkt.Bytes()
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppQueryReq) Unpack(data []byte, sp proto.SmsProto) error {
-	pkt := proto.NewBuffer(data)
+func (p *CmppQueryReq) Unpack(data []byte, sp codec.SmsProto) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	p.Time = pkt.ReadCStrN(8)
+	p.Time = pkt.ReadStr(8)
 	p.QueryType = pkt.ReadByte()
-	p.QueryCode = pkt.ReadCStrN(10)
-	p.Reserve = pkt.ReadCStrN(8)
+	p.QueryCode = pkt.ReadStr(10)
+	p.Reserve = pkt.ReadStr(8)
 	return pkt.Err()
 }
 func (p *CmppQueryReq) Event() event.SmsEvent {
@@ -73,15 +74,16 @@ func (p *CmppQueryReq) SeqId() uint32 {
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
-func (p *CmppQueryRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	pkt := proto.NewCmppBuffer(CmppQueryRspLen, CMPP_QUERY_RESP.ToInt(), seqId)
+func (p *CmppQueryRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
+	pkt := codec.NewWriter(CmppQueryRspLen, CMPP_QUERY_RESP.ToInt())
+	pkt.WriteU32(seqId)
 
 	p.seqId = seqId
 
 	// Pack body
-	pkt.WriteCStrN(p.Time, 8)
+	pkt.WriteStr(p.Time, 8)
 	pkt.WriteByte(p.QueryType)
-	pkt.WriteCStrN(p.QueryCode, 10)
+	pkt.WriteStr(p.QueryCode, 10)
 	pkt.WriteU32(p.MtTlMsg)
 	pkt.WriteU32(p.MtTlUsr)
 	pkt.WriteU32(p.MtScs)
@@ -96,15 +98,15 @@ func (p *CmppQueryRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppQueryRsp) Unpack(data []byte, sp proto.SmsProto) error {
+func (p *CmppQueryRsp) Unpack(data []byte, sp codec.SmsProto) error {
 
-	pkt := proto.NewBuffer(data)
+	pkt := codec.NewReader(data)
 
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	p.Time = pkt.ReadCStrN(8)
+	p.Time = pkt.ReadStr(8)
 	p.QueryType = pkt.ReadByte()
-	p.QueryCode = pkt.ReadCStrN(10)
+	p.QueryCode = pkt.ReadStr(10)
 	p.MtTlMsg = pkt.ReadU32()
 	p.MtTlUsr = pkt.ReadU32()
 	p.MtScs = pkt.ReadU32()

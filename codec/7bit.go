@@ -1,4 +1,4 @@
-package proto
+package codec
 
 // Source code in this file is copied from: https://github.com/fiorix/go-smpp/master/smpp/encoding/gsm7.go
 import (

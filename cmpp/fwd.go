@@ -3,8 +3,8 @@ package cmpp
 import (
 	"errors"
 
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/event"
-	"github.com/zhiyin2021/zysms/proto"
 )
 
 const (
@@ -134,18 +134,19 @@ type CmppFwdRsp struct {
 // Pack packs the Cmpp3FwdReq to bytes stream for client side.
 // Before calling Pack, you should initialize a Cmpp3FwdReq variable
 // with correct field value.
-func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
+func (p *CmppFwdReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
 	var pktLen uint32 = CMPP_HEADER_LEN + 131 + uint32(p.DestUsrTl)*21 + 1 + uint32(p.MsgLength) + 8
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		pktLen = CMPP_HEADER_LEN + 198 + uint32(p.DestUsrTl)*21 + 32 + 1 + 1 + uint32(p.MsgLength) + 20
 	}
-	pkt := proto.NewCmppBuffer(pktLen, CMPP_FWD.ToInt(), seqId)
+	pkt := codec.NewWriter(pktLen, CMPP_FWD.ToInt())
+	pkt.WriteU32(seqId)
 
 	p.seqId = seqId
 
 	// Pack Body
-	pkt.WriteCStrN(p.SourceId, 6)
-	pkt.WriteCStrN(p.DestinationId, 6)
+	pkt.WriteStr(p.SourceId, 6)
+	pkt.WriteStr(p.DestinationId, 6)
 	pkt.WriteByte(p.NodesCount)
 	pkt.WriteByte(p.MsgFwdType)
 	pkt.WriteU64(p.MsgId)
@@ -157,41 +158,41 @@ func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 	pkt.WriteByte(p.PkNumber)
 	pkt.WriteByte(p.RegisteredDelivery)
 	pkt.WriteByte(p.MsgLevel)
-	pkt.WriteCStrN(p.ServiceId, 10)
+	pkt.WriteStr(p.ServiceId, 10)
 	pkt.WriteByte(p.FeeUserType)
-	pkt.WriteCStrN(p.FeeTerminalId, 21)
-	if sp == proto.CMPP30 {
-		pkt.WriteCStrN(p.FeeTerminalPseudo, 32)
+	pkt.WriteStr(p.FeeTerminalId, 21)
+	if sp == codec.CMPP30 {
+		pkt.WriteStr(p.FeeTerminalPseudo, 32)
 		pkt.WriteByte(p.FeeTerminalUserType)
 	}
 	pkt.WriteByte(p.TpPid)
 	pkt.WriteByte(p.TpUdhi)
 	pkt.WriteByte(p.MsgFmt)
-	pkt.WriteCStrN(p.MsgSrc, 6)
-	pkt.WriteCStrN(p.FeeType, 2)
-	pkt.WriteCStrN(p.FeeCode, 6)
-	pkt.WriteCStrN(p.ValidTime, 17)
-	pkt.WriteCStrN(p.AtTime, 17)
-	pkt.WriteCStrN(p.SrcId, 21)
-	if sp == proto.CMPP30 {
-		pkt.WriteCStrN(p.SrcPseudo, 32)
+	pkt.WriteStr(p.MsgSrc, 6)
+	pkt.WriteStr(p.FeeType, 2)
+	pkt.WriteStr(p.FeeCode, 6)
+	pkt.WriteStr(p.ValidTime, 17)
+	pkt.WriteStr(p.AtTime, 17)
+	pkt.WriteStr(p.SrcId, 21)
+	if sp == codec.CMPP30 {
+		pkt.WriteStr(p.SrcPseudo, 32)
 		pkt.WriteByte(p.SrcUserType)
 		pkt.WriteByte(p.SrcType)
 	}
 	pkt.WriteByte(p.DestUsrTl)
 	for _, d := range p.DestId {
-		pkt.WriteCStrN(d, 21)
+		pkt.WriteStr(d, 21)
 	}
-	if sp == proto.CMPP30 {
-		pkt.WriteCStrN(p.DestPseudo, 32)
+	if sp == codec.CMPP30 {
+		pkt.WriteStr(p.DestPseudo, 32)
 		pkt.WriteByte(p.DestUserType)
 	}
 	pkt.WriteByte(p.MsgLength)
-	pkt.WriteCStrN(p.MsgContent, int(p.MsgLength))
-	if sp == proto.CMPP30 {
-		pkt.WriteCStrN(p.LinkId, 20)
+	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
+	if sp == codec.CMPP30 {
+		pkt.WriteStr(p.LinkId, 20)
 	} else {
-		pkt.WriteCStrN(p.LinkId, 8)
+		pkt.WriteStr(p.LinkId, 8)
 	}
 
 	return pkt.Bytes()
@@ -199,13 +200,13 @@ func (p *CmppFwdReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 
 // Unpack unpack the binary byte stream to a Cmpp3FwdReq variable.
 // After unpack, you will get all value of fields in Cmpp3FwdReq struct.
-func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	pkt := proto.NewBuffer(data)
+func (p *CmppFwdReq) Unpack(data []byte, sp codec.SmsProto) (e error) {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	// Body
-	p.SourceId = pkt.ReadCStrN(6)
-	p.DestinationId = pkt.ReadCStrN(6)
+	p.SourceId = pkt.ReadStr(6)
+	p.DestinationId = pkt.ReadStr(6)
 	p.NodesCount = pkt.ReadByte()
 	p.MsgFwdType = pkt.ReadByte()
 
@@ -215,13 +216,13 @@ func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	p.RegisteredDelivery = pkt.ReadByte()
 	p.MsgLevel = pkt.ReadByte()
 
-	p.ServiceId = pkt.ReadCStrN(10)
+	p.ServiceId = pkt.ReadStr(10)
 
 	p.FeeUserType = pkt.ReadByte()
 
-	p.FeeTerminalId = pkt.ReadCStrN(21)
-	if sp == proto.CMPP30 {
-		p.FeeTerminalPseudo = pkt.ReadCStrN(32)
+	p.FeeTerminalId = pkt.ReadStr(21)
+	if sp == codec.CMPP30 {
+		p.FeeTerminalPseudo = pkt.ReadStr(32)
 		p.FeeTerminalUserType = pkt.ReadByte()
 	}
 
@@ -229,38 +230,38 @@ func (p *CmppFwdReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
 	p.TpUdhi = pkt.ReadByte()
 	p.MsgFmt = pkt.ReadByte()
 
-	p.MsgSrc = pkt.ReadCStrN(6)
+	p.MsgSrc = pkt.ReadStr(6)
 
-	p.FeeType = pkt.ReadCStrN(2)
+	p.FeeType = pkt.ReadStr(2)
 
-	p.FeeCode = pkt.ReadCStrN(6)
+	p.FeeCode = pkt.ReadStr(6)
 
-	p.ValidTime = pkt.ReadCStrN(17)
+	p.ValidTime = pkt.ReadStr(17)
 
-	p.AtTime = pkt.ReadCStrN(17)
+	p.AtTime = pkt.ReadStr(17)
 
-	p.SrcId = pkt.ReadCStrN(21)
-	if sp == proto.CMPP30 {
-		p.SrcPseudo = pkt.ReadCStrN(32)
+	p.SrcId = pkt.ReadStr(21)
+	if sp == codec.CMPP30 {
+		p.SrcPseudo = pkt.ReadStr(32)
 		p.SrcUserType = pkt.ReadByte()
 		p.SrcType = pkt.ReadByte()
 	}
 
 	p.DestUsrTl = pkt.ReadByte()
 	for i := 0; i < int(p.DestUsrTl); i++ {
-		p.DestId = append(p.DestId, pkt.ReadCStrN(21))
+		p.DestId = append(p.DestId, pkt.ReadStr(21))
 	}
-	if sp == proto.CMPP30 {
-		p.DestPseudo = pkt.ReadCStrN(32)
+	if sp == codec.CMPP30 {
+		p.DestPseudo = pkt.ReadStr(32)
 		p.DestUserType = pkt.ReadByte()
 	}
 	p.MsgLength = pkt.ReadByte()
 
-	p.MsgContent = pkt.ReadCStrN(int(p.MsgLength))
-	if sp == proto.CMPP30 {
-		p.LinkId = pkt.ReadCStrN(20)
+	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
+	if sp == codec.CMPP30 {
+		p.LinkId = pkt.ReadStr(20)
 	} else {
-		p.LinkId = pkt.ReadCStrN(8)
+		p.LinkId = pkt.ReadStr(8)
 	}
 	return nil
 }
@@ -275,19 +276,20 @@ func (p *CmppFwdReq) SeqId() uint32 {
 // Pack packs the Cmpp3FwdRsp to bytes stream for server side.
 // Before calling Pack, you should initialize a Cmpp3FwdRsp variable
 // with correct field value.
-func (p *CmppFwdRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
+func (p *CmppFwdRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
 	rspLen := Cmpp2FwdRspLen
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		rspLen = Cmpp3FwdRspLen
 	}
-	pkt := proto.NewCmppBuffer(rspLen, CMPP_FWD_RESP.ToInt(), seqId)
+	pkt := codec.NewWriter(rspLen, CMPP_FWD_RESP.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
 
 	// Pack Body
 	pkt.WriteU64(p.MsgId)
 	pkt.WriteByte(p.PkTotal)
 	pkt.WriteByte(p.PkNumber)
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		pkt.WriteU32(p.Result)
 	} else {
 		pkt.WriteByte(byte(p.Result))
@@ -297,15 +299,15 @@ func (p *CmppFwdRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 
 // Unpack unpack the binary byte stream to a Cmpp3FwdRsp variable.
 // After unpack, you will get all value of fields in Cmpp3FwdRsp struct.
-func (p *CmppFwdRsp) Unpack(data []byte, sp proto.SmsProto) error {
-	pkt := proto.NewBuffer(data)
+func (p *CmppFwdRsp) Unpack(data []byte, sp codec.SmsProto) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
 
 	p.PkTotal = pkt.ReadByte()
 	p.PkNumber = pkt.ReadByte()
-	if sp == proto.CMPP30 {
+	if sp == codec.CMPP30 {
 		p.Result = pkt.ReadU32()
 	} else {
 		p.Result = uint32(pkt.ReadByte())

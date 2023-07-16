@@ -16,28 +16,28 @@ const (
 	BIND_TRANSCEIVER, BIND_TRANSCEIVER_RESP
 )
 
-type SmppStatus uint32
+type CommandStatus uint32
 
 const (
-	ESME_ROK           SmppStatus = iota // No Error
-	ESME_RINVMSGLEN                      // Message Length is invalid
-	ESME_RINVCMDLEN                      // Command Length is invalid
-	ESME_RINVCMDID                       // Invalid Command ID
-	ESME_RINVBNDSTS                      // Incorrect BIND Status for given com- mand
-	ESME_RALYBND                         // ESME Already in Bound State
-	ESME_RINVPRTFLG                      // Invalid Priority Flag
-	ESME_RINVREGDLVFLG                   // Invalid Registered Delivery Flag
-	ESME_RSYSERR                         // System Error
-	_                                    // Reserved
-	ESME_RINVSRCADR                      // Invalid Source Address
-	ESME_RINVDSTADR                      // Invalid Dest Addr
-	ESME_RINVMSGID                       // Message ID is invalid
-	ESME_RBINDFAIL                       // Bind Failed
-	ESME_RINVPASWD                       // Invalid Password
-	ESME_RINVSYSID                       // Invalid System ID
-	_                                    // Reserved
-	ESME_RCANCELFAIL                     // Cancel SM Failed
-	_                                    // Reserved
-	_                                    // Reserved
-	ESME_RREPLACEFAIL                    // Replace SM Failed
+	ESME_ROK           CommandStatus = iota // No Error
+	ESME_RINVMSGLEN                         // Message Length is invalid
+	ESME_RINVCMDLEN                         // Command Length is invalid
+	ESME_RINVCMDID                          // Invalid Command ID
+	ESME_RINVBNDSTS                         // Incorrect BIND Status for given com- mand
+	ESME_RALYBND                            // ESME Already in Bound State
+	ESME_RINVPRTFLG                         // Invalid Priority Flag
+	ESME_RINVREGDLVFLG                      // Invalid Registered Delivery Flag
+	ESME_RSYSERR                            // System Error
+	_                                       // Reserved
+	ESME_RINVSRCADR                         // Invalid Source Address
+	ESME_RINVDSTADR                         // Invalid Dest Addr
+	ESME_RINVMSGID                          // Message ID is invalid
+	ESME_RBINDFAIL                          // Bind Failed
+	ESME_RINVPASWD                          // Invalid Password
+	ESME_RINVSYSID                          // Invalid System ID
+	_                                       // Reserved
+	ESME_RCANCELFAIL                        // Cancel SM Failed
+	_                                       // Reserved
+	_                                       // Reserved
+	ESME_RREPLACEFAIL                       // Replace SM Failed
 )

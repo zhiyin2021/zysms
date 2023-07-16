@@ -1,8 +1,8 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/event"
-	"github.com/zhiyin2021/zysms/proto"
 )
 
 // Packet length const for cmpp terminate request and response packets.
@@ -22,8 +22,9 @@ type CmppCancelRsp struct {
 }
 
 // Pack packs the CmppTerminateReq to bytes stream for client side.
-func (p *CmppCancelReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	pkt := proto.NewCmppBuffer(CmppCancelReqLen, CMPP_CANCEL.ToInt(), seqId)
+func (p *CmppCancelReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
+	pkt := codec.NewWriter(CmppCancelReqLen, CMPP_CANCEL.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
 	pkt.WriteU64(p.MsgId)
 	return pkt.Bytes()
@@ -32,9 +33,9 @@ func (p *CmppCancelReq) Pack(seqId uint32, sp proto.SmsProto) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppCancelReq) Unpack(data []byte, sp proto.SmsProto) (e error) {
-	pkt := proto.NewBuffer(data)
-	// pkt := proto.NewPacket(data)
+func (p *CmppCancelReq) Unpack(data []byte, sp codec.SmsProto) (e error) {
+	pkt := codec.NewReader(data)
+	// pkt := codec.NewPacket(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.MsgId = pkt.ReadU64()
@@ -48,8 +49,9 @@ func (p *CmppCancelReq) Event() event.SmsEvent {
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
-func (p *CmppCancelRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
-	pkt := proto.NewCmppBuffer(CmppCancelRspLen, CMPP_CANCEL_RESP.ToInt(), seqId)
+func (p *CmppCancelRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
+	pkt := codec.NewWriter(CmppCancelRspLen, CMPP_CANCEL_RESP.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
 	// Pack body
 	pkt.WriteU32(p.SuccId)
@@ -59,8 +61,8 @@ func (p *CmppCancelRsp) Pack(seqId uint32, sp proto.SmsProto) []byte {
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppCancelRsp) Unpack(data []byte, sp proto.SmsProto) error {
-	pkt := proto.NewBuffer(data)
+func (p *CmppCancelRsp) Unpack(data []byte, sp codec.SmsProto) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.SuccId = pkt.ReadU32()

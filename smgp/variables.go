@@ -3,6 +3,7 @@ package smgp
 import (
 	"fmt"
 
+	"github.com/zhiyin2021/zysms/codec"
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
@@ -50,6 +51,17 @@ func (t Version) String() string {
 		return "smgp13"
 	default:
 		return "unknown"
+	}
+}
+
+func (t Version) Proto() codec.SmsProto {
+	switch {
+	case t == V20:
+		return codec.SMGP20
+	case t == V13:
+		return codec.SMGP13
+	default:
+		return codec.SMGP30
 	}
 }
 

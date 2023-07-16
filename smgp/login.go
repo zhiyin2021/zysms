@@ -1,10 +1,8 @@
 package smgp
 
 import (
-	"fmt"
-
-	"github.com/sirupsen/logrus"
-	"github.com/zhiyin2021/zysms/proto"
+	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/event"
 )
 
 const (
@@ -28,7 +26,7 @@ type SmgpLoginRsp struct {
 	Version             Version // 版本，1字节
 }
 
-// func NewLogin(ac *proto.AuthConf, seq uint32) *Login {
+// func NewLogin(ac *codec.AuthConf, seq uint32) *Login {
 // 	lo := &Login{}
 // 	lo.PacketLength = LoginLen
 // 	lo.RequestId = SMGP_LOGIN
@@ -48,31 +46,22 @@ type SmgpLoginRsp struct {
 // 	return lo
 // }
 
-func (p *SmgpLoginReq) Pack(seqId uint32) []byte {
-	data := make([]byte, LoginLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(LoginLen)
-	pkt.WriteU32(SMGP_LOGIN.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
+func (p *SmgpLoginReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
+	pkt := codec.NewWriter(LoginLen, SMGP_LOGIN.ToInt())
+	pkt.WriteU32(seqId)
+	p.seqId = seqId
 	pkt.WriteStr(p.ClientID, 8)
 	pkt.WriteStr(p.AuthenticatorClient, 16)
 	pkt.WriteByte(p.LoginMode)
 	pkt.WriteU32(p.Timestamp)
 	pkt.WriteByte(byte(p.Version))
-	logrus.Warningln("seqid:", seqId, data)
-	return data
+	return pkt.Bytes()
 }
-
-func (p *SmgpLoginReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+func (p *SmgpLoginReq) Event() event.SmsEvent {
+	return event.SmsEventAuthReq
+}
+func (p *SmgpLoginReq) Unpack(data []byte) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.ClientID = pkt.ReadStr(8)
@@ -80,53 +69,34 @@ func (p *SmgpLoginReq) Unpack(data []byte) (e error) {
 	p.LoginMode = pkt.ReadByte()
 	p.Timestamp = pkt.ReadU32()
 	p.Version = Version(pkt.ReadByte())
-	return p
+	return pkt.Err()
 }
 func (p *SmgpLoginReq) SeqId() uint32 {
 	return p.seqId
 }
 
-func (p *SmgpLoginReq) String() string {
-	return fmt.Sprintf("{SeqId: %s, clientID: %s, authenticatorClient: %x, logoinMode: %x, timestamp: %010d, version: %s}",
-		p.seqId, p.ClientID, p.AuthenticatorClient, p.LoginMode, p.Timestamp, p.Version)
-}
+func (p *SmgpLoginRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
+	pkt := codec.NewWriter(LoginLen, SMGP_LOGIN_RESP.ToInt())
+	pkt.WriteU32(seqId)
 
-func (p *SmgpLoginRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, LoginLen)
-	pkt := proto.NewPacket(data)
-
-	pkt.WriteU32(LoginRespLen)
-	pkt.WriteU32(SMGP_LOGIN_RESP.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
+	p.seqId = seqId
 	pkt.WriteU32(uint32(p.Status))
 	pkt.WriteStr(p.AuthenticatorServer, 16)
 	pkt.WriteByte(byte(p.Version))
-	logrus.Warningln("SmgpLoginRsp.seqid:", seqId, data)
-	return data
+	return pkt.Bytes()
 }
-
-func (p *SmgpLoginRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+func (p *SmgpLoginRsp) Event() event.SmsEvent {
+	return event.SmsEventAuthRsp
+}
+func (p *SmgpLoginRsp) Unpack(data []byte) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	p.Status = Status(pkt.ReadU32())
 	p.AuthenticatorServer = pkt.ReadStr(16)
 	p.Version = Version(pkt.ReadByte())
-	return p
+	return pkt.Err()
 }
 func (p *SmgpLoginRsp) SeqId() uint32 {
 	return p.seqId
-}
-
-func (p *SmgpLoginRsp) String() string {
-	return fmt.Sprintf("{ Header: %s, status: \"%s\", authenticatorISMG: %x, version: %s }",
-		p.seqId, p.Status, p.AuthenticatorServer, p.Version)
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
-	"github.com/zhiyin2021/zysms/proto"
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
 )
@@ -21,7 +21,7 @@ const (
 )
 
 func main() {
-	sms := zysms.New(proto.CMPP30)
+	sms := zysms.New(codec.CMPP30)
 	sms.OnConnect = func(c *zysms.Conn) {
 		c.Logger().Println("server: connect")
 	}
@@ -55,7 +55,7 @@ func main() {
 	<-sig
 	ln.Close()
 }
-func handleLogin(p *zysms.Packet, req *cmpp.CmppConnReq) (proto.Packer, error) {
+func handleLogin(p *zysms.Packet, req *cmpp.CmppConnReq) (codec.Packer, error) {
 	resp := &cmpp.CmppConnRsp{
 		Version: req.Version,
 	}
@@ -86,7 +86,7 @@ func handleLogin(p *zysms.Packet, req *cmpp.CmppConnReq) (proto.Packer, error) {
 	return resp, nil
 }
 
-func handleSubmit(p *zysms.Packet, req *cmpp.CmppSubmitReq) (proto.Packer, error) {
+func handleSubmit(p *zysms.Packet, req *cmpp.CmppSubmitReq) (codec.Packer, error) {
 	resp := &cmpp.CmppSubmitRsp{
 		MsgId: 12878564852733378560,
 	}

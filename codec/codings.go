@@ -1,4 +1,4 @@
-package proto
+package codec
 
 import (
 	"fmt"
@@ -292,7 +292,7 @@ var codingMap = map[byte]Encoding{
 }
 
 // FromDataCoding returns encoding from DataCoding value.
-func FromDataCoding(code byte) (enc Encoding) {
+func GetCodec(code byte) (enc Encoding) {
 	enc = codingMap[code]
 	return
 }

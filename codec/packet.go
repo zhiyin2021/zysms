@@ -1,4 +1,4 @@
-package proto
+package codec
 
 import (
 	"bytes"
@@ -38,25 +38,31 @@ type bytesBuffer struct {
 	*bytes.Buffer
 	err error
 }
+type BytesReader struct {
+	*bytesBuffer
+}
+type BytesWriter struct {
+	*bytesBuffer
+}
 
 // NewBuffer create new buffer from preallocated buffer array.
-func NewBuffer(inp []byte) *bytesBuffer {
+func NewReader(inp []byte) *BytesReader {
 	if inp == nil {
 		inp = make([]byte, 0, 512)
 	}
-	return &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}
+	return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
+
 }
-func NewCmppBuffer(dataLen, commandId, seqId uint32) *bytesBuffer {
+func NewWriter(dataLen, commandId uint32) *BytesWriter {
 	inp := make([]byte, 0, dataLen)
-	b := &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}
+	b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
 	b.WriteU32(dataLen)
 	b.WriteU32(commandId)
-	b.WriteU32(seqId)
 	return b
 }
 
 // ReadN read n-bytes from buffer.
-func (c *bytesBuffer) ReadN(n int) (r []byte) {
+func (c *BytesReader) ReadN(n int) (r []byte) {
 	if c.err == nil {
 		if n > 0 {
 			if c.Len() >= n { // optimistic branching
@@ -71,7 +77,7 @@ func (c *bytesBuffer) ReadN(n int) (r []byte) {
 }
 
 // ReadShort reads short from buffer.
-func (c *bytesBuffer) ReadU16() (r uint16) {
+func (c *BytesReader) ReadU16() (r uint16) {
 	if c.err == nil {
 		v := c.ReadN(SizeShort)
 		if c.err == nil {
@@ -82,12 +88,12 @@ func (c *bytesBuffer) ReadU16() (r uint16) {
 }
 
 // WriteShort writes short to buffer.
-func (c *bytesBuffer) WriteU16(v uint16) {
+func (c *BytesWriter) WriteU16(v uint16) {
 	var b [SizeShort]byte
 	endianese.PutUint16(b[:], v)
 	_, _ = c.Write(b[:])
 }
-func (c *bytesBuffer) ReadByte() byte {
+func (c *BytesReader) ReadByte() byte {
 	if c.err == nil {
 		var v byte
 		v, c.err = c.Buffer.ReadByte()
@@ -97,7 +103,7 @@ func (c *bytesBuffer) ReadByte() byte {
 }
 
 // ReadInt reads int from buffer.
-func (c *bytesBuffer) ReadU32() (r uint32) {
+func (c *BytesReader) ReadU32() (r uint32) {
 	if c.err == nil {
 		v := c.ReadN(SizeInt)
 		if c.err == nil {
@@ -111,7 +117,7 @@ func (c *bytesBuffer) Err() error {
 }
 
 // ReadInt reads int from buffer.
-func (c *bytesBuffer) ReadU64() (r uint64) {
+func (c *BytesReader) ReadU64() (r uint64) {
 	if c.err == nil {
 		v := c.ReadN(SizeLong)
 		if c.err == nil {
@@ -122,32 +128,32 @@ func (c *bytesBuffer) ReadU64() (r uint64) {
 }
 
 // WriteInt writes int to buffer.
-func (c *bytesBuffer) WriteU32(v uint32) {
+func (c *BytesWriter) WriteU32(v uint32) {
 	var b [SizeInt]byte
 	endianese.PutUint32(b[:], v)
 	_, _ = c.Write(b[:])
 }
 
 // WriteInt writes int to buffer.
-func (c *bytesBuffer) WriteBytes(buf []byte) {
+func (c *BytesWriter) WriteBytes(buf []byte) {
 	c.Write(buf)
 }
 
 // WriteInt writes int to buffer.
-func (c *bytesBuffer) WriteU64(v uint64) {
+func (c *BytesWriter) WriteU64(v uint64) {
 	var b [SizeLong]byte
 	endianese.PutUint64(b[:], v)
 	_, _ = c.Write(b[:])
 }
 
 // WriteBuffer appends buffer.
-func (c *bytesBuffer) WriteBuffer(d *bytesBuffer) {
+func (c *BytesWriter) WriteBuffer(d *bytesBuffer) {
 	if d != nil {
 		_, _ = c.Write(d.Bytes())
 	}
 }
 
-func (c *bytesBuffer) writeString(st string, isCString bool, enc Encoding, count int) (err error) {
+func (c *BytesWriter) writeString(st string, isCString bool, enc Encoding, count int) (err error) {
 	if len(st) > 0 {
 		var payload []byte
 		if payload, err = enc.Encode(st); err == nil {
@@ -172,23 +178,30 @@ func (c *bytesBuffer) writeString(st string, isCString bool, enc Encoding, count
 	return
 }
 
-// WriteCString writes c-string.
-func (c *bytesBuffer) WriteCStrN(s string, count int) error {
-	return c.writeString(s, false, ASCII, count)
+// WriteStr
+func (c *BytesWriter) WriteStr(s string, count int) error {
+	payload := []byte(s)
+	if len(payload) > count {
+		payload = payload[:count]
+	} else {
+		payload = append(payload, make([]byte, count-len(payload))...)
+	}
+	_, c.err = c.Write(payload)
+	return c.err
 }
 
 // WriteCString writes c-string.
-func (c *bytesBuffer) WriteCStr(s string) error {
+func (c *BytesWriter) WriteCStr(s string) error {
 	return c.writeString(s, true, ASCII, 0)
 }
 
 // WriteCStringWithEnc write c-string with encoding.
-func (c *bytesBuffer) WriteCStrWithEnc(s string, enc Encoding) error {
+func (c *BytesWriter) WriteCStrWithEnc(s string, enc Encoding) error {
 	return c.writeString(s, true, enc, 0)
 }
 
-// ReadCString read c-string.
-func (c *bytesBuffer) ReadCStrN(count int) string {
+// ReadStr
+func (c *BytesReader) ReadStr(count int) string {
 	buf := c.ReadN(count)
 	if c.err == nil && len(buf) > 0 { // optimistic branching
 		return string(bytes.TrimLeft(buf, "\x00"))
@@ -196,8 +209,8 @@ func (c *bytesBuffer) ReadCStrN(count int) string {
 	return ""
 }
 
-// ReadCString read c-string.
-func (c *bytesBuffer) ReadCStr() (st string) {
+// ReadCString
+func (c *BytesReader) ReadCStr() (st string) {
 	buf, err := c.ReadBytes(0)
 	if err == nil && len(buf) > 0 { // optimistic branching
 		st = string(buf[:len(buf)-1])

@@ -1,6 +1,6 @@
 package smgp
 
-import "github.com/zhiyin2021/zysms/proto"
+import "github.com/zhiyin2021/zysms/codec"
 
 type SmgpActiveTest struct {
 	seqId uint32
@@ -10,54 +10,33 @@ type SmgpActiveTestRsp struct {
 }
 
 func (p *SmgpActiveTest) Pack(seqId uint32) []byte {
-	data := make([]byte, SMGP_HEADEER_LEN)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SMGP_HEADEER_LEN)
-	pkt.WriteU32(SMGP_ACTIVE_TEST.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
-	return data
+	pkt := codec.NewWriter(SMGP_HEADEER_LEN, SMGP_ACTIVE_TEST.ToInt())
+	pkt.WriteU32(seqId)
+	p.seqId = seqId
+	return pkt.Bytes()
 }
 
-func (p *SmgpActiveTest) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (p *SmgpActiveTest) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return p
+	return pkt.Err()
 }
 func (p *SmgpActiveTest) SeqId() uint32 {
 	return p.seqId
 }
 func (p *SmgpActiveTestRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, SMGP_HEADEER_LEN)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SMGP_HEADEER_LEN)
-	pkt.WriteU32(SMGP_ACTIVE_TEST_RESP.ToInt())
-
+	pkt := codec.NewWriter(SMGP_HEADEER_LEN, SMGP_ACTIVE_TEST_RESP.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-	p.seqId = seqId
-	return data
+	return pkt.Bytes()
 }
 
-func (p *SmgpActiveTestRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (p *SmgpActiveTestRsp) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return p
+	return pkt.Err()
 }
 
 func (p *SmgpActiveTestRsp) SeqId() uint32 {

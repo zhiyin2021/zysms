@@ -1,8 +1,6 @@
 package sgip
 
-import (
-	"github.com/zhiyin2021/zysms/proto"
-)
+import "github.com/zhiyin2021/zysms/codec"
 
 type SgipDeliverReq struct {
 	SeqId          []uint32 // 消息流水号，由SP接入的短信网关本身产生  12 bytes 】
@@ -26,46 +24,12 @@ const (
 	SgipDeliverRspLen = SGIP_HEADER_LEN + 9
 )
 
-// func NewDeliver(ac *proto.AuthConf, phone, content, destNo string) proto.RequestPdu {
-// 	dlv := &Deliver{}
-// 	dlv.PacketLength = MoBaseLen
-// 	dlv.CommandId = SGIP_DELIVER
-// 	dlv.SequenceNumber = Sequencer.NextVal()
-// 	dlv.UserNumber = phone
-// 	if !strings.HasPrefix(destNo, ac.SmsDisplayNo) {
-// 		destNo = ac.SmsDisplayNo + destNo
-// 	}
-// 	dlv.SPNumber = destNo
-// 	dlv.MessageCoding = utils.MsgFmt(content)
-
-// 	var bs []byte
-// 	// 上行短信不支持长短信，过长内容会被截取
-// 	if dlv.MessageCoding == 8 {
-// 		bs, _ = utils.Utf8ToUcs2(content)
-// 		if len(bs) > 140 {
-// 			bs = bs[:140]
-// 		}
-// 	} else {
-// 		bs = []byte(content)
-// 		if len(bs) > 160 {
-// 			bs = bs[:160]
-// 		}
-// 	}
-// 	dlv.MessageLength = uint32(len(bs))
-// 	dlv.MessageContent = bs
-// 	dlv.PacketLength = MoBaseLen + dlv.MessageLength
-// 	return dlv
-// }
-
-func (d *SgipDeliverReq) Pack(seqId []uint32) []byte {
+func (d *SgipDeliverReq) Pack(seqId uint32) []byte {
 	pktLen := SgipDeliverReqLen + uint32(d.MessageLength)
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(pktLen)
-	pkt.WriteU32(SGIP_DELIVER.ToInt())
-	pkt.WriteU32(seqId[0])
-	pkt.WriteU32(seqId[1])
-	pkt.WriteU32(seqId[2])
+	pkt := codec.NewWriter(pktLen, SGIP_DELIVER.ToInt())
+	pkt.WriteU32(seqId)
+	pkt.WriteU32(getTm())
+	pkt.WriteU32(seqId)
 	pkt.WriteStr(d.UserNumber, 21)
 	pkt.WriteStr(d.SPNumber, 21)
 	pkt.WriteByte(d.TpPid)
@@ -74,16 +38,11 @@ func (d *SgipDeliverReq) Pack(seqId []uint32) []byte {
 	pkt.WriteU32(d.MessageLength)
 	pkt.WriteStr(d.MessageContent, int(d.MessageLength))
 	pkt.WriteStr(d.Reserve, 8)
-	return data
+	return pkt.Bytes()
 }
 
 func (d *SgipDeliverReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	d.SeqId = make([]uint32, 3)
 	d.SeqId[0] = pkt.ReadU32()
@@ -97,6 +56,7 @@ func (d *SgipDeliverReq) Unpack(data []byte) (e error) {
 	d.MessageLength = pkt.ReadU32()
 	d.MessageContent = pkt.ReadStr(int(d.MessageLength))
 	d.Reserve = pkt.ReadStr(8)
+	return pkt.Err()
 }
 
 // func (d *Deliver) Log() []log.Field {
@@ -117,26 +77,18 @@ func (d *SgipDeliverReq) Unpack(data []byte) (e error) {
 // 	)
 // }
 
-func (r *SgipDeliverRsp) Pack(seqId []uint32) []byte {
-	data := make([]byte, SgipDeliverRspLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SgipDeliverRspLen)
-	pkt.WriteU32(SGIP_DELIVER_RESP.ToInt())
-	pkt.WriteU32(seqId[0])
-	pkt.WriteU32(seqId[1])
-	pkt.WriteU32(seqId[2])
+func (r *SgipDeliverRsp) Pack(seqId uint32) []byte {
+	pkt := codec.NewWriter(SgipDeliverRspLen, SGIP_DELIVER_RESP.ToInt())
+	pkt.WriteU32(seqId)
+	pkt.WriteU32(getTm())
+	pkt.WriteU32(seqId)
 	pkt.WriteU32(uint32(r.Status))
 	pkt.WriteStr(r.Reserve, 8)
-	return data
+	return pkt.Bytes()
 }
 
-func (r *SgipDeliverRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (r *SgipDeliverRsp) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	r.SeqId = make([]uint32, 3)
 	r.SeqId[0] = pkt.ReadU32()
@@ -144,6 +96,7 @@ func (r *SgipDeliverRsp) Unpack(data []byte) (e error) {
 	r.SeqId[2] = pkt.ReadU32()
 	r.Status = Status(pkt.ReadU32())
 	r.Reserve = pkt.ReadStr(8)
+	return pkt.Err()
 }
 
 // func (r *DeliverRsp) Log() []log.Field {

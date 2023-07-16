@@ -3,7 +3,7 @@ package smgp
 import (
 	"fmt"
 
-	"github.com/zhiyin2021/zysms/proto"
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
@@ -38,70 +38,12 @@ type SmgpSubmitRsp struct {
 
 const MtBaseLen = 126
 
-// func NewSubmit(ac *proto.AuthConf, phones []string, content string, seq uint32, options ...proto.OptionFunc) (messages []proto.RequestPdu) {
-// 	mt := &Submit{Version: Version(ac.Version)}
-// 	mt.PacketLength = MtBaseLen
-// 	mt.RequestId = SMGP_SUBMIT
-// 	mt.SequenceId = seq
-// 	mt.SetOptions(ac, proto.LoadMtOptions(optionp...))
-// 	mt.msgType = 6
-// 	// 从配置文件设置属性
-// 	mt.feeType = ac.FeeType
-// 	mt.feeCode = ac.FeeCode
-// 	mt.chargeTermID = ac.FeeTerminalId
-// 	mt.fixedFee = ac.FixedFee
-// 	// 初步设置入参
-// 	mt.destTermID = phones
-// 	mt.destTermIDCount = byte(len(phones))
-
-// 	mt.msgFormat = 15
-// 	data, err := GbEncodep.Bytes([]byte(content))
-// 	if err != nil {
-// 		return nil
-// 	}
-// 	slices := utilp.ToTPUDHISlices(data, 140)
-// 	if len(slices) == 1 {
-// 		mt.msgContent = slices[0]
-// 		mt.msgLength = byte(len(mt.msgContent))
-// 		mt.PacketLength = uint32(MtBaseLen + len(mt.destTermID)*21 + int(mt.msgLength))
-// 		return []proto.RequestPdu{mt}
-// 	} else {
-// 		for i, dt := range slices {
-// 			// 拷贝 mt
-// 			tmp := *mt
-// 			sub := &tmp
-// 			if i != 0 {
-// 				sub.SequenceId = uint32(proto.B32Seq.NextVal())
-// 			}
-// 			sub.msgLength = byte(len(dt))
-// 			sub.msgContent = dt
-// 			l := 0
-// 			sub.tlvList = utilp.NewTlvList()
-// 			sub.tlvList.Add(TP_pid, []byte{0x00})
-// 			l += 5
-// 			sub.tlvList.Add(TP_udhi, []byte{0x01})
-// 			l += 5
-// 			sub.tlvList.Add(PkTotal, []byte{byte(len(slices))})
-// 			l += 5
-// 			sub.tlvList.Add(PkNumber, []byte{byte(i)})
-// 			l += 5
-// 			sub.PacketLength = uint32(MtBaseLen + len(sub.destTermID)*21 + int(sub.msgLength) + l)
-// 			messages = append(messages, sub)
-// 		}
-// 		return messages
-// 	}
-// }
-
 func (p *SmgpSubmitReq) Pack(seqId uint32) []byte {
 	pktLen := SMGP_HEADEER_LEN + 117 + uint32(p.DestTermIDCount)*21 + 1 + uint32(p.MsgLength) + 8
-	data := make([]byte, pktLen)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(pktLen)
-	pkt.WriteU32(SMGP_SUBMIT.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
+	pkt := codec.NewWriter(pktLen, SMGP_SUBMIT.ToInt())
+	pkt.WriteU32(seqId)
+
+	p.seqId = seqId
 
 	pkt.WriteByte(p.SubType)
 	pkt.WriteByte(p.NeedReport)
@@ -122,16 +64,11 @@ func (p *SmgpSubmitReq) Pack(seqId uint32) []byte {
 	pkt.WriteByte(p.MsgLength)
 	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
 	pkt.WriteStr(p.Reserve, 8)
-	return data
+	return pkt.Bytes()
 }
 
-func (p *SmgpSubmitReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+func (p *SmgpSubmitReq) Unpack(data []byte) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	// Body: Source_Addr
@@ -154,7 +91,7 @@ func (p *SmgpSubmitReq) Unpack(data []byte) (e error) {
 	p.MsgLength = pkt.ReadByte()
 	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
 	p.Reserve = pkt.ReadStr(8)
-	return p
+	return pkt.Err()
 }
 func (p *SmgpSubmitReq) SeqId() uint32 {
 	return p.seqId
@@ -176,33 +113,23 @@ func (p *SmgpSubmitReq) String() string {
 }
 
 func (p *SmgpSubmitRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, 12)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(12)
-	pkt.WriteU32(SMGP_SUBMIT_RESP.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
+	pktLen := SMGP_HEADEER_LEN + 10 + 4
+	pkt := codec.NewWriter(pktLen, SMGP_SUBMIT_RESP.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
 	pkt.WriteStr(p.MsgId, 10)
 	pkt.WriteU32(uint32(p.Status))
-	return data
+	return pkt.Bytes()
 }
 
-func (p *SmgpSubmitRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	pkt := proto.NewPacket(data)
+func (p *SmgpSubmitRsp) Unpack(data []byte) error {
+	pkt := codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
 	// Body: Source_Addr
 	p.MsgId = pkt.ReadStr(10)
 	p.Status = Status(pkt.ReadU32())
-	return p
+	return pkt.Err()
 }
 
 func (p *SmgpSubmitRsp) SeqId() uint32 {

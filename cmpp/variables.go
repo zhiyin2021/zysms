@@ -1,8 +1,8 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/event"
-	"github.com/zhiyin2021/zysms/proto"
 )
 
 type Version uint8
@@ -10,9 +10,7 @@ type Version uint8
 const (
 	CMPP_HEADER_LEN  uint32 = 12
 	CMPP2_PACKET_MAX uint32 = 2477
-	CMPP2_PACKET_MIN uint32 = 12
 	CMPP3_PACKET_MAX uint32 = 3335
-	CMPP3_PACKET_MIN uint32 = 12
 
 	V30 Version = 0x30
 	V21 Version = 0x21
@@ -31,12 +29,11 @@ func (t Version) String() string {
 	}
 	return "unknown"
 }
-func (t Version) Proto() proto.SmsProto {
-
+func (t Version) Proto() codec.SmsProto {
 	if t == V30 {
-		return proto.CMPP30
+		return codec.CMPP30
 	} else {
-		return proto.CMPP21
+		return codec.CMPP21
 	}
 }
 
@@ -122,7 +119,7 @@ var cmdStr = map[CommandId]string{
 	CMPP_REQUEST_MAX:      "CMPP_REQUEST_MAX",
 	CMPP_RESPONSE_MAX:     "CMPP_RESPONSE_MAX",
 }
-var CmppPacket = map[CommandId]func(Version, []byte) (proto.Packer, error){
+var CmppPacket = map[CommandId]func(Version, []byte) (codec.Packer, error){
 	CMPP_REQUEST_MIN:      nil,                  //"CMPP_REQUEST_MIN",
 	CMPP_RESPONSE_MIN:     nil,                  //    "CMPP_RESPONSE_MIN",
 	CMPP_CONNECT:          newCmppConnReq,       //   "CMPP_CONNECT",
@@ -145,94 +142,94 @@ var CmppPacket = map[CommandId]func(Version, []byte) (proto.Packer, error){
 	CMPP_RESPONSE_MAX:     nil,                  //  "CMPP_RESPONSE_MAX",
 }
 
-func newCmppConnReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppConnReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppConnReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppConnRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppConnRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppConnRsp{}
-	sp := proto.CMPP21
+	sp := codec.CMPP21
 	if len(data) == 25 {
-		sp = proto.CMPP30
+		sp = codec.CMPP30
 	}
 	e = p.Unpack(data, sp)
 	return
 }
-func newCmppTerminateReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppTerminateReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppConnReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppTerminateRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppTerminateRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppTerminateRsp{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppSubmitReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppSubmitReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppSubmitReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppSubmitRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppSubmitRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppSubmitRsp{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppDeliverReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppDeliverReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppDeliverReq{}
-	sp := proto.CMPP21
+	sp := codec.CMPP21
 	if v == V30 {
-		sp = proto.CMPP30
+		sp = codec.CMPP30
 	}
 	e = p.Unpack(data, sp)
 	return
 }
-func newCmppDeliverRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppDeliverRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppDeliverRsp{}
-	sp := proto.CMPP21
+	sp := codec.CMPP21
 	if v == V30 {
-		sp = proto.CMPP30
+		sp = codec.CMPP30
 	}
 	e = p.Unpack(data, sp)
 	return
 }
-func newCmppQueryReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppQueryReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppQueryReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppQueryRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppQueryRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppQueryRsp{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppCancelReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppCancelReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppCancelReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppCancelRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppCancelRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppCancelRsp{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppActiveTestReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppActiveTestReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppActiveTestReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppActiveTestRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppActiveTestRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppActiveTestRsp{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppFwdReq(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppFwdReq(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppFwdReq{}
 	e = p.Unpack(data, v.Proto())
 	return
 }
-func newCmppFwdRsp(v Version, data []byte) (p proto.Packer, e error) {
+func newCmppFwdRsp(v Version, data []byte) (p codec.Packer, e error) {
 	p = &CmppFwdRsp{}
 	p.Unpack(data, v.Proto())
 	return

@@ -1,6 +1,6 @@
 package smgp
 
-import "github.com/zhiyin2021/zysms/proto"
+import "github.com/zhiyin2021/zysms/codec"
 
 type SmgpExitReq struct {
 	seqId uint32
@@ -10,55 +10,34 @@ type SmgpExitRsp struct {
 }
 
 func (p *SmgpExitReq) Pack(seqId uint32) []byte {
-	data := make([]byte, SMGP_HEADEER_LEN)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SMGP_HEADEER_LEN)
-	pkt.WriteU32(SMGP_EXIT.ToInt())
-
+	pkt := codec.NewWriter(SMGP_HEADEER_LEN, SMGP_EXIT.ToInt())
+	pkt.WriteU32(seqId)
 	p.seqId = seqId
-
-	pkt.WriteU32(p.seqId)
-	return data
+	return pkt.Bytes()
 }
 
-func (p *SmgpExitReq) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (p *SmgpExitReq) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return p
+	return pkt.Err()
 }
 func (p *SmgpExitReq) SeqId() uint32 {
 	return p.seqId
 }
 
 func (p *SmgpExitRsp) Pack(seqId uint32) []byte {
-	data := make([]byte, SMGP_HEADEER_LEN)
-	pkt := proto.NewPacket(data)
-	pkt.WriteU32(SMGP_HEADEER_LEN)
-	pkt.WriteU32(SMGP_EXIT_RESP.ToInt())
-	if seqId > 0 {
-		p.seqId = seqId
-	}
-	pkt.WriteU32(p.seqId)
-
-	return data
+	pkt := codec.NewWriter(SMGP_HEADEER_LEN, SMGP_EXIT_RESP.ToInt())
+	pkt.WriteU32(seqId)
+	p.seqId = seqId
+	return pkt.Bytes()
 }
 
-func (p *SmgpExitRsp) Unpack(data []byte) (e error) {
-	defer func() {
-		if r := recover(); r != nil {
-			e = r.(error)
-		}
-	}()
-	var pkt = proto.NewPacket(data)
+func (p *SmgpExitRsp) Unpack(data []byte) error {
+	var pkt = codec.NewReader(data)
 	// Sequence Id
 	p.seqId = pkt.ReadU32()
-	return p
+	return pkt.Err()
 }
 
 func (p *SmgpExitRsp) SeqId() uint32 {

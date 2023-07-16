@@ -1,8 +1,8 @@
 package cmpp
 
 import (
+	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/event"
-	"github.com/zhiyin2021/zysms/proto"
 )
 
 // Packet length const for cmpp receipt packet.
@@ -22,15 +22,16 @@ type CmppReceiptPkt struct {
 
 // Pack packs the CmppReceiptPkt to bytes stream for client side.
 func (p *CmppReceiptPkt) Pack(seqId uint32) []byte {
-	pkt := proto.NewCmppBuffer(CmppReceiptPktLen, CMPP_DELIVER_RESP.ToInt(), seqId)
+	pkt := codec.NewWriter(CmppReceiptPktLen, CMPP_DELIVER_RESP.ToInt())
+	pkt.WriteU32(seqId)
 
 	p.seqId = seqId
 
 	pkt.WriteU64(p.MsgId)
-	pkt.WriteCStrN(p.Stat, 7)
-	pkt.WriteCStrN(p.SubmitTime, 10)
-	pkt.WriteCStrN(p.DoneTime, 10)
-	pkt.WriteCStrN(p.DestTerminalId, 21)
+	pkt.WriteStr(p.Stat, 7)
+	pkt.WriteStr(p.SubmitTime, 10)
+	pkt.WriteStr(p.DoneTime, 10)
+	pkt.WriteStr(p.DestTerminalId, 21)
 	pkt.WriteU32(p.SmscSequence)
 
 	return pkt.Bytes()
@@ -40,13 +41,13 @@ func (p *CmppReceiptPkt) Pack(seqId uint32) []byte {
 // After unpack, you will get all value of fields in
 // CmppReceiptPkt struct.
 func (p *CmppReceiptPkt) Unpack(data []byte) error {
-	pkt := proto.NewBuffer(data)
+	pkt := codec.NewReader(data)
 
 	p.MsgId = pkt.ReadU64()
-	p.Stat = pkt.ReadCStrN(7)
-	p.SubmitTime = pkt.ReadCStrN(10)
-	p.DoneTime = pkt.ReadCStrN(10)
-	p.DestTerminalId = pkt.ReadCStrN(21)
+	p.Stat = pkt.ReadStr(7)
+	p.SubmitTime = pkt.ReadStr(10)
+	p.DoneTime = pkt.ReadStr(10)
+	p.DestTerminalId = pkt.ReadStr(21)
 	p.SmscSequence = pkt.ReadU32()
 	return pkt.Err()
 }
