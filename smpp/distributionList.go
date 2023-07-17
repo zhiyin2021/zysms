@@ -32,7 +32,7 @@ func (c *DistributionList) Marshal(b *codec.BytesWriter) {
 // SetName sets DistributionList name.
 func (c *DistributionList) SetName(name string) error {
 	if len(name) > SM_DL_NAME_LEN {
-		return fmt.Errorf("Distribution List name exceed limit. (%d > %d)", len(name), SM_DL_NAME_LEN)
+		return fmt.Errorf("distribution List name exceed limit. (%d > %d)", len(name), SM_DL_NAME_LEN)
 	} else {
 		c.name = name
 	}

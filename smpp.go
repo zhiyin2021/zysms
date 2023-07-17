@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,7 +99,7 @@ func (c *smppConn) SendPDU(pdu codec.PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Infof("send pdu:%T , %s", pdu, c.Typ)
+	c.Logger().Infof("send pdu:%T , %d", pdu, c.Typ)
 	buf := codec.NewWriter()
 	pdu.Marshal(buf)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
@@ -122,24 +123,24 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 	if err != nil {
 		return nil, err
 	}
-	if header, ok := pdu.GetHeader().(*smpp.Header); ok {
-		switch header.CommandID {
-		case smpp.BIND_RECEIVER_RESP, smpp.BIND_TRANSMITTER_RESP, smpp.BIND_TRANSCEIVER_RESP: // 当收到登录回复,内部先校验版本
-			if header.CommandStatus != smpp.ESME_ROK {
-				return nil, fmt.Errorf("login error: %v", header.CommandStatus)
-			}
-		case smpp.BIND_RECEIVER, smpp.BIND_TRANSMITTER, smpp.BIND_TRANSCEIVER: /// 当收到登录回复,内部先校验版本
-			if v, ok := pdu.(*smpp.BindRequest); ok {
-				// 服务端自适应版本
-				c.Typ = v.InterfaceVersion
-				c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
-			} else {
-				return nil, smserror.ErrVersionNotMatch
-			}
+	switch p := pdu.(type) {
+	case *smpp.EnquireLink: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
+		resp := p.GetResponse()
+		c.SendPDU(resp)
+		return c.RecvPDU()
+	case *smpp.EnquireLinkResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
+		atomic.AddInt32(&c.counter, -1)
+		return c.RecvPDU()
+	case *smpp.BindResp: // 当收到登录回复,内部先校验版本
+		if p.CommandStatus != smpp.ESME_ROK {
+			return nil, fmt.Errorf("login error: %v", p.CommandStatus)
 		}
-		return pdu, nil
+	case *smpp.BindRequest: /// 当收到登录回复,内部先校验版本
+		// 服务端自适应版本
+		c.Typ = p.InterfaceVersion
+		c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
 	}
-	return nil, smserror.ErrRespNotMatch
+	return pdu, nil
 }
 
 type smppListener struct {
@@ -157,7 +158,32 @@ func (l *smppListener) accept() (*Conn, error) {
 	}
 	conn := newCmppConn(c, codec.Version(smpp.V34), false)
 	conn.SetState(enum.CONN_CONNECTED)
+
+	conn.smsConn.(*smppConn).startActiveTest()
 	return conn, nil
+}
+
+func (c *smppConn) startActiveTest() {
+	go func() {
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-c.ctx.Done():
+				// once conn close, the goroutine should exit
+				return
+			case <-t.C:
+				// send a active test packet to peer, increase the active test counter
+				p := smpp.NewEnquireLink()
+				err := c.SendPDU(p)
+				if err != nil {
+					c.logger.Errorf("cmpp.active send error: %v", err)
+				} else {
+					atomic.AddInt32(&c.counter, 1)
+				}
+			}
+		}
+	}()
 }
 
 func (l *smppListener) Close() error {

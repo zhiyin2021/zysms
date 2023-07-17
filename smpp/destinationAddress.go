@@ -31,7 +31,7 @@ func (c *DestinationAddress) Unmarshal(b *codec.BytesReader) (err error) {
 			err = c.dl.Unmarshal(b)
 
 		default:
-			err = fmt.Errorf("Unrecognize dest_flag %d", c.destFlag)
+			err = fmt.Errorf("unrecognize dest_flag %d", c.destFlag)
 
 		}
 	}

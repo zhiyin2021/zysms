@@ -22,7 +22,6 @@ type cmppConn struct {
 	// for SeqId generator goroutine
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
-	_seqId   uint32
 	stop     func()
 	ctx      context.Context
 	counter  int32
@@ -36,7 +35,6 @@ func newCmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 	c := &cmppConn{
 		Conn:     conn,
 		Typ:      typ,
-		_seqId:   0,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
 		checkVer: checkVer,
 	}
@@ -103,10 +101,6 @@ func (c *cmppConn) Close() {
 func (c *cmppConn) SetState(state enum.State) {
 	c.State = state
 }
-func (c *cmppConn) seqId() uint32 {
-	sid := atomic.AddUint32(&c._seqId, 1)
-	return sid
-}
 
 // SendPkt pack the cmpp packet structure and send it to the other peer.
 func (c *cmppConn) SendPDU(pdu codec.PDU) error {
@@ -116,7 +110,7 @@ func (c *cmppConn) SendPDU(pdu codec.PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Infof("send pkt:%T , %s", pdu, c.Typ)
+	c.Logger().Infof("send pkt:%T , %d", pdu, c.Typ)
 	if p, ok := pdu.(*cmpp.SubmitReq); ok {
 		multiMsg, _ := p.Message.Split()
 		p.TpUdhi = 0

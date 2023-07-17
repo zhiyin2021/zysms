@@ -7,7 +7,7 @@ import (
 // UnsuccessSME indicates submission was unsuccessful and the respective errors.
 type UnsuccessSME struct {
 	Address
-	errorStatusCode CommandStatus
+	errorStatusCode codec.CommandStatus
 }
 
 // NewUnsuccessSME returns new UnsuccessSME

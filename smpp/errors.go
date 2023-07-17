@@ -27,5 +27,5 @@ var (
 	ErrShortMessageLengthTooLarge error = &SmppErr{err: fmt.Sprintf("Encoded short message data exceeds size of %d", SM_MSG_LEN), serialVersionUID: 78237205927624}
 
 	// ErrUDHTooLong UDH-L is larger than total length of short message data
-	ErrUDHTooLong = fmt.Errorf("User Data Header is too long for PDU short message")
+	ErrUDHTooLong = fmt.Errorf("user Data Header is too long for PDU short message")
 )
