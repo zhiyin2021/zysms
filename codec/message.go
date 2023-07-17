@@ -9,7 +9,7 @@ var (
 	ref = uint32(0)
 )
 
-type msgUHD struct {
+type msgUDH struct {
 	Ref   byte
 	Total byte
 	Seq   byte
@@ -20,8 +20,12 @@ type ShortMessage struct {
 	messageLen  byte
 	message     string
 	enc         Encoding
-	udHeader    *msgUHD
+	udHeader    *msgUDH
 	messageData []byte
+}
+
+func (c *ShortMessage) UDHeader() *msgUDH {
+	return c.udHeader
 }
 
 // GetMessageData returns underlying binary message.
@@ -91,7 +95,7 @@ func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 			enc: c.enc,
 			// message: we don't really care
 			messageData: seg,
-			udHeader:    &msgUHD{ref, total, byte(seq)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
+			udHeader:    &msgUDH{ref, total, byte(seq)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
 		})
 		log.Printf("%d => %d", seq, len(seg))
 	}
@@ -120,7 +124,7 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 		n := c.messageData[0] + 1
 		if n > c.messageLen {
 			if n == 6 {
-				c.udHeader = &msgUHD{c.messageData[4], c.messageData[5], c.messageData[6]}
+				c.udHeader = &msgUDH{c.messageData[4], c.messageData[5], c.messageData[6]}
 				// 0x05 数据头总长度
 				// 0x00 信息标识
 				// 0x04 头信息长度
