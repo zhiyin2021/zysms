@@ -29,22 +29,23 @@ func (c *ShortMessage) UDHeader() *msgUDH {
 }
 
 // GetMessageData returns underlying binary message.
-func (c *ShortMessage) GetMessageData() (d []byte, err error) {
-	return c.messageData, nil
+func (c *ShortMessage) GetMessageData() (d []byte) {
+	return c.messageData
 }
 
 // GetMessageWithEncoding returns (decoded) underlying message.
-func (c *ShortMessage) GetMessage() (st string, err error) {
+func (c *ShortMessage) GetMessage() string {
 	if c.message != "" {
-		return c.message, nil
+		return c.message
 	}
 	if c.enc == nil {
 		c.enc = ASCII
 	}
 	if len(c.messageData) > 0 {
-		st, err = c.enc.Decode(c.messageData)
+		st, _ := c.enc.Decode(c.messageData)
+		return st
 	}
-	return
+	return ""
 }
 
 // SetMessageWithEncoding sets message with encoding.
