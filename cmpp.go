@@ -47,7 +47,9 @@ func newCmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
 	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
-
+func (c *cmppConn) Ver() codec.Version {
+	return c.Typ
+}
 func (c *cmppConn) Auth(uid string, pwd string) error {
 	// Login to the server.
 	req := cmpp.NewConnReq(c.Typ).(*cmpp.ConnReq)

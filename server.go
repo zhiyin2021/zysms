@@ -47,6 +47,7 @@ type (
 		SendPDU(codec.PDU) error
 		SetState(enum.State)
 		Logger() *logrus.Entry
+		Ver() codec.Version
 	}
 )
 
