@@ -8,6 +8,7 @@ import (
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
+	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
 )
 
@@ -15,8 +16,8 @@ import (
 type (
 	Packet struct {
 		Conn *Conn
-		Req  codec.Packer
-		Resp codec.Packer
+		Req  codec.PDU
+		Resp codec.PDU
 	}
 	// handleEvent func(*Conn, codec.Packer) error
 	sms struct {
@@ -39,11 +40,11 @@ type (
 
 	smsConn interface {
 		Close()
-		Auth(uid string, pwd string, timeout time.Duration) error
+		Auth(uid string, pwd string) error
 		RemoteAddr() net.Addr
 		// Recv() ([]byte, error)
-		RecvPkt(time.Duration) (codec.Packer, error)
-		SendPkt(codec.Packer, uint32) error
+		RecvPDU() (codec.PDU, error)
+		SendPDU(codec.PDU) error
 		SetState(enum.State)
 		Proto() codec.SmsProto
 		Logger() *logrus.Entry
@@ -63,6 +64,8 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 	switch s.proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
 		l = newCmppListener(ln)
+	case codec.SMPP33, codec.SMPP34:
+		l = newSmppListener(ln)
 	}
 	go func() {
 		for {
@@ -80,7 +83,6 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 	var err error
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
-
 		return nil, err
 	}
 	var zconn *Conn
@@ -91,11 +93,16 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 		zconn = newCmppConn(conn, cmpp.V21, checkVer)
 	case codec.CMPP30:
 		zconn = newCmppConn(conn, cmpp.V30, checkVer)
+	case codec.SMPP33:
+		zconn = newSmppConn(conn, smpp.V33, checkVer)
+	case codec.SMPP34:
+		zconn = newSmppConn(conn, smpp.V34, checkVer)
+
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
 	zconn.SetState(enum.CONN_CONNECTED)
-	err = zconn.Auth(uid, pwd, timeout)
+	err = zconn.Auth(uid, pwd)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +122,7 @@ func (s *sms) run(conn *Conn) {
 	}()
 
 	for {
-		pkt, err := conn.RecvPkt(0)
+		pkt, err := conn.RecvPDU()
 		if err != nil {
 			if s.OnError != nil {
 				s.OnError(conn, err)
@@ -126,7 +133,7 @@ func (s *sms) run(conn *Conn) {
 			p := &Packet{conn, pkt, nil}
 			err = s.OnRecv(p)
 			if p.Resp != nil {
-				err := conn.SendPkt(p.Resp, pkt.SeqId())
+				err := conn.SendPDU(p.Resp)
 				if err != nil {
 					if s.OnError != nil {
 						s.OnError(conn, err)

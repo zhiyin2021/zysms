@@ -2,77 +2,71 @@ package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/event"
 )
 
 // Packet length const for cmpp terminate request and response packets.
-const (
-	CmppCancelReqLen uint32 = 12 + 8 //12d, 0xc
-	CmppCancelRspLen uint32 = 12 + 4 //12d, 0xc
-)
 
-type CmppCancelReq struct {
-	seqId uint32
+type CancelReq struct {
+	base
 	MsgId uint64 // 8字节 信息标识
 }
-type CmppCancelRsp struct {
-	// session info
-	seqId  uint32
+type CancelResp struct {
+	base
 	SuccId uint32
 }
 
+func NewCancelReq(ver Version) codec.PDU {
+	return &CancelReq{
+		base: newBase(ver, CMPP_CANCEL, 0),
+	}
+}
+func NewCancelResp(ver Version) codec.PDU {
+	return &CancelResp{
+		base: newBase(ver, CMPP_CANCEL_RESP, 0),
+	}
+}
+
 // Pack packs the CmppTerminateReq to bytes stream for client side.
-func (p *CmppCancelReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
-	pkt := codec.NewWriter(CmppCancelReqLen, CMPP_CANCEL.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	pkt.WriteU64(p.MsgId)
-	return pkt.Bytes()
+func (p *CancelReq) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteU64(p.MsgId)
+	})
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateReq variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateReq struct.
-func (p *CmppCancelReq) Unpack(data []byte, sp codec.SmsProto) (e error) {
-	pkt := codec.NewReader(data)
-	// pkt := codec.NewPacket(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	p.MsgId = pkt.ReadU64()
-	return pkt.Err()
-}
-func (p *CmppCancelReq) SeqId() uint32 {
-	return p.seqId
-}
-func (p *CmppCancelReq) Event() event.SmsEvent {
-	return event.SmsEventCancelReq
+func (p *CancelReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.MsgId = br.ReadU64()
+		return br.Err()
+	})
 }
 
 // Pack packs the CmppTerminateRsp to bytes stream for client side.
-func (p *CmppCancelRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
-	pkt := codec.NewWriter(CmppCancelRspLen, CMPP_CANCEL_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	// Pack body
-	pkt.WriteU32(p.SuccId)
-	return pkt.Bytes()
+func (p *CancelResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteU32(p.SuccId)
+	})
 }
 
 // Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
 // After unpack, you will get all value of fields in
 // CmppTerminateRsp struct.
-func (p *CmppCancelRsp) Unpack(data []byte, sp codec.SmsProto) error {
-	pkt := codec.NewReader(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	p.SuccId = pkt.ReadU32()
-
-	return pkt.Err()
-}
-func (p *CmppCancelRsp) Event() event.SmsEvent {
-	return event.SmsEventCancelRsp
+func (p *CancelResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.SuccId = br.ReadU32()
+		return br.Err()
+	})
 }
 
-func (p *CmppCancelRsp) SeqId() uint32 {
-	return p.seqId
+// GetResponse implements PDU interface.
+func (b *CancelReq) GetResponse() codec.PDU {
+	return &CancelResp{
+		base: newBase(b.Version, CMPP_CANCEL_RESP, b.SequenceNumber),
+	}
+}
+
+func (b *CancelResp) GetResponse() codec.PDU {
+	return nil
 }

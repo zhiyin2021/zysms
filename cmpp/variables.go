@@ -2,19 +2,22 @@ package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/event"
 )
 
 type Version uint8
 
 const (
-	CMPP_HEADER_LEN  uint32 = 12
+	// CMPP_HEADER_LEN  uint32 = 12
 	CMPP2_PACKET_MAX uint32 = 2477
 	CMPP3_PACKET_MAX uint32 = 3335
 
 	V30 Version = 0x30
 	V21 Version = 0x21
 	V20 Version = 0x20
+
+	SM_MSG_LEN      = 140
+	PDU_HEADER_SIZE = 12
+	MAX_PDU_LEN     = 3335
 )
 
 var versionStr = map[Version]string{
@@ -48,10 +51,9 @@ func (t Version) MajorMatchV(v Version) bool {
 }
 
 // CommandId 命令定义
-type CommandId uint32
 
 const (
-	CMPP_REQUEST_MIN, CMPP_RESPONSE_MIN CommandId = iota, 0x80000000 + iota
+	CMPP_REQUEST_MIN, CMPP_RESPONSE_MIN codec.CommandId = iota, 0x80000000 + iota
 	CMPP_CONNECT, CMPP_CONNECT_RESP
 	CMPP_TERMINATE, CMPP_TERMINATE_RESP
 	_, _
@@ -64,173 +66,32 @@ const (
 	CMPP_REQUEST_MAX, CMPP_RESPONSE_MAX
 )
 
-func (id CommandId) ToInt() uint32 {
-	return uint32(id)
+var pduMap = map[codec.CommandId]func(Version) codec.PDU{
+	CMPP_REQUEST_MIN:      nil,               //"CMPP_REQUEST_MIN",
+	CMPP_RESPONSE_MIN:     nil,               //    "CMPP_RESPONSE_MIN",
+	CMPP_CONNECT:          NewConnReq,        //   "CMPP_CONNECT",
+	CMPP_CONNECT_RESP:     NewConnResp,       // "CMPP_CONNECT_RESP",
+	CMPP_TERMINATE:        NewTerminateReq,   //   "CMPP_TERMINATE",
+	CMPP_TERMINATE_RESP:   NewTerminateResp,  //   "CMPP_TERMINATE_RESP",
+	CMPP_SUBMIT:           NewSubmitReq,      //   "CMPP_SUBMIT",
+	CMPP_SUBMIT_RESP:      NewSubmitResp,     //   "CMPP_SUBMIT_RESP",
+	CMPP_DELIVER:          NewDeliverReq,     //   "CMPP_DELIVER",
+	CMPP_DELIVER_RESP:     NewDeliverResp,    //   "CMPP_DELIVER_RESP",
+	CMPP_QUERY:            NewQueryReq,       //   "CMPP_QUERY",
+	CMPP_QUERY_RESP:       NewQueryResp,      //   "CMPP_QUERY_RESP",
+	CMPP_CANCEL:           NewCancelReq,      //   "CMPP_CANCEL",
+	CMPP_CANCEL_RESP:      NewCancelResp,     //   "CMPP_CANCEL_RESP",
+	CMPP_ACTIVE_TEST:      NewActiveTestReq,  //   "CMPP_ACTIVE_TEST",
+	CMPP_ACTIVE_TEST_RESP: NewActiveTestResp, //  "CMPP_ACTIVE_TEST_RESP",
+	CMPP_FWD:              NewFwdReq,         //  "CMPP_FWD",
+	CMPP_FWD_RESP:         NewFwdResp,        //   "CMPP_FWD_RESP",
+	CMPP_REQUEST_MAX:      nil,               //   "CMPP_REQUEST_MAX",
+	CMPP_RESPONSE_MAX:     nil,               //  "CMPP_RESPONSE_MAX",
 }
 
-func (id CommandId) String() string {
-	if v, ok := cmdStr[id]; ok {
-		return v
+func CreatePDUFromCmdID(cmdID codec.CommandId, ver Version) (codec.PDU, error) {
+	if g, ok := pduMap[cmdID]; ok {
+		return g(ver), nil
 	}
-	return "UNKNOWN"
-}
-func (id CommandId) Event() event.SmsEvent {
-	if v, ok := cmdEvent[id]; ok {
-		return v
-	}
-	return event.SmsEventUnknown
-}
-
-var cmdEvent = map[CommandId]event.SmsEvent{
-	CMPP_CONNECT:          event.SmsEventAuthReq,       //   "CMPP_CONNECT",
-	CMPP_CONNECT_RESP:     event.SmsEventAuthRsp,       // "CMPP_CONNECT_RESP",
-	CMPP_TERMINATE:        event.SmsEventTerminateReq,  //   "CMPP_TERMINATE",
-	CMPP_TERMINATE_RESP:   event.SmsEventActiveTestRsp, //   "CMPP_TERMINATE_RESP",
-	CMPP_SUBMIT:           event.SmsEventSubmitReq,     //   "CMPP_SUBMIT",
-	CMPP_SUBMIT_RESP:      event.SmsEventSubmitRsp,     //   "CMPP_SUBMIT_RESP",
-	CMPP_DELIVER:          event.SmsEventDeliverReq,    //   "CMPP_DELIVER",
-	CMPP_DELIVER_RESP:     event.SmsEventDeliverRsp,    //   "CMPP_DELIVER_RESP",
-	CMPP_QUERY:            event.SmsEventQueryReq,      //   "CMPP_QUERY",
-	CMPP_QUERY_RESP:       event.SmsEventQueryRsp,      //   "CMPP_QUERY_RESP",
-	CMPP_CANCEL:           event.SmsEventCancelReq,     //   "CMPP_CANCEL",
-	CMPP_CANCEL_RESP:      event.SmsEventCancelRsp,     //   "CMPP_CANCEL_RESP",
-	CMPP_ACTIVE_TEST:      event.SmsEventActiveTestReq, //   "CMPP_ACTIVE_TEST",
-	CMPP_ACTIVE_TEST_RESP: event.SmsEventActiveTestRsp, //  "CMPP_ACTIVE_TEST_RESP",
-}
-var cmdStr = map[CommandId]string{
-	CMPP_REQUEST_MIN:      "CMPP_REQUEST_MIN",
-	CMPP_RESPONSE_MIN:     "CMPP_RESPONSE_MIN",
-	CMPP_CONNECT:          "CMPP_CONNECT",
-	CMPP_CONNECT_RESP:     "CMPP_CONNECT_RESP",
-	CMPP_TERMINATE:        "CMPP_TERMINATE",
-	CMPP_TERMINATE_RESP:   "CMPP_TERMINATE_RESP",
-	CMPP_SUBMIT:           "CMPP_SUBMIT",
-	CMPP_SUBMIT_RESP:      "CMPP_SUBMIT_RESP",
-	CMPP_DELIVER:          "CMPP_DELIVER",
-	CMPP_DELIVER_RESP:     "CMPP_DELIVER_RESP",
-	CMPP_QUERY:            "CMPP_QUERY",
-	CMPP_QUERY_RESP:       "CMPP_QUERY_RESP",
-	CMPP_CANCEL:           "CMPP_CANCEL",
-	CMPP_CANCEL_RESP:      "CMPP_CANCEL_RESP",
-	CMPP_ACTIVE_TEST:      "CMPP_ACTIVE_TEST",
-	CMPP_ACTIVE_TEST_RESP: "CMPP_ACTIVE_TEST_RESP",
-	CMPP_FWD:              "CMPP_FWD",
-	CMPP_FWD_RESP:         "CMPP_FWD_RESP",
-	CMPP_REQUEST_MAX:      "CMPP_REQUEST_MAX",
-	CMPP_RESPONSE_MAX:     "CMPP_RESPONSE_MAX",
-}
-var CmppPacket = map[CommandId]func(Version, []byte) (codec.Packer, error){
-	CMPP_REQUEST_MIN:      nil,                  //"CMPP_REQUEST_MIN",
-	CMPP_RESPONSE_MIN:     nil,                  //    "CMPP_RESPONSE_MIN",
-	CMPP_CONNECT:          newCmppConnReq,       //   "CMPP_CONNECT",
-	CMPP_CONNECT_RESP:     newCmppConnRsp,       // "CMPP_CONNECT_RESP",
-	CMPP_TERMINATE:        newCmppTerminateReq,  //   "CMPP_TERMINATE",
-	CMPP_TERMINATE_RESP:   newCmppTerminateRsp,  //   "CMPP_TERMINATE_RESP",
-	CMPP_SUBMIT:           newCmppSubmitReq,     //   "CMPP_SUBMIT",
-	CMPP_SUBMIT_RESP:      newCmppSubmitRsp,     //   "CMPP_SUBMIT_RESP",
-	CMPP_DELIVER:          newCmppDeliverReq,    //   "CMPP_DELIVER",
-	CMPP_DELIVER_RESP:     newCmppDeliverRsp,    //   "CMPP_DELIVER_RESP",
-	CMPP_QUERY:            newCmppQueryReq,      //   "CMPP_QUERY",
-	CMPP_QUERY_RESP:       newCmppQueryRsp,      //   "CMPP_QUERY_RESP",
-	CMPP_CANCEL:           newCmppCancelReq,     //   "CMPP_CANCEL",
-	CMPP_CANCEL_RESP:      newCmppCancelRsp,     //   "CMPP_CANCEL_RESP",
-	CMPP_ACTIVE_TEST:      newCmppActiveTestReq, //   "CMPP_ACTIVE_TEST",
-	CMPP_ACTIVE_TEST_RESP: newCmppActiveTestRsp, //  "CMPP_ACTIVE_TEST_RESP",
-	CMPP_FWD:              newCmppFwdReq,        //  "CMPP_FWD",
-	CMPP_FWD_RESP:         newCmppFwdRsp,        //   "CMPP_FWD_RESP",
-	CMPP_REQUEST_MAX:      nil,                  //   "CMPP_REQUEST_MAX",
-	CMPP_RESPONSE_MAX:     nil,                  //  "CMPP_RESPONSE_MAX",
-}
-
-func newCmppConnReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppConnReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppConnRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppConnRsp{}
-	sp := codec.CMPP21
-	if len(data) == 25 {
-		sp = codec.CMPP30
-	}
-	e = p.Unpack(data, sp)
-	return
-}
-func newCmppTerminateReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppConnReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppTerminateRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppTerminateRsp{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppSubmitReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppSubmitReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppSubmitRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppSubmitRsp{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppDeliverReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppDeliverReq{}
-	sp := codec.CMPP21
-	if v == V30 {
-		sp = codec.CMPP30
-	}
-	e = p.Unpack(data, sp)
-	return
-}
-func newCmppDeliverRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppDeliverRsp{}
-	sp := codec.CMPP21
-	if v == V30 {
-		sp = codec.CMPP30
-	}
-	e = p.Unpack(data, sp)
-	return
-}
-func newCmppQueryReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppQueryReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppQueryRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppQueryRsp{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppCancelReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppCancelReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppCancelRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppCancelRsp{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppActiveTestReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppActiveTestReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppActiveTestRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppActiveTestRsp{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppFwdReq(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppFwdReq{}
-	e = p.Unpack(data, v.Proto())
-	return
-}
-func newCmppFwdRsp(v Version, data []byte) (p codec.Packer, e error) {
-	p = &CmppFwdRsp{}
-	p.Unpack(data, v.Proto())
-	return
+	return nil, ErrUnknownCommandID
 }

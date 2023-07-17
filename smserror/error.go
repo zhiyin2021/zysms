@@ -1,6 +1,8 @@
 package smserror
 
-import "errors"
+import (
+	"errors"
+)
 
 type SmsError error
 

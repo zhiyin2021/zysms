@@ -2,11 +2,8 @@ package zysms
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -53,26 +50,26 @@ func newCmppConn(conn net.Conn, typ cmpp.Version, checkVer bool) *Conn {
 func (c *cmppConn) Proto() codec.SmsProto {
 	return c.Typ.Proto()
 }
-func (c *cmppConn) Auth(uid string, pwd string, timeout time.Duration) error {
+func (c *cmppConn) Auth(uid string, pwd string) error {
 	// Login to the server.
-	req := &cmpp.CmppConnReq{
-		SrcAddr: uid,
-		Secret:  pwd,
-		Version: c.Typ,
-	}
-	err := c.SendPkt(req, c.seqId())
+	req := cmpp.NewConnReq(c.Typ).(*cmpp.ConnReq)
+	req.SrcAddr = uid
+	req.Secret = pwd
+	req.Version = c.Typ
+
+	err := c.SendPDU(req)
 	if err != nil {
 		c.logger.Errorf("cmpp.auth send error: %v", err)
 		return err
 	}
-	p, err := c.RecvPkt(timeout)
+	p, err := c.RecvPDU()
 	if err != nil {
 		c.logger.Errorf("cmpp.auth recv error: %v", err)
 		return err
 	}
 	var status uint8
 
-	if rsp, ok := p.(*cmpp.CmppConnRsp); ok {
+	if rsp, ok := p.(*cmpp.ConnResp); ok {
 		if c.checkVer && rsp.Version != c.Typ {
 			return smserror.ErrVersionNotMatch
 		}
@@ -112,15 +109,15 @@ func (c *cmppConn) seqId() uint32 {
 }
 
 // SendPkt pack the cmpp packet structure and send it to the other peer.
-func (c *cmppConn) SendPkt(pkt codec.Packer, seqId uint32) error {
+func (c *cmppConn) SendPDU(pdu codec.PDU) error {
 	if c.State == enum.CONN_CLOSED {
 		return smserror.ErrConnIsClosed
 	}
-	if pkt == nil {
+	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Infof("send pkt:%T , %s", pkt, c.Typ)
-	if p, ok := pkt.(*cmpp.CmppSubmitReq); ok {
+	c.Logger().Infof("send pkt:%T , %s", pdu, c.Typ)
+	if p, ok := pdu.(*cmpp.SubmitReq); ok {
 		multiMsg, _ := p.Message.Split()
 		p.TpUdhi = 0
 		if len(multiMsg) > 1 {
@@ -130,18 +127,18 @@ func (c *cmppConn) SendPkt(pkt codec.Packer, seqId uint32) error {
 			// p.MsgLength = byte(len(content))
 			// p.MsgContent = content
 			p.Message = *msg
-			data := p.Pack(c.seqId(), c.Typ.Proto())
-			_, err := c.Conn.Write(data) //block write
+			p.AssignSequenceNumber()
+			buf := codec.NewWriter()
+			pdu.Marshal(buf)
+			_, err := c.Conn.Write(buf.Bytes()) //block write
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-		if seqId == 0 {
-			seqId = c.seqId()
-		}
-		data := pkt.Pack(seqId, c.Typ.Proto())
-		_, err := c.Conn.Write(data) //block write
+		buf := codec.NewWriter()
+		pdu.Marshal(buf)
+		_, err := c.Conn.Write(buf.Bytes()) //block write
 		if err != nil {
 			return err
 		}
@@ -182,24 +179,6 @@ func (c *cmppConn) SendPkt(pkt codec.Packer, seqId uint32) error {
 // 	return contentList
 // }
 
-const (
-	defaultReadBufferSize = 4096
-)
-
-// readBuffer is used to optimize the performance of
-// RecvAndUnpackPkt.
-type readBuffer struct {
-	totalLen  uint32
-	commandId cmpp.CommandId
-	leftData  [defaultReadBufferSize]byte
-}
-
-var readBufferPool = sync.Pool{
-	New: func() any {
-		return &readBuffer{}
-	},
-}
-
 func (c *cmppConn) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
@@ -213,83 +192,34 @@ func (c *cmppConn) SetReadDeadline(timeout time.Duration) {
 }
 
 // RecvAndUnpackPkt receives cmpp byte stream, and unpack it to some cmpp packet structure.
-func (c *cmppConn) RecvPkt(timeout time.Duration) (codec.Packer, error) {
+func (c *cmppConn) RecvPDU() (codec.PDU, error) {
 	if c.State == enum.CONN_CLOSED {
 		return nil, smserror.ErrConnIsClosed
 	}
-	rb := readBufferPool.Get().(*readBuffer)
-	defer readBufferPool.Put(rb)
-	defer c.Conn.SetReadDeadline(time.Time{})
 
-	c.SetReadDeadline(timeout)
-	err := binary.Read(c.Conn, binary.BigEndian, &rb.totalLen)
-	if err != nil {
-		return nil, err
-	}
-	maxLen := cmpp.CMPP2_PACKET_MAX
-	if c.Typ == cmpp.V30 {
-		maxLen = cmpp.CMPP3_PACKET_MAX
-	}
-	if rb.totalLen < cmpp.CMPP_HEADER_LEN || rb.totalLen > maxLen {
-		return nil, smserror.ErrTotalLengthInvalid
-	}
-
-	c.SetReadDeadline(timeout)
-	err = binary.Read(c.Conn, binary.BigEndian, &rb.commandId)
-	if err != nil {
-		netErr, ok := err.(net.Error)
-		if ok {
-			if netErr.Timeout() {
-				return nil, smserror.ErrReadCmdIDTimeout
-			}
-		}
-		return nil, err
-	}
-
-	if !((rb.commandId > cmpp.CMPP_REQUEST_MIN && rb.commandId < cmpp.CMPP_REQUEST_MAX) ||
-		(rb.commandId > cmpp.CMPP_RESPONSE_MIN && rb.commandId < cmpp.CMPP_RESPONSE_MAX)) {
-		return nil, smserror.ErrCommandIdInvalid
-	}
-	// The left packet data (start from seqId in header).
-
-	c.SetReadDeadline(timeout)
-	var leftData = rb.leftData[0:(rb.totalLen - 8)]
-	_, err = io.ReadFull(c.Conn, leftData)
+	pdu, err := cmpp.Parse(c.Conn, c.Typ)
 	if err != nil {
 		return nil, err
 	}
 
-	if fun, ok := cmpp.CmppPacket[rb.commandId]; ok {
-		p, e := fun(c.Typ, leftData)
-		if e != nil {
-			return nil, e
+	switch p := pdu.(type) {
+	case *cmpp.ActiveTestReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
+		resp := p.GetResponse()
+		c.SendPDU(resp)
+		return c.RecvPDU()
+	case *cmpp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
+		atomic.AddInt32(&c.counter, -1)
+		return c.RecvPDU()
+	case *cmpp.ConnResp: // 当收到登录回复,内部先校验版本
+		if c.checkVer && p.Version != c.Typ {
+			return nil, fmt.Errorf("cmpp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
 		}
-		switch rb.commandId {
-		case cmpp.CMPP_ACTIVE_TEST: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
-			resp := &cmpp.CmppActiveTestRsp{}
-			c.SendPkt(resp, p.SeqId())
-			return c.RecvPkt(timeout)
-		case cmpp.CMPP_ACTIVE_TEST_RESP: // 当收到心跳回复,内部直接处理,并递归继续获取数据
-			atomic.AddInt32(&c.counter, -1)
-			return c.RecvPkt(timeout)
-		case cmpp.CMPP_CONNECT_RESP: // 当收到登录回复,内部先校验版本
-			if v, ok := p.(*cmpp.CmppConnRsp); ok {
-				if c.checkVer && v.Version != c.Typ {
-					return nil, fmt.Errorf("cmpp version not match [ local: %d != remote: %d ]", c.Typ, v.Version)
-				}
-			}
-		case cmpp.CMPP_CONNECT: // 当收到登录回复,内部先校验版本
-			if v, ok := p.(*cmpp.CmppConnReq); ok {
-				// 服务端自适应版本
-				c.Typ = v.Version
-				c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
-			} else {
-				return nil, smserror.ErrVersionNotMatch
-			}
-		}
-		return p, nil
+	case *cmpp.ConnReq: // 当收到登录回复,内部先校验版本
+		// 服务端自适应版本
+		c.Typ = p.Version
+		c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
 	}
-	return nil, smserror.ErrCommandIdNotSupported
+	return pdu, nil
 
 }
 
@@ -323,8 +253,8 @@ func (c *cmppConn) startActiveTest() {
 				return
 			case <-t.C:
 				// send a active test packet to peer, increase the active test counter
-				p := &cmpp.CmppActiveTestReq{}
-				err := c.SendPkt(p, c.seqId())
+				p := cmpp.NewActiveTestReq(c.Typ)
+				err := c.SendPDU(p)
 				if err != nil {
 					c.logger.Errorf("cmpp.active send error: %v", err)
 				} else {

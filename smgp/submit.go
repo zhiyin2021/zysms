@@ -1,14 +1,11 @@
 package smgp
 
 import (
-	"fmt"
-
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/utils"
 )
 
-type SmgpSubmitReq struct {
-	seqId           uint32
+type SubmitReq struct {
+	base
 	SubType         byte     // 【1字节】短消息类型
 	NeedReport      byte     // 【1字节】SP是否要求返回状态报告
 	Priority        byte     // 【1字节】短消息发送优先级
@@ -23,115 +20,115 @@ type SmgpSubmitReq struct {
 	ChargeTermID    string   // 【21字节】计费用户号码
 	DestTermIDCount byte     // 【1字节】短消息接收号码总数
 	DestTermID      []string // 【21*DestTermCount字节】短消息接收号码
-	MsgLength       byte     // 【1字节】短消息长度
-	MsgContent      string   // 消息内容按照Msg_Fmt编码后的数据
-	Reserve         string   // 【8字节】保留
 
-	TlvList *utils.TlvList // 【TLV】可选项参数
+	Message codec.ShortMessage // 消息内容按照Msg_Fmt编码后的数据
+	Reserve string             // 【8字节】保留
+
 }
 
-type SmgpSubmitRsp struct {
-	seqId  uint32
+type SubmitResp struct {
+	base
 	MsgId  string // 【10字节】短消息流水号
 	Status Status
 }
 
-const MtBaseLen = 126
-
-func (p *SmgpSubmitReq) Pack(seqId uint32) []byte {
-	pktLen := SMGP_HEADEER_LEN + 117 + uint32(p.DestTermIDCount)*21 + 1 + uint32(p.MsgLength) + 8
-	pkt := codec.NewWriter(pktLen, SMGP_SUBMIT.ToInt())
-	pkt.WriteU32(seqId)
-
-	p.seqId = seqId
-
-	pkt.WriteByte(p.SubType)
-	pkt.WriteByte(p.NeedReport)
-	pkt.WriteByte(p.Priority)
-	pkt.WriteStr(p.ServiceID, 10)
-	pkt.WriteStr(p.FeeType, 2)
-	pkt.WriteStr(p.FeeCode, 6)
-	pkt.WriteStr(p.FixedFee, 6)
-	pkt.WriteByte(p.MsgFormat)
-	pkt.WriteStr(p.ValidTime, 17)
-	pkt.WriteStr(p.AtTime, 17)
-	pkt.WriteStr(p.SrcTermID, 21)
-	pkt.WriteStr(p.ChargeTermID, 21)
-	pkt.WriteByte(p.DestTermIDCount)
-	for _, tid := range p.DestTermID {
-		pkt.WriteStr(tid, 21)
+func NewSubmitReq(ver Version) codec.PDU {
+	return &SubmitReq{
+		base: newBase(ver, SMGP_SUBMIT, 0),
 	}
-	pkt.WriteByte(p.MsgLength)
-	pkt.WriteStr(p.MsgContent, int(p.MsgLength))
-	pkt.WriteStr(p.Reserve, 8)
-	return pkt.Bytes()
 }
-
-func (p *SmgpSubmitReq) Unpack(data []byte) error {
-	pkt := codec.NewReader(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	// Body: Source_Addr
-	p.SubType = pkt.ReadByte()
-	p.NeedReport = pkt.ReadByte()
-	p.Priority = pkt.ReadByte()
-	p.ServiceID = pkt.ReadStr(10)
-	p.FeeType = pkt.ReadStr(2)
-	p.FeeCode = pkt.ReadStr(6)
-	p.FixedFee = pkt.ReadStr(6)
-	p.MsgFormat = pkt.ReadByte()
-	p.ValidTime = pkt.ReadStr(17)
-	p.AtTime = pkt.ReadStr(17)
-	p.SrcTermID = pkt.ReadStr(21)
-	p.ChargeTermID = pkt.ReadStr(21)
-	p.DestTermIDCount = pkt.ReadByte()
-	for i := byte(0); i < p.DestTermIDCount; i++ {
-		p.DestTermID = append(p.DestTermID, pkt.ReadStr(21))
+func NewSubmitResp(ver Version) codec.PDU {
+	return &SubmitResp{
+		base: newBase(ver, SMGP_SUBMIT_RESP, 0),
 	}
-	p.MsgLength = pkt.ReadByte()
-	p.MsgContent = pkt.ReadStr(int(p.MsgLength))
-	p.Reserve = pkt.ReadStr(8)
-	return pkt.Err()
-}
-func (p *SmgpSubmitReq) SeqId() uint32 {
-	return p.seqId
 }
 
-func (p *SmgpSubmitReq) String() string {
-	bts := p.MsgContent
-	if p.MsgLength > 6 {
-		bts = p.MsgContent[:6]
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *SubmitReq) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteByte(p.SubType)
+		bw.WriteByte(p.NeedReport)
+		bw.WriteByte(p.Priority)
+		bw.WriteStr(p.ServiceID, 10)
+		bw.WriteStr(p.FeeType, 2)
+		bw.WriteStr(p.FeeCode, 6)
+		bw.WriteStr(p.FixedFee, 6)
+		bw.WriteByte(p.MsgFormat)
+		bw.WriteStr(p.ValidTime, 17)
+		bw.WriteStr(p.AtTime, 17)
+		bw.WriteStr(p.SrcTermID, 21)
+		bw.WriteStr(p.ChargeTermID, 21)
+		bw.WriteByte(p.DestTermIDCount)
+		for _, tid := range p.DestTermID {
+			bw.WriteStr(tid, 21)
+		}
+		p.Message.Marshal(bw)
+		bw.WriteStr(p.Reserve, 8)
+	})
+}
+
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
+// After unpack, you will get all value of fields in
+// ActiveTestReq struct.
+func (p *SubmitReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.SubType = br.ReadByte()
+		p.NeedReport = br.ReadByte()
+		p.Priority = br.ReadByte()
+		p.ServiceID = br.ReadStr(10)
+		p.FeeType = br.ReadStr(2)
+		p.FeeCode = br.ReadStr(6)
+		p.FixedFee = br.ReadStr(6)
+		p.MsgFormat = br.ReadByte()
+		p.ValidTime = br.ReadStr(17)
+		p.AtTime = br.ReadStr(17)
+		p.SrcTermID = br.ReadStr(21)
+		p.ChargeTermID = br.ReadStr(21)
+		p.DestTermIDCount = br.ReadByte()
+		for i := byte(0); i < p.DestTermIDCount; i++ {
+			p.DestTermID = append(p.DestTermID, br.ReadStr(21))
+		}
+		// 05   00   03   00   04   01   #   长短信设置
+		// 0002   0001   40     #   TP_udhi
+		// 0009   0001   04     #   pkTotal
+		// 000a   0001   01     #   pkNumber
+		udhi := byte(0)
+		if tag, ok := p.OptionalParameters[codec.TagTPUdhi]; ok && len(tag.Data) > 0 {
+			udhi = tag.Data[0]
+		}
+		p.Message.Unmarshal(br, udhi == 1, p.MsgFormat)
+		p.Reserve = br.ReadStr(8)
+		return br.Err()
+	})
+}
+
+// GetResponse implements PDU interface.
+func (b *SubmitReq) GetResponse() codec.PDU {
+	return &SubmitResp{
+		base: newBase(b.Version, SMGP_SUBMIT_RESP, b.SequenceNumber),
 	}
-	return fmt.Sprintf("{ seq: %d, subType: %v, NeedReport: %v, LruPriority: %v, ServiceID: %v, "+
-		"feeType: %v, feeCode: %v, fixedFee: %v, msgFormat: %v, validTime: %v, AtTime: %v, SrcTermID: %v, "+
-		"chargeTermID: %v, destTermIDCount: %v, destTermID: %v, msgLength: %v, msgContent: %#x..., "+
-		"reserve: %v}",
-		p.seqId, p.SubType, p.NeedReport, p.Priority, p.ServiceID,
-		p.FeeType, p.FeeCode, p.FixedFee, p.MsgFormat, p.ValidTime, p.AtTime, p.SrcTermID,
-		p.ChargeTermID, p.DestTermIDCount, p.DestTermID, p.MsgLength, bts,
-		p.Reserve)
 }
 
-func (p *SmgpSubmitRsp) Pack(seqId uint32) []byte {
-	pktLen := SMGP_HEADEER_LEN + 10 + 4
-	pkt := codec.NewWriter(pktLen, SMGP_SUBMIT_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	pkt.WriteStr(p.MsgId, 10)
-	pkt.WriteU32(uint32(p.Status))
-	return pkt.Bytes()
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *SubmitResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteStr(p.MsgId, 10)
+		bw.WriteU32(uint32(p.Status))
+	})
 }
 
-func (p *SmgpSubmitRsp) Unpack(data []byte) error {
-	pkt := codec.NewReader(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	// Body: Source_Addr
-	p.MsgId = pkt.ReadStr(10)
-	p.Status = Status(pkt.ReadU32())
-	return pkt.Err()
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
+// After unpack, you will get all value of fields in
+// ActiveTestReq struct.
+func (p *SubmitResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.MsgId = br.ReadStr(10)
+		p.Status = Status(br.ReadU32())
+		return br.Err()
+	})
 }
 
-func (p *SmgpSubmitRsp) SeqId() uint32 {
-	return p.seqId
+// GetResponse implements PDU interface.
+func (b *SubmitResp) GetResponse() codec.PDU {
+	return nil
 }

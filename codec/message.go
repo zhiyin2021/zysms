@@ -65,7 +65,7 @@ func (c *ShortMessage) MsgLength() int {
 	return n
 }
 
-// The encoding interface can implement the data.Splitter interface for ad-hoc splitting rule
+// The encoding interface can implement the Splitter interface for ad-hoc splitting rule
 func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 	if c.enc == nil {
 		c.enc = ASCII
@@ -74,9 +74,9 @@ func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 	if c.enc == ASCII {
 		maxLen = 160
 	}
-	// check if encoding implements data.Splitter
+	// check if encoding implements Splitter
 	splitter, ok := c.enc.(Splitter)
-	// check if encoding implements data.Splitter or split is necessary
+	// check if encoding implements Splitter or split is necessary
 	if !ok || !splitter.ShouldSplit(c.message, maxLen) {
 		multiSM = []*ShortMessage{c}
 		return
@@ -99,7 +99,7 @@ func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 			enc: c.enc,
 			// message: we don't really care
 			messageData: seg,
-			udHeader:    &msgUDH{ref, total, byte(seq)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
+			udHeader:    &msgUDH{ref, total, byte(seq + 1)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
 		})
 		log.Printf("%d => %d", seq, len(seg))
 	}

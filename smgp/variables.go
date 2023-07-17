@@ -10,30 +10,35 @@ import (
 type Version uint8
 
 const (
+	SM_MSG_LEN      = 140
+	PDU_HEADER_SIZE = 12
+	MAX_PDU_LEN     = 3335
+
 	SMGP_HEADEER_LEN uint32 = 12
 
 	V30 Version = 0x30
 	V20 Version = 0x20
 	V13 Version = 0x13
-
-	TP_pid           = uint16(0x0001)
-	TP_udhi          = uint16(0x0002)
-	PkTotal          = uint16(0x0009)
-	PkNumber         = uint16(0x000A)
-	LinkID           = uint16(0x0003)
-	ChargeUserType   = uint16(0x0004)
-	ChargeTermType   = uint16(0x0005)
-	ChargeTermPseudo = uint16(0x0006)
-	DestTermType     = uint16(0x0007)
-	DestTermPseudo   = uint16(0x0008)
-	SubmitMsgType    = uint16(0x000B)
-	SPDealReslt      = uint16(0x000C)
-	SrcTermType      = uint16(0x000D)
-	SrcTermPseudo    = uint16(0x000E)
-	NodesCount       = uint16(0x000F)
-	MsgSrc           = uint16(0x0010)
-	SrcType          = uint16(0x0011)
-	MServiceID       = uint16(0x0012)
+)
+const (
+	TP_pid uint16 = iota + 1
+	TP_udhi
+	LinkID
+	ChargeUserType
+	ChargeTermType
+	ChargeTermPseudo
+	DestTermType
+	DestTermPseudo
+	PkTotal
+	PkNumber
+	SubmitMsgType
+	SPDealReslt
+	SrcTermType
+	SrcTermPseudo
+	NodesCount
+	MsgSrc
+	SrcType
+	MServiceID
 )
 
 var (
@@ -75,11 +80,8 @@ func (t Version) MajorMatchV(v Version) bool {
 	return uint8(t)&0xf0 == uint8(v)&0xf0
 }
 
-// CommandId 命令定义
-type CommandId uint32
-
 const (
-	SMGP_REQUEST_MIN, SMGP_RESPONSE_MIN CommandId = iota, 0x80000000 + iota
+	SMGP_REQUEST_MIN, SMGP_RESPONSE_MIN codec.CommandId = iota, 0x80000000 + iota
 	SMGP_LOGIN, SMGP_LOGIN_RESP
 	SMGP_SUBMIT, SMGP_SUBMIT_RESP
 	SMGP_DELIVER, SMGP_DELIVER_RESP
@@ -88,37 +90,6 @@ const (
 	SMGP_EXIT, SMGP_EXIT_RESP
 	SMGP_REQUEST_MAX, SMGP_RESPONSE_MAX
 )
-
-func (id CommandId) ToInt() uint32 {
-	return uint32(id)
-}
-
-func (id CommandId) String() string {
-	if id > SMGP_REQUEST_MIN && id < SMGP_REQUEST_MAX {
-		return []string{
-			"SMGP_LOGIN",
-			"SMGP_SUBMIT",
-			"SMGP_DELIVER",
-			"SMGP_ACTIVE_TEST",
-			"UNKNOWN",
-			"SMGP_EXIT",
-		}[id-1]
-	} else if id > SMGP_RESPONSE_MIN && id < SMGP_RESPONSE_MAX {
-		return []string{
-			"SMGP_LOGIN_RESP",
-			"SMGP_SUBMIT_RESP",
-			"SMGP_DELIVER_RESP",
-			"SMGP_ACTIVE_TEST_RESP",
-			"UNKNOWN",
-			"SMGP_EXIT_RESP",
-		}[id-0x80000001]
-	}
-	return "UNKNOWN"
-}
-
-// func (id CommandId) OpLog() log.Field {
-// 	return log.String("op", id.String())
-// }
 
 // Status 状态码
 type Status uint32
@@ -178,4 +149,28 @@ var StatMap = map[Status]string{
 	74: "SP禁止下发时段",
 	75: "SP发送超过日流量",
 	76: "SP帐号过有效期",
+}
+
+var pduMap = map[codec.CommandId]func(Version) codec.PDU{
+	SMGP_REQUEST_MIN:      nil,
+	SMGP_RESPONSE_MIN:     nil,
+	SMGP_LOGIN:            NewLoginReq,
+	SMGP_LOGIN_RESP:       NewLoginResp,
+	SMGP_SUBMIT:           NewSubmitReq,
+	SMGP_SUBMIT_RESP:      NewSubmitResp,
+	SMGP_DELIVER:          NewDeliveryReq,
+	SMGP_DELIVER_RESP:     NewDeliveryResp,
+	SMGP_ACTIVE_TEST:      NewActiveTestReq,
+	SMGP_ACTIVE_TEST_RESP: NewActiveTestResp,
+	SMGP_EXIT:             NewExitReq,
+	SMGP_EXIT_RESP:        NewExitResp,
+	SMGP_REQUEST_MAX:      nil,
+	SMGP_RESPONSE_MAX:     nil,
+}
+
+func CreatePDUFromCmdID(cmdID codec.CommandId, ver Version) (codec.PDU, error) {
+	if g, ok := pduMap[cmdID]; ok {
+		return g(ver), nil
+	}
+	return nil, ErrUnknownCommandID
 }

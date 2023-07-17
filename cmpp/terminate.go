@@ -2,71 +2,56 @@ package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/event"
 )
 
-// Packet length const for cmpp terminate request and response packets.
-const (
-	CmppTerminateReqLen uint32 = 12 //12d, 0xc
-	CmppTerminateRspLen uint32 = 12 //12d, 0xc
-)
-
-type CmppTerminateReq struct {
-	// session info
-	seqId uint32
+type TerminateReq struct {
+	base
 }
-type CmppTerminateRsp struct {
-	// session info
-	seqId uint32
+type TerminateResp struct {
+	base
 }
 
-// Pack packs the CmppTerminateReq to bytes stream for client side.
-func (p *CmppTerminateReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
-	pkt := codec.NewWriter(CmppTerminateReqLen, CMPP_TERMINATE.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	return pkt.Bytes()
+func NewTerminateReq(ver Version) codec.PDU {
+	c := &TerminateReq{
+		base: newBase(ver, CMPP_TERMINATE, 0),
+	}
+	return c
+}
+func NewTerminateResp(ver Version) codec.PDU {
+	c := &TerminateResp{
+		base: newBase(ver, CMPP_TERMINATE_RESP, 0),
+	}
+	return c
 }
 
-// Unpack unpack the binary byte stream to a CmppTerminateReq variable.
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *TerminateReq) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
+}
+
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
 // After unpack, you will get all value of fields in
-// CmppTerminateReq struct.
-func (p *CmppTerminateReq) Unpack(data []byte, sp codec.SmsProto) error {
-	pkt := codec.NewReader(data)
-
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	return pkt.Err()
+// ActiveTestReq struct.
+func (p *TerminateReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
 }
-func (p *CmppTerminateReq) Event() event.SmsEvent {
-	return event.SmsEventTerminateReq
-}
-func (p *CmppTerminateReq) SeqId() uint32 {
-	return p.seqId
+func (p *TerminateReq) GetResponse() codec.PDU {
+	return &TerminateResp{
+		base: newBase(p.Version, CMPP_TERMINATE_RESP, 0),
+	}
 }
 
-// Pack packs the CmppTerminateRsp to bytes stream for client side.
-func (p *CmppTerminateRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
-	pkt := codec.NewWriter(CmppTerminateRspLen, CMPP_TERMINATE_RESP.ToInt())
-	pkt.WriteU32(seqId)
-
-	p.seqId = seqId
-	return pkt.Bytes()
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *TerminateResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
 }
 
-// Unpack unpack the binary byte stream to a CmppTerminateRsp variable.
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
 // After unpack, you will get all value of fields in
-// CmppTerminateRsp struct.
-func (p *CmppTerminateRsp) Unpack(data []byte, sp codec.SmsProto) error {
-	pkt := codec.NewReader(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	return pkt.Err()
+// ActiveTestReq struct.
+func (p *TerminateResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
 }
-
-func (p *CmppTerminateRsp) Event() event.SmsEvent {
-	return event.SmsEventTerminateRsp
-}
-func (p *CmppTerminateRsp) SeqId() uint32 {
-	return p.seqId
+func (p *TerminateResp) GetResponse() codec.PDU {
+	return nil
 }

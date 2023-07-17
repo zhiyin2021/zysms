@@ -10,5 +10,6 @@ const (
 	SMGP20
 	SMGP30
 	SGIP
-	SMPP
+	SMPP33
+	SMPP34
 )

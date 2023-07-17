@@ -34,9 +34,9 @@ func main() {
 	sms.OnRecv = func(p *zysms.Packet) error {
 		var err error
 		switch req := p.Req.(type) {
-		case *cmpp.CmppSubmitReq:
+		case *cmpp.SubmitReq:
 			p.Resp, err = handleSubmit(p, req)
-		case *cmpp.CmppConnReq:
+		case *cmpp.ConnReq:
 			p.Resp, err = handleLogin(p, req)
 		default:
 			p.Conn.Logger().Errorf("server: unknown event: %v", p)
@@ -55,11 +55,8 @@ func main() {
 	<-sig
 	ln.Close()
 }
-func handleLogin(p *zysms.Packet, req *cmpp.CmppConnReq) (codec.Packer, error) {
-	resp := &cmpp.CmppConnRsp{
-		Version: req.Version,
-	}
-
+func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
+	resp := req.GetResponse().(*cmpp.ConnResp)
 	if req.SrcAddr != utils.OctetString(userS, 6) {
 		resp.Status = uint32(cmpp.ErrnoConnInvalidSrcAddr)
 		return resp, cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnInvalidSrcAddr]
@@ -86,13 +83,13 @@ func handleLogin(p *zysms.Packet, req *cmpp.CmppConnReq) (codec.Packer, error) {
 	return resp, nil
 }
 
-func handleSubmit(p *zysms.Packet, req *cmpp.CmppSubmitReq) (codec.Packer, error) {
-	resp := &cmpp.CmppSubmitRsp{
-		MsgId: 12878564852733378560,
-	}
+func handleSubmit(p *zysms.Packet, req *cmpp.SubmitReq) (codec.PDU, error) {
+	resp := req.GetResponse().(*cmpp.SubmitResp)
+	resp.MsgId = 12878564852733378560
+
 	for i, d := range req.DestTerminalId {
 		p.Conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s]\n",
-			req.MsgSrc, req.SeqId(), resp.MsgId+uint64(i), req.SrcId, d)
+			req.MsgSrc, req.SequenceNumber, resp.MsgId+uint64(i), req.SrcId, d)
 	}
 	return resp, nil
 }

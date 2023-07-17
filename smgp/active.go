@@ -2,43 +2,56 @@ package smgp
 
 import "github.com/zhiyin2021/zysms/codec"
 
-type SmgpActiveTest struct {
-	seqId uint32
+type ActiveTestReq struct {
+	base
 }
-type SmgpActiveTestRsp struct {
-	seqId uint32
-}
-
-func (p *SmgpActiveTest) Pack(seqId uint32) []byte {
-	pkt := codec.NewWriter(SMGP_HEADEER_LEN, SMGP_ACTIVE_TEST.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	return pkt.Bytes()
+type ActiveTestResp struct {
+	base
 }
 
-func (p *SmgpActiveTest) Unpack(data []byte) error {
-	var pkt = codec.NewReader(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	return pkt.Err()
+func NewActiveTestReq(ver Version) codec.PDU {
+	return &ActiveTestReq{
+		base: newBase(ver, SMGP_ACTIVE_TEST, 0),
+	}
 }
-func (p *SmgpActiveTest) SeqId() uint32 {
-	return p.seqId
-}
-func (p *SmgpActiveTestRsp) Pack(seqId uint32) []byte {
-	pkt := codec.NewWriter(SMGP_HEADEER_LEN, SMGP_ACTIVE_TEST_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	return pkt.Bytes()
+func NewActiveTestResp(ver Version) codec.PDU {
+	return &ActiveTestResp{
+		base: newBase(ver, SMGP_ACTIVE_TEST_RESP, 0),
+	}
 }
 
-func (p *SmgpActiveTestRsp) Unpack(data []byte) error {
-	var pkt = codec.NewReader(data)
-	// Sequence Id
-	p.seqId = pkt.ReadU32()
-	return pkt.Err()
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *ActiveTestReq) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
 }
 
-func (p *SmgpActiveTestRsp) SeqId() uint32 {
-	return p.seqId
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
+// After unpack, you will get all value of fields in
+// ActiveTestReq struct.
+func (p *ActiveTestReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
+}
+
+// GetResponse implements PDU interface.
+func (b *ActiveTestReq) GetResponse() codec.PDU {
+	return &ActiveTestResp{
+		base: newBase(b.Version, SMGP_ACTIVE_TEST_RESP, b.SequenceNumber),
+	}
+}
+
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *ActiveTestResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
+}
+
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
+// After unpack, you will get all value of fields in
+// ActiveTestReq struct.
+func (p *ActiveTestResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
+}
+
+// GetResponse implements PDU interface.
+func (b *ActiveTestResp) GetResponse() codec.PDU {
+	return nil
 }

@@ -32,14 +32,14 @@ func startAClient(idx int) {
 	}
 	sms.OnRecv = func(p *zysms.Packet) error {
 		switch req := p.Req.(type) {
-		case *cmpp.CmppConnRsp:
+		case *cmpp.ConnResp:
 			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
-		case *cmpp.CmppSubmitRsp:
+		case *cmpp.SubmitResp:
 			log.Printf("client %d: receive a cmpp submit response: %v.", idx, req.MsgId)
-		case *cmpp.CmppDeliverReq:
+		case *cmpp.DeliverReq:
 			log.Printf("client %d: receive a cmpp deliver request: %v.", idx, req.MsgId)
 		default:
-			log.Printf("client %d => %d: unknown event: %v", p.Req.Event(), idx, p)
+			log.Printf("client %d: unknown event: %v", idx, p)
 		}
 		return nil
 	}
@@ -58,27 +58,26 @@ func startAClient(idx int) {
 			//submit a message
 
 			msg := "测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789【百度网盘】"
-			p := &cmpp.CmppSubmitReq{
-				PkTotal:            1,
-				PkNumber:           1,
-				RegisteredDelivery: 1,
-				MsgLevel:           1,
-				ServiceId:          "test",
-				FeeUserType:        2,
-				FeeTerminalId:      "13500002696",
-				// FeeTerminalType:    0,
-				MsgFmt:         8,
-				MsgSrc:         "900001",
-				FeeType:        "02",
-				FeeCode:        "10",
-				ValidTime:      "151105131555101+",
-				AtTime:         "",
-				SrcId:          "900001",
-				DestUsrTl:      1,
-				DestTerminalId: []string{"+8613500002696", "8613500002697", "13500002698"},
-			}
+			p := cmpp.NewSubmitReq(cmpp.V30).(*cmpp.SubmitReq)
+			p.PkTotal = 1
+			p.PkNumber = 1
+			p.RegisteredDelivery = 1
+			p.MsgLevel = 1
+			p.ServiceId = "test"
+			p.FeeUserType = 2
+			p.FeeTerminalId = "13500002696"
+			// FeeTerminalType:    0
+			p.MsgFmt = 8
+			p.MsgSrc = "900001"
+			p.FeeType = "02"
+			p.FeeCode = "10"
+			p.ValidTime = "151105131555101+"
+			p.AtTime = ""
+			p.SrcId = "900001"
+			p.DestUsrTl = 1
+			p.DestTerminalId = []string{"+8613500002696", "8613500002697", "13500002698"}
 			p.Message.SetMessage(msg, codec.UCS2)
-			err = c.SendPkt(p, 0)
+			err = c.SendPDU(p)
 			if err != nil {
 				log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
 				return
@@ -94,6 +93,7 @@ func startAClient(idx int) {
 var wg sync.WaitGroup
 
 func main() {
+
 	log.Println("Client example start!")
 	for i := 0; i < 1; i++ {
 		wg.Add(1)

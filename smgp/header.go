@@ -1,22 +1,11 @@
-package sgip
+package smgp
 
 import (
 	"encoding/binary"
-	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/zhiyin2021/zysms/codec"
 )
-
-type SgipHeader struct {
-	SeqId [3]uint32 // 源节点编号 + 月日时分秒 + 流水序号
-}
-
-func getTm() uint32 {
-	tm, _ := strconv.ParseUint(time.Now().Format("0215040506"), 10, 10)
-	return uint32(tm)
-}
 
 func nextSequenceNumber(s *int32) (v int32) {
 	// & 0x7FFFFFFF: cater for integer overflow
@@ -33,26 +22,23 @@ func nextSequenceNumber(s *int32) (v int32) {
 type Header struct {
 	CommandLength  uint32
 	CommandID      codec.CommandId
-	SequenceNumber [3]uint32
+	SequenceNumber int32
 }
 
 // ParseHeader parses PDU header.
-func ParseHeader(v [20]byte) (h Header) {
+func ParseHeader(v [16]byte) (h Header) {
 	h.CommandLength = binary.BigEndian.Uint32(v[:])
 	h.CommandID = codec.CommandId(binary.BigEndian.Uint32(v[4:]))
-	h.SequenceNumber[0] = binary.BigEndian.Uint32(v[8:])
-	h.SequenceNumber[1] = binary.BigEndian.Uint32(v[12:])
-	h.SequenceNumber[2] = binary.BigEndian.Uint32(v[16:])
+	h.SequenceNumber = int32(binary.BigEndian.Uint32(v[8:]))
 	return
 }
 
 // Unmarshal from buffer.
-func (h *Header) Unmarshal(b *codec.BytesReader) error {
-	h.CommandLength = b.ReadU32()
-	h.CommandID = codec.CommandId(b.ReadU32())
-	h.SequenceNumber[0] = b.ReadU32()
-	h.SequenceNumber[1] = b.ReadU32()
-	h.SequenceNumber[2] = b.ReadU32()
+func (c *Header) Unmarshal(b *codec.BytesReader) (err error) {
+
+	c.CommandLength = b.ReadU32()
+	c.CommandID = codec.CommandId(b.ReadU32())
+	c.SequenceNumber = int32(b.ReadU32())
 	return b.Err()
 }
 
@@ -65,25 +51,23 @@ func (c *Header) AssignSequenceNumber() {
 
 // ResetSequenceNumber resets sequence number.
 func (c *Header) ResetSequenceNumber() {
-	c.SequenceNumber[2] = 1
+	c.SequenceNumber = 1
 }
 
 // GetSequenceNumber returns assigned sequence number.
-func (c *Header) GetSequenceNumber() uint32 {
-	return c.SequenceNumber[2]
+func (c *Header) GetSequenceNumber() int32 {
+	return c.SequenceNumber
 }
 
 // SetSequenceNumber manually sets sequence number.
 func (c *Header) SetSequenceNumber(v int32) {
-	c.SequenceNumber[2] = uint32(v)
+	c.SequenceNumber = v
 }
 
 // Marshal to buffer.
 func (c *Header) Marshal(b *codec.BytesWriter) {
-	b.Grow(16)
+	b.Grow(12)
 	b.WriteU32(c.CommandLength)
 	b.WriteU32(uint32(c.CommandID))
-	b.WriteU32(c.SequenceNumber[0])
-	b.WriteU32(c.SequenceNumber[1])
-	b.WriteU32(c.SequenceNumber[2])
+	b.WriteU32(uint32(c.SequenceNumber))
 }

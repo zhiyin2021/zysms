@@ -53,11 +53,9 @@ func NewReader(inp []byte) *BytesReader {
 	return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
 
 }
-func NewWriter(dataLen, commandId uint32) *BytesWriter {
-	inp := make([]byte, 0, dataLen)
+func NewWriter() *BytesWriter {
+	inp := make([]byte, 0, 12)
 	b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
-	b.WriteU32(dataLen)
-	b.WriteU32(commandId)
 	return b
 }
 
@@ -112,6 +110,7 @@ func (c *BytesReader) ReadU32() (r uint32) {
 	}
 	return
 }
+
 func (c *bytesBuffer) Err() error {
 	return c.err
 }
@@ -144,13 +143,6 @@ func (c *BytesWriter) WriteU64(v uint64) {
 	var b [SizeLong]byte
 	endianese.PutUint64(b[:], v)
 	_, _ = c.Write(b[:])
-}
-
-// WriteBuffer appends buffer.
-func (c *BytesWriter) WriteBuffer(d *bytesBuffer) {
-	if d != nil {
-		_, _ = c.Write(d.Bytes())
-	}
 }
 
 func (c *BytesWriter) writeString(st string, isCString bool, enc Encoding, count int) (err error) {

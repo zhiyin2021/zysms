@@ -18,10 +18,18 @@ func (t Tag) Hex() string {
 
 // Common Tag-Length-Value (TLV) tags.
 const (
-	TagDestAddrSubunit          Tag = 0x0005
-	TagDestNetworkType          Tag = 0x0006
-	TagDestBearerType           Tag = 0x0007
-	TagDestTelematicsID         Tag = 0x0008
+	TagTPUdhi Tag = 0x0002
+
+	TagDestAddrSubunit  Tag = 0x0005
+	TagDestNetworkType  Tag = 0x0006
+	TagDestBearerType   Tag = 0x0007
+	TagDestTelematicsID Tag = 0x0008
+	// 0002   0001   40     #   TP_udhi
+	// 0009   0001   04     #   pkTotal
+	// 000a   0001   01     #   pkNumber
+	TagPkTotal  Tag = 0x0009
+	TagPkNumber Tag = 0x000A
+
 	TagSourceAddrSubunit        Tag = 0x000D
 	TagSourceNetworkType        Tag = 0x000E
 	TagSourceBearerType         Tag = 0x000F

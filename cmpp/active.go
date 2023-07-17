@@ -2,73 +2,71 @@ package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/event"
 )
 
 // Packet length const for cmpp active test request and response packets.
 const (
-	CmppActiveTestReqLen uint32 = 12     //12d, 0xc
-	CmppActiveTestRspLen uint32 = 12 + 1 //13d, 0xd
+	ActiveTestReqLen  uint32 = 12     //12d, 0xc
+	ActiveTestRespLen uint32 = 12 + 1 //13d, 0xd
 )
 
-type CmppActiveTestReq struct {
-	// session info
-	seqId uint32
+type ActiveTestReq struct {
+	base
 }
-type CmppActiveTestRsp struct {
+type ActiveTestResp struct {
+	base
 	Reserved uint8
-	// session info
-	seqId uint32
 }
 
-// Pack packs the CmppActiveTestReq to bytes stream for client side.
-func (p *CmppActiveTestReq) Pack(seqId uint32, sp codec.SmsProto) []byte {
-	// buf := make([]byte, CmppActiveTestReqLen)
-	pkt := codec.NewWriter(CmppActiveTestReqLen, CMPP_ACTIVE_TEST.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	return pkt.Bytes()
+func NewActiveTestReq(ver Version) codec.PDU {
+	return &ActiveTestReq{
+		base: newBase(ver, CMPP_ACTIVE_TEST, 0),
+	}
 }
 
-// Unpack unpack the binary byte stream to a CmppActiveTestReq variable.
+func NewActiveTestResp(ver Version) codec.PDU {
+	return &ActiveTestResp{
+		base: newBase(ver, CMPP_ACTIVE_TEST_RESP, 0),
+	}
+}
+
+// Pack packs the ActiveTestReq to bytes stream for client side.
+func (p *ActiveTestReq) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
+}
+
+// Unpack unpack the binary byte stream to a ActiveTestReq variable.
 // After unpack, you will get all value of fields in
-// CmppActiveTestReq struct.
-func (p *CmppActiveTestReq) Unpack(data []byte, sp codec.SmsProto) error {
-	var r = codec.NewReader(data)
-	// Sequence Id
-	p.seqId = r.ReadU32()
-	return r.Err()
-}
-func (p *CmppActiveTestReq) SeqId() uint32 {
-	return p.seqId
+// ActiveTestReq struct.
+func (p *ActiveTestReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
 }
 
-func (p *CmppActiveTestReq) Event() event.SmsEvent {
-	return event.SmsEventActiveTestReq
+// GetResponse implements PDU interface.
+func (b *ActiveTestReq) GetResponse() codec.PDU {
+	return &ActiveTestResp{
+		base: newBase(b.Version, CMPP_ACTIVE_TEST_RESP, b.SequenceNumber),
+	}
 }
 
-// Pack packs the CmppActiveTestRsp to bytes stream for client side.
-func (p *CmppActiveTestRsp) Pack(seqId uint32, sp codec.SmsProto) []byte {
-	pkt := codec.NewWriter(CmppActiveTestRspLen, CMPP_ACTIVE_TEST_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	p.seqId = seqId
-	pkt.WriteByte(p.Reserved)
-	return pkt.Bytes()
+// Pack packs the ActiveTestResp to bytes stream for client side.
+func (p *ActiveTestResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteByte(p.Reserved)
+	})
 }
 
-// Unpack unpack the binary byte stream to a CmppActiveTestRsp variable.
+// Unpack unpack the binary byte stream to a ActiveTestResp variable.
 // After unpack, you will get all value of fields in
-// CmppActiveTestRsp struct.
-func (p *CmppActiveTestRsp) Unpack(data []byte, sp codec.SmsProto) error {
-	var r = codec.NewReader(data)
-	// Sequence Id
-	p.seqId = r.ReadU32()
-	p.Reserved = r.ReadByte()
-	return r.Err()
+// ActiveTestResp struct.
+func (p *ActiveTestResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.Reserved = br.ReadByte()
+		return br.Err()
+	})
 }
-func (p *CmppActiveTestRsp) Event() event.SmsEvent {
-	return event.SmsEventActiveTestRsp
-}
-func (p *CmppActiveTestRsp) SeqId() uint32 {
-	return p.seqId
+
+// GetResponse implements PDU interface.
+func (b *ActiveTestResp) GetResponse() codec.PDU {
+	return nil
 }
