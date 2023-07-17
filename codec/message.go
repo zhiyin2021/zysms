@@ -34,12 +34,15 @@ func (c *ShortMessage) GetMessageData() (d []byte, err error) {
 }
 
 // GetMessageWithEncoding returns (decoded) underlying message.
-func (c *ShortMessage) GetMessage(enc Encoding) (st string, err error) {
-	if enc == nil {
-		enc = ASCII
+func (c *ShortMessage) GetMessage() (st string, err error) {
+	if c.message != "" {
+		return c.message, nil
+	}
+	if c.enc == nil {
+		c.enc = ASCII
 	}
 	if len(c.messageData) > 0 {
-		st, err = enc.Decode(c.messageData)
+		st, err = c.enc.Decode(c.messageData)
 	}
 	return
 }
