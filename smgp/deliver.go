@@ -31,12 +31,12 @@ type DeliveryResp struct {
 	// Version Version
 }
 
-func NewDeliveryReq(ver Version) codec.PDU {
+func NewDeliveryReq(ver codec.Version) codec.PDU {
 	return &DeliveryReq{
 		base: newBase(ver, SMGP_DELIVER, 0),
 	}
 }
-func NewDeliveryResp(ver Version) codec.PDU {
+func NewDeliveryResp(ver codec.Version) codec.PDU {
 	return &DeliveryResp{
 		base: newBase(ver, SMGP_DELIVER_RESP, 0),
 	}

@@ -50,13 +50,13 @@ type FwdResp struct {
 
 }
 
-func NewFwdReq(ver Version) codec.PDU {
+func NewFwdReq(ver codec.Version) codec.PDU {
 	return &FwdReq{
 		base: newBase(ver, CMPP_FWD, 0),
 	}
 }
 
-func NewFwdResp(ver Version) codec.PDU {
+func NewFwdResp(ver codec.Version) codec.PDU {
 	return &FwdResp{
 		base: newBase(ver, CMPP_FWD_RESP, 0),
 	}

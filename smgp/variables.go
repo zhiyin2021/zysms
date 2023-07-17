@@ -7,7 +7,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
-type Version uint8
+// type Version uint8
 
 const (
 	SM_MSG_LEN      = 140
@@ -16,9 +16,9 @@ const (
 
 	SMGP_HEADEER_LEN uint32 = 12
 
-	V30 Version = 0x30
-	V20 Version = 0x20
-	V13 Version = 0x13
+	V30 codec.Version = 0x30
+	V20 codec.Version = 0x20
+	V13 codec.Version = 0x13
 )
 const (
 	TP_pid uint16 = iota + 1
@@ -45,40 +45,6 @@ var (
 	GbEncoder = simplifiedchinese.GB18030.NewEncoder()
 	GbDecoder = simplifiedchinese.GB18030.NewDecoder()
 )
-
-func (t Version) String() string {
-	switch {
-	case t == V30:
-		return "smgp30"
-	case t == V20:
-		return "smgp20"
-	case t == V13:
-		return "smgp13"
-	default:
-		return "unknown"
-	}
-}
-
-func (t Version) Proto() codec.SmsProto {
-	switch {
-	case t == V20:
-		return codec.SMGP20
-	case t == V13:
-		return codec.SMGP13
-	default:
-		return codec.SMGP30
-	}
-}
-
-// MajorMatch 主版本相匹配
-func (t Version) MajorMatch(v uint8) bool {
-	return uint8(t)&0xf0 == v&0xf0
-}
-
-// MajorMatchV 主版本相匹配
-func (t Version) MajorMatchV(v Version) bool {
-	return uint8(t)&0xf0 == uint8(v)&0xf0
-}
 
 const (
 	SMGP_REQUEST_MIN, SMGP_RESPONSE_MIN codec.CommandId = iota, 0x80000000 + iota
@@ -151,7 +117,7 @@ var StatMap = map[Status]string{
 	76: "SP帐号过有效期",
 }
 
-var pduMap = map[codec.CommandId]func(Version) codec.PDU{
+var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
 	SMGP_REQUEST_MIN:      nil,
 	SMGP_RESPONSE_MIN:     nil,
 	SMGP_LOGIN:            NewLoginReq,
@@ -168,7 +134,7 @@ var pduMap = map[codec.CommandId]func(Version) codec.PDU{
 	SMGP_RESPONSE_MAX:     nil,
 }
 
-func CreatePDUFromCmdID(cmdID codec.CommandId, ver Version) (codec.PDU, error) {
+func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, error) {
 	if g, ok := pduMap[cmdID]; ok {
 		return g(ver), nil
 	}

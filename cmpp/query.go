@@ -28,12 +28,12 @@ type QueryResp struct {
 
 }
 
-func NewQueryReq(ver Version) codec.PDU {
+func NewQueryReq(ver codec.Version) codec.PDU {
 	return &QueryReq{
 		base: newBase(ver, CMPP_QUERY, 0),
 	}
 }
-func NewQueryResp(ver Version) codec.PDU {
+func NewQueryResp(ver codec.Version) codec.PDU {
 	return &QueryResp{
 		base: newBase(ver, CMPP_QUERY_RESP, 0),
 	}

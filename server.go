@@ -46,7 +46,6 @@ type (
 		RecvPDU() (codec.PDU, error)
 		SendPDU(codec.PDU) error
 		SetState(enum.State)
-		Proto() codec.SmsProto
 		Logger() *logrus.Entry
 	}
 )

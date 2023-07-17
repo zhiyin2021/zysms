@@ -9,10 +9,10 @@ import (
 type base struct {
 	Header
 	OptionalParameters map[codec.Tag]codec.Field
-	Version            Version
+	Version            codec.Version
 }
 
-func newBase(ver Version, commandId codec.CommandId, seqId int32) (v base) {
+func newBase(ver codec.Version, commandId codec.CommandId, seqId int32) (v base) {
 	v.OptionalParameters = make(map[codec.Tag]codec.Field)
 	v.Version = ver
 	v.CommandID = commandId
@@ -122,7 +122,7 @@ func (c *base) IsGNack() bool {
 }
 
 // Parse PDU from reader.
-func Parse(r io.Reader, ver Version) (pdu codec.PDU, err error) {
+func Parse(r io.Reader, ver codec.Version) (pdu codec.PDU, err error) {
 	var headerBytes [16]byte
 
 	if _, err = io.ReadFull(r, headerBytes[:]); err != nil {

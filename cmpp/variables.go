@@ -4,50 +4,24 @@ import (
 	"github.com/zhiyin2021/zysms/codec"
 )
 
-type Version uint8
-
 const (
 	// CMPP_HEADER_LEN  uint32 = 12
 	CMPP2_PACKET_MAX uint32 = 2477
 	CMPP3_PACKET_MAX uint32 = 3335
 
-	V30 Version = 0x30
-	V21 Version = 0x21
-	V20 Version = 0x20
+	V30 codec.Version = 0x30
+	V21 codec.Version = 0x21
+	V20 codec.Version = 0x20
 
 	SM_MSG_LEN      = 140
 	PDU_HEADER_SIZE = 12
 	MAX_PDU_LEN     = 3335
 )
 
-var versionStr = map[Version]string{
+var versionStr = map[codec.Version]string{
 	V30: "cmpp30",
 	V21: "cmpp21",
 	V20: "cmpp20",
-}
-
-func (t Version) String() string {
-	if v, ok := versionStr[t]; ok {
-		return v
-	}
-	return "unknown"
-}
-func (t Version) Proto() codec.SmsProto {
-	if t == V30 {
-		return codec.CMPP30
-	} else {
-		return codec.CMPP21
-	}
-}
-
-// MajorMatch 主版本相匹配
-func (t Version) MajorMatch(v uint8) bool {
-	return uint8(t)&0xf0 == v&0xf0
-}
-
-// MajorMatchV 主版本相匹配
-func (t Version) MajorMatchV(v Version) bool {
-	return uint8(t)&0xf0 == uint8(v)&0xf0
 }
 
 // CommandId 命令定义
@@ -66,7 +40,7 @@ const (
 	CMPP_REQUEST_MAX, CMPP_RESPONSE_MAX
 )
 
-var pduMap = map[codec.CommandId]func(Version) codec.PDU{
+var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
 	CMPP_REQUEST_MIN:      nil,               //"CMPP_REQUEST_MIN",
 	CMPP_RESPONSE_MIN:     nil,               //    "CMPP_RESPONSE_MIN",
 	CMPP_CONNECT:          NewConnReq,        //   "CMPP_CONNECT",
@@ -89,7 +63,7 @@ var pduMap = map[codec.CommandId]func(Version) codec.PDU{
 	CMPP_RESPONSE_MAX:     nil,               //  "CMPP_RESPONSE_MAX",
 }
 
-func CreatePDUFromCmdID(cmdID codec.CommandId, ver Version) (codec.PDU, error) {
+func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, error) {
 	if g, ok := pduMap[cmdID]; ok {
 		return g(ver), nil
 	}

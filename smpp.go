@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smpp"
@@ -18,7 +17,7 @@ import (
 type smppConn struct {
 	net.Conn
 	State enum.State
-	Typ   smpp.Version
+	Typ   codec.Version
 	// for SeqId generator goroutine
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
@@ -32,7 +31,7 @@ type smppConn struct {
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newSmppConn(conn net.Conn, typ smpp.Version, checkVer bool) *Conn {
+func newSmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 	c := &smppConn{
 		Conn:     conn,
 		Typ:      typ,
@@ -47,9 +46,7 @@ func newSmppConn(conn net.Conn, typ smpp.Version, checkVer bool) *Conn {
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
 	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
-func (c *smppConn) Proto() codec.SmsProto {
-	return c.Typ.Proto()
-}
+
 func (c *smppConn) Auth(uid string, pwd string) error {
 	// Login to the server.
 	req := smpp.NewBindRequest(smpp.Transceiver)
@@ -156,7 +153,7 @@ func (l *smppListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newCmppConn(c, cmpp.Version(smpp.V34), false)
+	conn := newCmppConn(c, codec.Version(smpp.V34), false)
 	conn.SetState(enum.CONN_CONNECTED)
 	return conn, nil
 }

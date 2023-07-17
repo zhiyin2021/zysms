@@ -50,13 +50,13 @@ type SubmitResp struct {
 	Result uint32 // 3.0 = 4字节, 2.0 = 1字节
 }
 
-func NewSubmitReq(ver Version) codec.PDU {
+func NewSubmitReq(ver codec.Version) codec.PDU {
 	c := &SubmitReq{
 		base: newBase(ver, CMPP_SUBMIT, 0),
 	}
 	return c
 }
-func NewSubmitResp(ver Version) codec.PDU {
+func NewSubmitResp(ver codec.Version) codec.PDU {
 	c := &SubmitResp{
 		base: newBase(ver, CMPP_SUBMIT_RESP, 0),
 	}

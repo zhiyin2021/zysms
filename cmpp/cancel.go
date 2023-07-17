@@ -15,12 +15,12 @@ type CancelResp struct {
 	SuccId uint32
 }
 
-func NewCancelReq(ver Version) codec.PDU {
+func NewCancelReq(ver codec.Version) codec.PDU {
 	return &CancelReq{
 		base: newBase(ver, CMPP_CANCEL, 0),
 	}
 }
-func NewCancelResp(ver Version) codec.PDU {
+func NewCancelResp(ver codec.Version) codec.PDU {
 	return &CancelResp{
 		base: newBase(ver, CMPP_CANCEL_RESP, 0),
 	}

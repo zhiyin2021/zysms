@@ -18,13 +18,13 @@ type ActiveTestResp struct {
 	Reserved uint8
 }
 
-func NewActiveTestReq(ver Version) codec.PDU {
+func NewActiveTestReq(ver codec.Version) codec.PDU {
 	return &ActiveTestReq{
 		base: newBase(ver, CMPP_ACTIVE_TEST, 0),
 	}
 }
 
-func NewActiveTestResp(ver Version) codec.PDU {
+func NewActiveTestResp(ver codec.Version) codec.PDU {
 	return &ActiveTestResp{
 		base: newBase(ver, CMPP_ACTIVE_TEST_RESP, 0),
 	}

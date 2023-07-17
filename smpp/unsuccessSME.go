@@ -20,7 +20,7 @@ func NewUnsuccessSME() (c UnsuccessSME) {
 }
 
 // NewUnsuccessSMEWithAddr returns new UnsuccessSME with address.
-func NewUnsuccessSMEWithAddr(addr string, status CommandStatus) (c UnsuccessSME, err error) {
+func NewUnsuccessSMEWithAddr(addr string, status codec.CommandStatus) (c UnsuccessSME, err error) {
 	c = NewUnsuccessSME()
 	if err = c.SetAddress(addr); err == nil {
 		c.SetErrorStatusCode(status)
@@ -29,7 +29,7 @@ func NewUnsuccessSMEWithAddr(addr string, status CommandStatus) (c UnsuccessSME,
 }
 
 // NewUnsuccessSMEWithTonNpi create new address with ton, npi and error code.
-func NewUnsuccessSMEWithTonNpi(ton, npi byte, status CommandStatus) UnsuccessSME {
+func NewUnsuccessSMEWithTonNpi(ton, npi byte, status codec.CommandStatus) UnsuccessSME {
 	return UnsuccessSME{
 		Address:         NewAddressWithTonNpi(ton, npi),
 		errorStatusCode: status,
@@ -39,7 +39,7 @@ func NewUnsuccessSMEWithTonNpi(ton, npi byte, status CommandStatus) UnsuccessSME
 // Unmarshal from buffer.
 func (c *UnsuccessSME) Unmarshal(b *codec.BytesReader) (err error) {
 	if err = c.Address.Unmarshal(b); err == nil {
-		c.errorStatusCode = CommandStatus(b.ReadU32())
+		c.errorStatusCode = codec.CommandStatus(b.ReadU32())
 	}
 	return
 }
@@ -51,12 +51,12 @@ func (c *UnsuccessSME) Marshal(b *codec.BytesWriter) {
 }
 
 // SetErrorStatusCode sets error status code.
-func (c *UnsuccessSME) SetErrorStatusCode(v CommandStatus) {
+func (c *UnsuccessSME) SetErrorStatusCode(v codec.CommandStatus) {
 	c.errorStatusCode = v
 }
 
 // ErrorStatusCode returns assigned status code.
-func (c *UnsuccessSME) ErrorStatusCode() CommandStatus {
+func (c *UnsuccessSME) ErrorStatusCode() codec.CommandStatus {
 	return c.errorStatusCode
 }
 

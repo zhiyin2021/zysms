@@ -11,13 +11,13 @@ type TerminateResp struct {
 	base
 }
 
-func NewTerminateReq(ver Version) codec.PDU {
+func NewTerminateReq(ver codec.Version) codec.PDU {
 	c := &TerminateReq{
 		base: newBase(ver, CMPP_TERMINATE, 0),
 	}
 	return c
 }
-func NewTerminateResp(ver Version) codec.PDU {
+func NewTerminateResp(ver codec.Version) codec.PDU {
 	c := &TerminateResp{
 		base: newBase(ver, CMPP_TERMINATE_RESP, 0),
 	}

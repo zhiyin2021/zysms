@@ -18,7 +18,7 @@ import (
 type cmppConn struct {
 	net.Conn
 	State enum.State
-	Typ   cmpp.Version
+	Typ   codec.Version
 	// for SeqId generator goroutine
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
@@ -32,7 +32,7 @@ type cmppConn struct {
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newCmppConn(conn net.Conn, typ cmpp.Version, checkVer bool) *Conn {
+func newCmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 	c := &cmppConn{
 		Conn:     conn,
 		Typ:      typ,
@@ -47,9 +47,7 @@ func newCmppConn(conn net.Conn, typ cmpp.Version, checkVer bool) *Conn {
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
 	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
-func (c *cmppConn) Proto() codec.SmsProto {
-	return c.Typ.Proto()
-}
+
 func (c *cmppConn) Auth(uid string, pwd string) error {
 	// Login to the server.
 	req := cmpp.NewConnReq(c.Typ).(*cmpp.ConnReq)

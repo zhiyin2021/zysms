@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/zhiyin2021/zysms/event"
 )
 
 const (
@@ -22,16 +20,8 @@ const (
 var (
 	// ErrBufferNotEnoughByteToRead indicates not enough byte(s) to read from buffer.
 	ErrBufferNotEnoughByteToRead = fmt.Errorf("not enough byte to read from buffer")
-
-	endianese = binary.BigEndian
+	endianese                    = binary.BigEndian
 )
-
-type Packer interface {
-	SeqId() uint32
-	Pack(uint32, SmsProto) []byte
-	Unpack([]byte, SmsProto) error
-	Event() event.SmsEvent
-}
 
 // bytesBuffer wraps over bytes.Buffer with additional features.
 type bytesBuffer struct {

@@ -9,12 +9,12 @@ type ActiveTestResp struct {
 	base
 }
 
-func NewActiveTestReq(ver Version) codec.PDU {
+func NewActiveTestReq(ver codec.Version) codec.PDU {
 	return &ActiveTestReq{
 		base: newBase(ver, SMGP_ACTIVE_TEST, 0),
 	}
 }
-func NewActiveTestResp(ver Version) codec.PDU {
+func NewActiveTestResp(ver codec.Version) codec.PDU {
 	return &ActiveTestResp{
 		base: newBase(ver, SMGP_ACTIVE_TEST_RESP, 0),
 	}

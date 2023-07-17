@@ -9,12 +9,12 @@ type ExitResp struct {
 	base
 }
 
-func NewExitReq(ver Version) codec.PDU {
+func NewExitReq(ver codec.Version) codec.PDU {
 	return &ExitReq{
 		base: newBase(ver, SMGP_EXIT, 0),
 	}
 }
-func NewExitResp(ver Version) codec.PDU {
+func NewExitResp(ver codec.Version) codec.PDU {
 	return &ExitResp{
 		base: newBase(ver, SMGP_EXIT_RESP, 0),
 	}

@@ -11,7 +11,7 @@ type base struct {
 	OptionalParameters map[codec.Tag]codec.Field
 }
 
-func newBase(commandId CommandId, seqId int32) (v base) {
+func newBase(commandId codec.CommandId, seqId int32) (v base) {
 	v.OptionalParameters = make(map[codec.Tag]codec.Field)
 	v.CommandID = commandId
 	if seqId > 0 {

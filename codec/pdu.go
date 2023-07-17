@@ -1,6 +1,8 @@
 package codec
 
 type CommandId uint32
+type Version byte
+type CommandStatus uint32
 
 type Header interface {
 	AssignSequenceNumber()

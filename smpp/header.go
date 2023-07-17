@@ -21,16 +21,16 @@ func nextSequenceNumber(s *int32) (v int32) {
 // Header represents PDU header.
 type Header struct {
 	CommandLength  uint32
-	CommandID      CommandId
-	CommandStatus  CommandStatus
+	CommandID      codec.CommandId
+	CommandStatus  codec.CommandStatus
 	SequenceNumber int32
 }
 
 // ParseHeader parses PDU header.
 func ParseHeader(v [16]byte) (h Header) {
 	h.CommandLength = binary.BigEndian.Uint32(v[:])
-	h.CommandID = CommandId(binary.BigEndian.Uint32(v[4:]))
-	h.CommandStatus = CommandStatus(binary.BigEndian.Uint32(v[8:]))
+	h.CommandID = codec.CommandId(binary.BigEndian.Uint32(v[4:]))
+	h.CommandStatus = codec.CommandStatus(binary.BigEndian.Uint32(v[8:]))
 	h.SequenceNumber = int32(binary.BigEndian.Uint32(v[12:]))
 	return
 }
@@ -39,8 +39,8 @@ func ParseHeader(v [16]byte) (h Header) {
 func (c *Header) Unmarshal(b *codec.BytesReader) (err error) {
 
 	c.CommandLength = b.ReadU32()
-	c.CommandID = CommandId(b.ReadU32())
-	c.CommandStatus = CommandStatus(b.ReadU32())
+	c.CommandID = codec.CommandId(b.ReadU32())
+	c.CommandStatus = codec.CommandStatus(b.ReadU32())
 	c.SequenceNumber = int32(b.ReadU32())
 	return b.Err()
 }

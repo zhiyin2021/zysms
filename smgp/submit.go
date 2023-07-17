@@ -32,12 +32,12 @@ type SubmitResp struct {
 	Status Status
 }
 
-func NewSubmitReq(ver Version) codec.PDU {
+func NewSubmitReq(ver codec.Version) codec.PDU {
 	return &SubmitReq{
 		base: newBase(ver, SMGP_SUBMIT, 0),
 	}
 }
-func NewSubmitResp(ver Version) codec.PDU {
+func NewSubmitResp(ver codec.Version) codec.PDU {
 	return &SubmitResp{
 		base: newBase(ver, SMGP_SUBMIT_RESP, 0),
 	}

@@ -6,16 +6,6 @@ import (
 	"github.com/zhiyin2021/zysms/codec"
 )
 
-type Version byte
-
-func (t Version) Proto() codec.SmsProto {
-	if t == V34 {
-		return codec.SMPP34
-	} else {
-		return codec.SMPP33
-	}
-}
-
 // nolint
 const (
 	SM_CONNID_LEN        = 16
@@ -48,8 +38,8 @@ const (
 	SM_RESPONSE_PNACK = 2
 
 	// Interface_Version
-	V33 Version = 0x33
-	V34 Version = 0x34
+	V33 codec.Version = 0x33
+	V34 codec.Version = 0x34
 
 	// Address_TON
 	GSM_TON_UNKNOWN       = byte(0x00)
@@ -413,15 +403,9 @@ func GetDefaultNpi() byte {
 	return defaultNpi.Load().(byte)
 }
 
-// CommandStatus is type of command status
-type CommandStatus uint32
-
-// CommandId is type of command id.
-type CommandId uint32
-
 // nolint
 const (
-	_, GENERIC_NACK CommandId = iota, 0x80000000 + iota
+	_, GENERIC_NACK codec.CommandId = iota, 0x80000000 + iota
 	BIND_RECEIVER, BIND_RECEIVER_RESP
 	BIND_TRANSMITTER, BIND_TRANSMITTER_RESP
 	QUERY_SM, QUERY_SM_RESP
@@ -432,20 +416,20 @@ const (
 	CANCEL_SM, CANCEL_SM_RESP
 	BIND_TRANSCEIVER, BIND_TRANSCEIVER_RESP
 
-	OUTBIND            CommandId = 0x0000000B
-	ENQUIRE_LINK       CommandId = 0x00000015
-	ENQUIRE_LINK_RESP  CommandId = 0x80000015
-	SUBMIT_MULTI       CommandId = 0x00000021
-	SUBMIT_MULTI_RESP  CommandId = 0x80000021
-	ALERT_NOTIFICATION CommandId = 0x00000102
-	DATA_SM            CommandId = 0x00000103
-	DATA_SM_RESP       CommandId = 0x80000103
+	OUTBIND            codec.CommandId = 0x0000000B
+	ENQUIRE_LINK       codec.CommandId = 0x00000015
+	ENQUIRE_LINK_RESP  codec.CommandId = 0x80000015
+	SUBMIT_MULTI       codec.CommandId = 0x00000021
+	SUBMIT_MULTI_RESP  codec.CommandId = 0x80000021
+	ALERT_NOTIFICATION codec.CommandId = 0x00000102
+	DATA_SM            codec.CommandId = 0x00000103
+	DATA_SM_RESP       codec.CommandId = 0x80000103
 )
 
 // nolint
 const (
 	// Command_Status Error Codes
-	ESME_ROK CommandStatus = 0x00000000 + iota // No Error
+	ESME_ROK codec.CommandStatus = 0x00000000 + iota // No Error
 
 	ESME_RINVMSGLEN    // Message Length is invalid
 	ESME_RINVCMDLEN    // Command Length is invalid
@@ -489,9 +473,9 @@ const (
 	ESME_RDELDLFAIL  // Failed to Delete DL
 	ESME_RVIEWDLFAIL // Failed to View DL
 
-	ESME_RLISTDLSFAIL  CommandStatus = iota + 6 // 0x00000030 // Failed to list DLs
-	ESME_RPARAMRETFAIL                          // Param Retrieve Failed
-	ESME_RINVPARAM                              // Invalid Param
+	ESME_RLISTDLSFAIL  codec.CommandStatus = iota + 6 // 0x00000030 // Failed to list DLs
+	ESME_RPARAMRETFAIL                                // Param Retrieve Failed
+	ESME_RINVPARAM                                    // Invalid Param
 
 	ESME_RINVNUMDESTS // Invalid number of destinations
 	ESME_RINVDLNAME   // Invalid Distribution List name
@@ -502,7 +486,7 @@ const (
 	ESME_RINVDLMEMBTYP // Invalid DL Member Type
 	ESME_RINVDLMODOPT  // Invalid DL Modify Option
 
-	ESME_RINVDESTFLAG CommandStatus = iota + 6 + 6 // Destination flag is invalid (submit_multi)
+	ESME_RINVDESTFLAG codec.CommandStatus = iota + 6 + 6 // Destination flag is invalid (submit_multi)
 	_
 	ESME_RINVSUBREP   // Invalid ‘submit with replace’ request (i.e. submit_sm with replace_if_present_flag set)
 	ESME_RINVESMCLASS // Invalid esm_class field data
@@ -513,7 +497,7 @@ const (
 	ESME_RINVSRCTON // Invalid Source address TON
 	ESME_RINVSRCNPI // Invalid Source address NPI
 
-	ESME_RINVDSTTON CommandStatus = iota + 6 + 6 + 6 // Invalid Destination address TON
+	ESME_RINVDSTTON codec.CommandStatus = iota + 6 + 6 + 6 // Invalid Destination address TON
 
 	ESME_RINVDSTNPI // Invalid Destination address NPI
 	_
@@ -522,10 +506,10 @@ const (
 	ESME_RINVNUMMSGS // Invalid number of messages
 	_
 	_
-	ESME_RTHROTTLED    CommandStatus = iota + 6 + 6 + 6 // Throttling error (ESME has exceeded allowed message limits)
-	ESME_RPROVNOTALLWD                                  // Provisioning Not Allowed
+	ESME_RTHROTTLED    codec.CommandStatus = iota + 6 + 6 + 6 // Throttling error (ESME has exceeded allowed message limits)
+	ESME_RPROVNOTALLWD                                        // Provisioning Not Allowed
 
-	ESME_RINVSCHED CommandStatus = iota + 6 + 6 + 6 + 7 // Invalid Scheduled Delivery Time
+	ESME_RINVSCHED codec.CommandStatus = iota + 6 + 6 + 6 + 7 // Invalid Scheduled Delivery Time
 
 	ESME_RINVEXPIRY   // Invalid message validity period (Expiry time)
 	ESME_RINVDFTMSGID // Predefined Message Invalid or Not Found
@@ -534,7 +518,7 @@ const (
 	ESME_RX_R_APPN    // ESME Receiver Reject Message Error Code
 	ESME_RQUERYFAIL   // query_sm request failed
 
-	ESME_RINVPGCUSTID CommandStatus = iota + 6 + 6 + 6 + 7 + 24 // Paging Customer ID Invalid No such subscriber
+	ESME_RINVPGCUSTID codec.CommandStatus = iota + 6 + 6 + 6 + 7 + 24 // Paging Customer ID Invalid No such subscriber
 
 	ESME_RINVPGCUSTIDLEN   // Paging Customer ID length Invalid
 	ESME_RINVCITYLEN       // City Length Invalid
@@ -568,21 +552,21 @@ const (
 	_
 	ESME_RINVOPTPARLEN // Invalid Optional Parameter Length
 
-	ESME_RINVOPTPARSTREAM CommandStatus = iota + 6 + 6 + 6 + 7 + 24 + 32 // KIF IW Field out of data
+	ESME_RINVOPTPARSTREAM codec.CommandStatus = iota + 6 + 6 + 6 + 7 + 24 + 32 // KIF IW Field out of data
 
-	ESME_ROPTPARNOTALLWD                              // Optional Parameter not allowed
-	ESME_RINVPARLEN                                   // Invalid Parameter Length.
-	ESME_RMISSINGOPTPARAM                             // Expected Optional Parameter missing
-	ESME_RINVOPTPARAMVAL                              // Invalid Optional Parameter Value
-	ESME_RDELIVERYFAILURE = CommandStatus(0x000000FE) // Delivery Failure (used for data_sm_resp)
-	ESME_RUNKNOWNERR      = CommandStatus(0x000000FF) // Unknown Error
+	ESME_ROPTPARNOTALLWD                                   // Optional Parameter not allowed
+	ESME_RINVPARLEN                                        // Invalid Parameter Length.
+	ESME_RMISSINGOPTPARAM                                  // Expected Optional Parameter missing
+	ESME_RINVOPTPARAMVAL                                   // Invalid Optional Parameter Value
+	ESME_RDELIVERYFAILURE codec.CommandStatus = 0x000000FE // Delivery Failure (used for data_sm_resp)
+	ESME_RUNKNOWNERR      codec.CommandStatus = 0x000000FF // Unknown Error
 
-	ESME_LAST_ERROR = CommandStatus(0x0000012C) // THE VALUE OF THE LAST ERROR CODE
+	ESME_LAST_ERROR codec.CommandStatus = 0x0000012C // THE VALUE OF THE LAST ERROR CODE
 )
 
 type pduGenerator func() codec.PDU
 
-var pduMap = map[CommandId]pduGenerator{
+var pduMap = map[codec.CommandId]pduGenerator{
 	BIND_TRANSMITTER:      NewBindTransmitter,
 	BIND_TRANSMITTER_RESP: NewBindTransmitterResp,
 	BIND_TRANSCEIVER:      NewBindTransceiver,
@@ -613,7 +597,7 @@ var pduMap = map[CommandId]pduGenerator{
 }
 
 // CreatePDUFromCmdID creates PDU from cmd id.
-func CreatePDUFromCmdID(cmdID CommandId) (codec.PDU, error) {
+func CreatePDUFromCmdID(cmdID codec.CommandId) (codec.PDU, error) {
 	if g, ok := pduMap[cmdID]; ok {
 		return g(), nil
 	}

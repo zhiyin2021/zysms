@@ -84,13 +84,13 @@ type DeliverReport struct {
 	SmscSequence   uint32 // 短信中心的Sequence 4字节
 }
 
-func NewDeliverReq(ver Version) codec.PDU {
+func NewDeliverReq(ver codec.Version) codec.PDU {
 	c := &DeliverReq{
 		base: newBase(ver, CMPP_DELIVER, 0),
 	}
 	return c
 }
-func NewDeliverResp(ver Version) codec.PDU {
+func NewDeliverResp(ver codec.Version) codec.PDU {
 	c := &DeliverResp{
 		base: newBase(ver, CMPP_DELIVER_RESP, 0),
 	}

@@ -20,7 +20,7 @@ type BindRequest struct {
 	SystemID         string
 	Password         string
 	SystemType       string
-	InterfaceVersion Version
+	InterfaceVersion codec.Version
 	AddressRange     AddressRange
 	BindingType      BindingType
 }
@@ -101,7 +101,7 @@ func (b *BindRequest) Unmarshal(w *codec.BytesReader) error {
 		b.Password = w.ReadCStr()
 		b.SystemType = w.ReadCStr()
 
-		b.InterfaceVersion = Version(w.ReadByte())
+		b.InterfaceVersion = codec.Version(w.ReadByte())
 		b.AddressRange.Unmarshal(w)
 
 		return w.Err()

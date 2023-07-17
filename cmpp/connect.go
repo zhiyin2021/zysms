@@ -51,12 +51,12 @@ type ConnResp struct {
 	AuthSrc string // 非协议内容
 }
 
-func NewConnReq(ver Version) codec.PDU {
+func NewConnReq(ver codec.Version) codec.PDU {
 	return &ConnReq{
 		base: newBase(ver, CMPP_CONNECT, 0),
 	}
 }
-func NewConnResp(ver Version) codec.PDU {
+func NewConnResp(ver codec.Version) codec.PDU {
 	return &ConnResp{
 		base: newBase(ver, CMPP_CONNECT_RESP, 0),
 	}
@@ -94,7 +94,7 @@ func (p *ConnReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.SrcAddr = br.ReadStr(6)
 		p.AuthSrc = br.ReadStr(16)
-		p.Version = Version(br.ReadByte())
+		p.Version = codec.Version(br.ReadByte())
 		p.Timestamp = br.ReadU32()
 		return br.Err()
 	})
@@ -138,7 +138,7 @@ func (p *ConnResp) Unmarshal(w *codec.BytesReader) error {
 			p.Status = uint32(br.ReadByte())
 		}
 		p.AuthIsmg = br.ReadStr(16)
-		p.Version = Version(br.ReadByte())
+		p.Version = codec.Version(br.ReadByte())
 		return br.Err()
 	})
 }
