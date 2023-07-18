@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/smserror"
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
@@ -138,5 +139,5 @@ func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, er
 	if g, ok := pduMap[cmdID]; ok {
 		return g(ver), nil
 	}
-	return nil, ErrUnknownCommandID
+	return nil, smserror.ErrUnknownCommandID
 }

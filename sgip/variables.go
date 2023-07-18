@@ -2,39 +2,20 @@ package sgip
 
 import (
 	"fmt"
+
+	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
-type Version uint8
-
 const (
-	SGIP_HEADER_LEN uint32  = 20
-	V12             Version = 0x12
+	PDU_HEADER_SIZE               = 20
+	SM_MSG_LEN                    = 140
+	MAX_PDU_LEN                   = 3000
+	V12             codec.Version = 0x12
 )
 
-func (t Version) String() string {
-	switch {
-	case t == V12:
-		return "sgip12"
-	default:
-		return "unknown"
-	}
-}
-
-// MajorMatch 主版本相匹配
-func (t Version) MajorMatch(v uint8) bool {
-	return uint8(t)&0xf0 == v&0xf0
-}
-
-// MajorMatchV 主版本相匹配
-func (t Version) MajorMatchV(v Version) bool {
-	return uint8(t)&0xf0 == uint8(v)&0xf0
-}
-
-// CommandId 命令定义
-type CommandId uint32
-
 const (
-	SGIP_REQUEST_MIN, SGIP_RESPONSE_MIN CommandId = iota, 0x80000000 + iota
+	SGIP_REQUEST_MIN, SGIP_RESPONSE_MIN codec.CommandId = iota, 0x80000000 + iota
 	SGIP_BIND, SGIP_BIND_RESP
 	SGIP_UNBIND, SGIP_UNBIND_RESP
 	SGIP_SUBMIT, SGIP_SUBMIT_RESP
@@ -42,31 +23,6 @@ const (
 	SGIP_REPORT, SGIP_REPORT_RESP
 	SGIP_REQUEST_MAX, SGIP_RESPONSE_MAX
 )
-
-func (id CommandId) ToInt() uint32 {
-	return uint32(id)
-}
-
-func (id CommandId) String() string {
-	if id > SGIP_REQUEST_MIN && id < SGIP_REQUEST_MAX {
-		return []string{
-			"SGIP_BIND",
-			"SGIP_UNBIND",
-			"SGIP_SUBMIT",
-			"SGIP_DELIVER",
-			"SGIP_REPORT",
-		}[id-1]
-	} else if id > SGIP_RESPONSE_MIN && id < SGIP_RESPONSE_MAX {
-		return []string{
-			"SGIP_BIND_RESP",
-			"SGIP_UNBIND_RESP",
-			"SGIP_SUBMIT_RESP",
-			"SGIP_DELIVER_RESP",
-			"SGIP_REPORT_RESP",
-		}[id-0x80000001]
-	}
-	return "UNKNOWN"
-}
 
 // func (id CommandId) OpLog() log.Field {
 // 	return log.String("op", id.String())
@@ -104,4 +60,26 @@ var ResultMap = map[Status]string{
 	31: "非法设备",
 	32: "系统失败",
 	33: "短信中心队列满",
+}
+
+var pduMap = map[codec.CommandId]func(codec.Version, uint32) codec.PDU{
+	SGIP_BIND:         nil,
+	SGIP_BIND_RESP:    nil,
+	SGIP_UNBIND:       nil,
+	SGIP_UNBIND_RESP:  nil,
+	SGIP_SUBMIT:       nil,
+	SGIP_SUBMIT_RESP:  nil,
+	SGIP_DELIVER:      nil,
+	SGIP_DELIVER_RESP: nil,
+	SGIP_REPORT:       nil,
+	SGIP_REPORT_RESP:  nil,
+	SGIP_REQUEST_MAX:  nil,
+	SGIP_RESPONSE_MAX: nil,
+}
+
+func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version, nodeId uint32) (codec.PDU, error) {
+	if g, ok := pduMap[cmdID]; ok {
+		return g(ver, nodeId), nil
+	}
+	return nil, smserror.ErrUnknownCommandID
 }

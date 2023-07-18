@@ -1,9 +1,11 @@
 package sgip
 
-import "github.com/zhiyin2021/zysms/codec"
+import (
+	"github.com/zhiyin2021/zysms/codec"
+)
 
-type SgipSubmitReq struct {
-	SeqId            []uint32
+type SubmitReq struct {
+	base
 	SPNumber         string   //  SP的接入号码【 21 bytes 】
 	ChargeNumber     string   //  付费号码，手机号码前加“86”国别标志；当且仅当群发且对用户收费时为空；如果为空，则该条短消息产生的费用由UserNumber代表的用户支付；如果为全零字符串“000000000000000000000”，表示该条短消息产生的费用由SP支付。【 21 bytes 】
 	UserCount        byte     //  接收短消息的手机数量，取值范围1至100【 1  bytes 】
@@ -23,9 +25,8 @@ type SgipSubmitReq struct {
 	TpUdhi           byte     //  GSM协议类型。详细解释请参考GSM03.40中的9.2.3.9 【 1  bytes 】
 	MessageCoding    byte     //  短消息的编码格式。 【 1  bytes 】
 	MessageType      byte     //  信息类型: 0-短消息信息 其它:待定 【 1  bytes 】
-	MessageLength    uint32   //  短消息的长度【 4  bytes 】
-	MessageContent   []byte   //  编码后消息内容
-	Reserve          string   //  保留，扩展用【 8  bytes 】
+	Message          codec.ShortMessage
+	Reserve          string //  保留，扩展用【 8  bytes 】
 
 	// ReportFlag
 	// 状态报告标记 0-该条消息只有最后出错时要返回状态报告 1-该条消息无论最后是否成功都要返回状态报告 2-该条消息不需要返回状态报告 3-该条消息仅携带包月计费信息，不下发给用户， 要返回状态报告
@@ -48,118 +49,106 @@ type SgipSubmitReq struct {
 	// 15: GBK 编码
 	// 其它参见 GSM3.38 第 4 节:SMS Data Coding Scheme
 }
-
-const (
-	SgipSubmitReqLen = SGIP_HEADER_LEN + 123 // SGIP_HEADER_LEN + 123 + 21*len(s.UserNumber)+ MessageLength
-	SgipSubmitRspLen = SGIP_HEADER_LEN + 9
-	MtBaseLen        = 143
-)
-
-// func NewSubmit(ac *codec.AuthConf, phones []string, content string, options ...codec.OptionFunc) (messages []codec.RequestPdu) {
-// 	mt := &Submit{}
-// 	mt.PacketLength = MtBaseLen
-// 	mt.CommandId = SGIP_SUBMIT
-// 	mt.SequenceNumber = Sequencer.NextVal()
-// 	mt.SetOptions(ac, codec.LoadMtOptions(options...))
-// 	mt.UserCount = byte(len(phones))
-// 	mt.UserNumber = phones
-// 	mt.MessageCoding = utils.MsgFmt(content)
-// 	mt.MorelatetoMTFlag = 2
-
-// 	slices := utils.MsgSlices(mt.MessageCoding, content)
-// 	if len(slices) == 1 {
-// 		mt.MessageLength = uint32(len(slices[0]))
-// 		mt.MessageContent = slices[0]
-// 		mt.PacketLength = uint32(MtBaseLen + len(phones)*21 + len(slices[0]))
-// 		return []codec.RequestPdu{mt}
-// 	} else {
-// 		mt.TpUdhi = 1
-// 		for i, msgBytes := range slices {
-// 			// 拷贝 mt
-// 			tmp := *mt
-// 			sub := &tmp
-// 			if i != 0 {
-// 				sub.SequenceNumber = Sequencer.NextVal()
-// 			}
-// 			sub.MessageLength = uint32(len(msgBytes))
-// 			sub.MessageContent = msgBytes
-// 			sub.PacketLength = uint32(MtBaseLen + len(phones)*21 + len(msgBytes))
-// 			messages = append(messages, sub)
-// 		}
-// 		return messages
-// 	}
-// }
-
-func (s *SgipSubmitReq) Pack(seqId uint32) []byte {
-	pktLen := SgipSubmitReqLen + 21*uint32(len(s.UserNumber)) + s.MessageLength
-
-	pkt := codec.NewWriter(pktLen, SGIP_SUBMIT.ToInt())
-	pkt.WriteU32(seqId)
-	pkt.WriteU32(getTm())
-	pkt.WriteU32(seqId)
-	pkt.WriteStr(s.SPNumber, 21)
-	pkt.WriteStr(s.ChargeNumber, 21)
-	pkt.WriteByte(s.UserCount)
-	for _, p := range s.UserNumber {
-		pkt.WriteStr(p, 21)
-	}
-	pkt.WriteStr(s.CorpId, 5)
-	pkt.WriteStr(s.ServiceType, 10)
-	pkt.WriteByte(s.FeeType)
-	pkt.WriteStr(s.FeeValue, 6)
-	pkt.WriteStr(s.GivenValue, 6)
-	pkt.WriteByte(s.AgentFlag)
-	pkt.WriteByte(s.MorelatetoMTFlag)
-	pkt.WriteByte(s.Priority)
-	pkt.WriteStr(s.ExpireTime, 16)
-	pkt.WriteStr(s.ScheduleTime, 16)
-	pkt.WriteByte(s.ReportFlag)
-	pkt.WriteByte(s.TpPid)
-	pkt.WriteByte(s.TpUdhi)
-	pkt.WriteByte(s.MessageCoding)
-	pkt.WriteByte(s.MessageType)
-	pkt.WriteU32(s.MessageLength)
-	pkt.WriteBytes(s.MessageContent)
-	pkt.WriteStr(s.Reserve, 8)
-	return pkt.Bytes()
+type SubmitResp struct {
+	base
+	Status  Status // 0：正确返回
+	Reserve string // 保留，扩展用【 8 bytes 】
 }
 
-func (s *SgipSubmitReq) Unpack(data []byte) (e error) {
-	var pkt = codec.NewReader(data)
-	// Sequence Id
-	s.SeqId = make([]uint32, 3)
-	s.SeqId[0] = pkt.ReadU32()
-	s.SeqId[1] = pkt.ReadU32()
-	s.SeqId[2] = pkt.ReadU32()
-	s.SPNumber = pkt.ReadStr(21)
-	s.ChargeNumber = pkt.ReadStr(21)
-	s.UserCount = pkt.ReadByte()
-	s.UserNumber = make([]string, s.UserCount)
-	for i := 0; i < int(s.UserCount); i++ {
-		s.UserNumber[i] = pkt.ReadStr(21)
+func NewSubmitReq(ver codec.Version, nodeId uint32) codec.PDU {
+	c := &SubmitReq{
+		base: newBase(ver, SGIP_SUBMIT, [3]uint32{nodeId, 0, 0}),
 	}
-	s.CorpId = pkt.ReadStr(5)
-	s.ServiceType = pkt.ReadStr(10)
-	s.FeeType = pkt.ReadByte()
-	s.FeeValue = pkt.ReadStr(6)
-	s.GivenValue = pkt.ReadStr(6)
-	s.AgentFlag = pkt.ReadByte()
-	s.MorelatetoMTFlag = pkt.ReadByte()
-	s.Priority = pkt.ReadByte()
-	s.ExpireTime = pkt.ReadStr(16)
+	return c
+}
+func NewSubmitResp(ver codec.Version, nodeId uint32) codec.PDU {
+	c := &SubmitResp{
+		base: newBase(ver, SGIP_SUBMIT_RESP, [3]uint32{nodeId, 0, 0}),
+	}
+	return c
+}
 
-	s.ScheduleTime = pkt.ReadStr(16)
-	s.ReportFlag = pkt.ReadByte()
-	s.TpPid = pkt.ReadByte()
-	s.TpUdhi = pkt.ReadByte()
-	s.MessageCoding = pkt.ReadByte()
-	s.MessageType = pkt.ReadByte()
-	s.MessageLength = pkt.ReadU32()
-	s.Reserve = pkt.ReadStr(8)
-	s.MessageContent = pkt.ReadN(int(s.MessageLength))
+func (s *SubmitReq) Marshal(w *codec.BytesWriter) {
+	s.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteStr(s.SPNumber, 21)
+		bw.WriteStr(s.ChargeNumber, 21)
+		bw.WriteByte(s.UserCount)
+		for _, p := range s.UserNumber {
+			bw.WriteStr(p, 21)
+		}
+		bw.WriteStr(s.CorpId, 5)
+		bw.WriteStr(s.ServiceType, 10)
+		bw.WriteByte(s.FeeType)
+		bw.WriteStr(s.FeeValue, 6)
+		bw.WriteStr(s.GivenValue, 6)
+		bw.WriteByte(s.AgentFlag)
+		bw.WriteByte(s.MorelatetoMTFlag)
+		bw.WriteByte(s.Priority)
+		bw.WriteStr(s.ExpireTime, 16)
+		bw.WriteStr(s.ScheduleTime, 16)
+		bw.WriteByte(s.ReportFlag)
+		bw.WriteByte(s.TpPid)
+		bw.WriteByte(s.TpUdhi)
+		bw.WriteByte(s.MessageCoding)
+		bw.WriteByte(s.MessageType)
+		s.Message.Marshal(bw)
+		bw.WriteStr(s.Reserve, 8)
+	})
+}
 
-	s.Reserve = ""
-	return pkt.Err()
+func (p *SubmitReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.SPNumber = br.ReadStr(21)
+		p.ChargeNumber = br.ReadStr(21)
+		p.UserCount = br.ReadByte()
+		p.UserNumber = make([]string, p.UserCount)
+		for i := 0; i < int(p.UserCount); i++ {
+			p.UserNumber[i] = br.ReadStr(21)
+		}
+		p.CorpId = br.ReadStr(5)
+		p.ServiceType = br.ReadStr(10)
+		p.FeeType = br.ReadByte()
+		p.FeeValue = br.ReadStr(6)
+		p.GivenValue = br.ReadStr(6)
+		p.AgentFlag = br.ReadByte()
+		p.MorelatetoMTFlag = br.ReadByte()
+		p.Priority = br.ReadByte()
+		p.ExpireTime = br.ReadStr(16)
+
+		p.ScheduleTime = br.ReadStr(16)
+		p.ReportFlag = br.ReadByte()
+		p.TpPid = br.ReadByte()
+		p.TpUdhi = br.ReadByte()
+		p.MessageCoding = br.ReadByte()
+		p.MessageType = br.ReadByte()
+		p.Message.Unmarshal(br, p.TpUdhi == 1, p.MessageCoding)
+		p.Reserve = br.ReadStr(8)
+		return br.Err()
+	})
+}
+
+func (b *SubmitReq) GetResponse() codec.PDU {
+	return &SubmitResp{
+		base: newBase(b.Version, SGIP_SUBMIT_RESP, b.SequenceNumber),
+	}
+}
+
+func (p *SubmitResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, func(bw *codec.BytesWriter) {
+		bw.WriteByte(byte(p.Status))
+		bw.WriteStr(p.Reserve, 8)
+	})
+}
+
+func (p *SubmitResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
+		p.Status = Status(br.ReadByte())
+		p.Reserve = br.ReadStr(8)
+		return br.Err()
+	})
+}
+func (p *SubmitResp) GetResponse() codec.PDU {
+	return nil
 }
 
 // func (s *Submit) SetOptions(ac *codec.AuthConf, ops *codec.MtOptions) {
@@ -202,31 +191,3 @@ func (s *SgipSubmitReq) Unpack(data []byte) (e error) {
 // 		s.ExpireTime = utils.FormatTime(t)
 // 	}
 // }
-
-type SgipSubmitRsp struct {
-	SeqId   []uint32 // 消息流水号，由SP接入的短信网关本身产生  12 bytes 】
-	Status  Status   // 0：正确返回
-	Reserve string   // 保留，扩展用【 8 bytes 】
-}
-
-func (r *SgipSubmitRsp) Unpack(data []byte) error {
-	var pkt = codec.NewReader(data)
-	// Sequence Id
-	r.SeqId = make([]uint32, 3)
-	r.SeqId[0] = pkt.ReadU32()
-	r.SeqId[1] = pkt.ReadU32()
-	r.SeqId[2] = pkt.ReadU32()
-	r.Status = Status(pkt.ReadByte())
-	r.Reserve = pkt.ReadStr(8)
-	return pkt.Err()
-}
-
-func (r *SgipSubmitRsp) Pack(seqId uint32) []byte {
-	pkt := codec.NewWriter(SgipSubmitRspLen, SGIP_SUBMIT_RESP.ToInt())
-	pkt.WriteU32(seqId)
-	pkt.WriteU32(getTm())
-	pkt.WriteU32(seqId)
-	pkt.WriteByte(byte(r.Status))
-	pkt.WriteStr(r.Reserve, 8)
-	return pkt.Bytes()
-}

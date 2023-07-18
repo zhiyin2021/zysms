@@ -4,33 +4,9 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
-	"errors"
 
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/utils"
-)
-
-// Errors for connect resp status.
-var (
-	ErrnoConnInvalidStruct  uint8 = 1
-	ErrnoConnInvalidSrcAddr uint8 = 2
-	ErrnoConnAuthFailed     uint8 = 3
-	ErrnoConnVerTooHigh     uint8 = 4
-	ErrnoConnOthers         uint8 = 5
-
-	ConnRspStatusErrMap = map[uint8]error{
-		ErrnoConnInvalidStruct:  errConnInvalidStruct,
-		ErrnoConnInvalidSrcAddr: errConnInvalidSrcAddr,
-		ErrnoConnAuthFailed:     errConnAuthFailed,
-		ErrnoConnVerTooHigh:     errConnVerTooHigh,
-		ErrnoConnOthers:         errConnOthers,
-	}
-
-	errConnInvalidStruct  = errors.New("connect response status: invalid protocol structure")
-	errConnInvalidSrcAddr = errors.New("connect response status: invalid source address")
-	errConnAuthFailed     = errors.New("connect response status: auth failed")
-	errConnVerTooHigh     = errors.New("connect response status: protocol version is too high")
-	errConnOthers         = errors.New("connect response status: other errors")
 )
 
 type ConnReq struct {

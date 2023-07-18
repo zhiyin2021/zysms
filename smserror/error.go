@@ -28,4 +28,40 @@ var (
 	ErrProtoNotSupport    SmsError = errors.New("sms unsupported proto")
 	ErrPktIsNil           SmsError = errors.New("sms packet is nil")
 	ErrVersionNotMatch    SmsError = errors.New("sms version not match")
+
+	// ErrInvalidPDU indicates invalid pdu payload.
+	ErrInvalidPDU SmsError = errors.New("PDU payload is invalid")
+
+	// ErrUnknownCommandID indicates unknown command id.
+	ErrUnknownCommandID SmsError = errors.New("unknown command id")
+
+	// ErrWrongDateFormat indicates wrong date format.
+	ErrWrongDateFormat SmsError = errors.New("wrong date format")
+
+	// ErrShortMessageLengthTooLarge indicates short message length is too large.
+	ErrShortMessageLengthTooLarge SmsError = errors.New("encoded short message data exceeds size out of range")
+
+	// ErrUDHTooLong UDH-L is larger than total length of short message data
+	ErrUDHTooLong SmsError = errors.New("user Data Header is too long for PDU short message")
+	// Errors for connect resp status.
+
+	ErrnoConnInvalidStruct  uint8 = 1
+	ErrnoConnInvalidSrcAddr uint8 = 2
+	ErrnoConnAuthFailed     uint8 = 3
+	ErrnoConnVerTooHigh     uint8 = 4
+	ErrnoConnOthers         uint8 = 5
+
+	ConnRspStatusErrMap = map[uint8]error{
+		ErrnoConnInvalidStruct:  errConnInvalidStruct,
+		ErrnoConnInvalidSrcAddr: errConnInvalidSrcAddr,
+		ErrnoConnAuthFailed:     errConnAuthFailed,
+		ErrnoConnVerTooHigh:     errConnVerTooHigh,
+		ErrnoConnOthers:         errConnOthers,
+	}
+
+	errConnInvalidStruct  = errors.New("connect response status: invalid protocol structure")
+	errConnInvalidSrcAddr = errors.New("connect response status: invalid source address")
+	errConnAuthFailed     = errors.New("connect response status: auth failed")
+	errConnVerTooHigh     = errors.New("connect response status: protocol version is too high")
+	errConnOthers         = errors.New("connect response status: other errors")
 )

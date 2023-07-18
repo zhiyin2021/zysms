@@ -39,7 +39,11 @@ func (c *ShortMessage) GetMessage() string {
 		return c.message
 	}
 	if c.enc == nil {
-		c.enc = ASCII
+		if hasWidthChar(c.message) {
+			c.enc = UCS2
+		} else {
+			c.enc = ASCII
+		}
 	}
 	if len(c.messageData) > 0 {
 		st, _ := c.enc.Decode(c.messageData)
@@ -50,9 +54,16 @@ func (c *ShortMessage) GetMessage() string {
 
 // SetMessageWithEncoding sets message with encoding.
 func (c *ShortMessage) SetMessage(message string, enc Encoding) (err error) {
-	if c.messageData, err = enc.Encode(message); err == nil {
+	c.enc = enc
+	if c.enc == nil {
+		if hasWidthChar(message) {
+			c.enc = UCS2
+		} else {
+			c.enc = ASCII
+		}
+	}
+	if c.messageData, err = c.enc.Encode(message); err == nil {
 		c.message = message
-		c.enc = enc
 	}
 	return
 }
@@ -68,7 +79,11 @@ func (c *ShortMessage) MsgLength() int {
 // The encoding interface can implement the Splitter interface for ad-hoc splitting rule
 func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 	if c.enc == nil {
-		c.enc = ASCII
+		if hasWidthChar(c.message) {
+			c.enc = UCS2
+		} else {
+			c.enc = ASCII
+		}
 	}
 	maxLen := uint(140)
 	if c.enc == ASCII {
@@ -126,22 +141,24 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 	// Else UDH should be in TLV field MessagePayload
 	if udhi && c.messageLen > 0 {
 		n := c.messageData[0] + 1
-		if n > c.messageLen {
-			if n == 6 {
-				c.udHeader = &msgUDH{c.messageData[4], c.messageData[5], c.messageData[6]}
-				// 0x05 数据头总长度
-				// 0x00 信息标识
-				// 0x04 头信息长度
-				// 0x00 信息序列号
-				// 0x00 总条数
-				// 0x01 当前条数
-				c.messageData = c.messageData[n:]
-			}
+		if n == 6 && n < c.messageLen {
+			c.udHeader = &msgUDH{c.messageData[4], c.messageData[5], c.messageData[6]}
+			// 0x05 数据头总长度
+			// 0x00 信息标识
+			// 0x04 头信息长度
+			// 0x00 信息序列号
+			// 0x00 总条数
+			// 0x01 当前条数
+			c.messageData = c.messageData[n:]
 		}
 	}
 	c.enc = GetCodec(enc)
 	if c.enc == nil {
-		c.enc = UCS2
+		if hasWidthChar(c.message) {
+			c.enc = UCS2
+		} else {
+			c.enc = ASCII
+		}
 	}
 	c.message, _ = c.enc.Decode(c.messageData)
 	return
@@ -156,3 +173,31 @@ func (c *ShortMessage) Encoding() Encoding {
 func getRefNum() uint32 {
 	return atomic.AddUint32(&ref, 1)
 }
+
+// 判断字符串是否包含中文
+func hasWidthChar(content string) bool {
+	if content == "" {
+		return false
+	}
+	for _, c := range content {
+		if c > 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
+// private static boolean haswidthChar(String content) {
+// 	if (StringUtils.isEmpty(content))
+// 		return false;
+
+// 	byte[] bytes = content.getBytes();
+// 	for (int i = 0; i < bytes.length; i++) {
+// 		// 判断最高位是否为1
+// 		if ((bytes[i] & (byte) 0x80) == (byte) 0x80) {
+// 			return true;
+// 		}
+// 	}
+// 	return false;
+// }
+// }

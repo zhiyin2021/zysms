@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
 type base struct {
@@ -46,7 +47,7 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 			// got - total read byte(s)
 			got := fullLen - b.Len()
 			if got > cmdLength {
-				err = ErrInvalidPDU
+				err = smserror.ErrInvalidPDU
 				return
 			}
 
@@ -63,7 +64,7 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 
 			// validate again
 			if b.Len() != fullLen-cmdLength {
-				err = ErrInvalidPDU
+				err = smserror.ErrInvalidPDU
 			}
 		}
 	}
@@ -131,7 +132,7 @@ func Parse(r io.Reader, ver codec.Version) (pdu codec.PDU, err error) {
 
 	header := ParseHeader(headerBytes)
 	if header.CommandLength < 12 || header.CommandLength > MAX_PDU_LEN {
-		err = ErrInvalidPDU
+		err = smserror.ErrInvalidPDU
 		return
 	}
 

@@ -1,4 +1,4 @@
-package smpp
+package sgip
 
 import (
 	"io"
@@ -10,12 +10,14 @@ import (
 type base struct {
 	Header
 	OptionalParameters map[codec.Tag]codec.Field
+	Version            codec.Version
 }
 
-func newBase(commandId codec.CommandId, seqId int32) (v base) {
+func newBase(ver codec.Version, commandId codec.CommandId, seqId [3]uint32) (v base) {
 	v.OptionalParameters = make(map[codec.Tag]codec.Field)
+	v.Version = ver
 	v.CommandID = commandId
-	if seqId > 0 {
+	if seqId[2] > 0 {
 		v.SequenceNumber = seqId
 	} else {
 		v.AssignSequenceNumber()
@@ -30,9 +32,7 @@ func (c *base) GetHeader() codec.Header {
 
 func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReader) error) (err error) {
 	fullLen := b.Len()
-
 	if err = c.Header.Unmarshal(b); err == nil {
-
 		// try to unmarshal body
 		if bodyReader != nil {
 			err = bodyReader(b)
@@ -112,30 +112,30 @@ func (c *base) RegisterOptionalParam(tlv codec.Field) {
 
 // IsOk is status ok.
 func (c *base) IsOk() bool {
-	return c.CommandStatus == ESME_ROK
+	return true
 }
 
 // IsGNack is generic n-ack.
 func (c *base) IsGNack() bool {
-	return c.CommandID == GENERIC_NACK
+	return false
 }
 
 // Parse PDU from reader.
-func Parse(r io.Reader) (pdu codec.PDU, err error) {
-	var headerBytes [16]byte
+func Parse(r io.Reader, ver codec.Version, nodeId uint32) (pdu codec.PDU, err error) {
+	var headerBytes [PDU_HEADER_SIZE]byte
 
 	if _, err = io.ReadFull(r, headerBytes[:]); err != nil {
 		return
 	}
 
 	header := ParseHeader(headerBytes)
-	if header.CommandLength < 16 || header.CommandLength > MAX_PDU_LEN {
+	if header.CommandLength < PDU_HEADER_SIZE || header.CommandLength > MAX_PDU_LEN {
 		err = smserror.ErrInvalidPDU
 		return
 	}
 
 	// read pdu body
-	bodyBytes := make([]byte, header.CommandLength-16)
+	bodyBytes := make([]byte, header.CommandLength-PDU_HEADER_SIZE)
 	if len(bodyBytes) > 0 {
 		if _, err = io.ReadFull(r, bodyBytes); err != nil {
 			return
@@ -143,7 +143,7 @@ func Parse(r io.Reader) (pdu codec.PDU, err error) {
 	}
 
 	// try to create pdu
-	if pdu, err = CreatePDUFromCmdID(header.CommandID); err == nil {
+	if pdu, err = CreatePDUFromCmdID(header.CommandID, ver, nodeId); err == nil {
 		buf := codec.NewWriter()
 		_, _ = buf.Write(headerBytes[:])
 		if len(bodyBytes) > 0 {

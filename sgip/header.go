@@ -34,6 +34,7 @@ type Header struct {
 	CommandLength  uint32
 	CommandID      codec.CommandId
 	SequenceNumber [3]uint32
+	NodeId         uint32
 }
 
 // ParseHeader parses PDU header.
@@ -69,8 +70,8 @@ func (c *Header) ResetSequenceNumber() {
 }
 
 // GetSequenceNumber returns assigned sequence number.
-func (c *Header) GetSequenceNumber() uint32 {
-	return c.SequenceNumber[2]
+func (c *Header) GetSequenceNumber() int32 {
+	return int32(c.SequenceNumber[2])
 }
 
 // SetSequenceNumber manually sets sequence number.

@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
 var (
@@ -62,7 +63,7 @@ func NewLongMessageWithEncoding(message string, enc codec.Encoding) (s []*ShortM
 func (c *ShortMessage) SetMessageWithEncoding(message string, enc codec.Encoding) (err error) {
 	if c.messageData, err = enc.Encode(message); err == nil {
 		if len(c.messageData) > SM_MSG_LEN {
-			err = ErrShortMessageLengthTooLarge
+			err = smserror.ErrShortMessageLengthTooLarge
 		} else {
 			c.message = message
 			c.enc = enc
@@ -93,7 +94,7 @@ func (c *ShortMessage) SetUDH(udh UDH) {
 // SetMessageDataWithEncoding sets underlying raw data which is used for pdu marshalling.
 func (c *ShortMessage) SetMessageDataWithEncoding(d []byte, enc codec.Encoding) (err error) {
 	if len(d) > SM_MSG_LEN {
-		err = ErrShortMessageLengthTooLarge
+		err = smserror.ErrShortMessageLengthTooLarge
 	} else {
 		c.messageData = d
 		c.enc = enc
@@ -242,7 +243,7 @@ func (c *ShortMessage) Unmarshal(b *codec.BytesReader, udhi bool) (err error) {
 
 		f := c.udHeader.UDHL()
 		if f > len(c.messageData) {
-			err = ErrUDHTooLong
+			err = smserror.ErrUDHTooLong
 			return
 		}
 

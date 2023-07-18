@@ -58,8 +58,8 @@ func main() {
 func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
 	resp := req.GetResponse().(*cmpp.ConnResp)
 	if req.SrcAddr != utils.OctetString(userS, 6) {
-		resp.Status = uint32(cmpp.ErrnoConnInvalidSrcAddr)
-		return resp, cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnInvalidSrcAddr]
+		resp.Status = uint32(smserror.ErrnoConnInvalidSrcAddr)
+		return resp, smserror.ConnRspStatusErrMap[smserror.ErrnoConnInvalidSrcAddr]
 	}
 
 	tm := req.Timestamp
@@ -70,9 +70,9 @@ func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
 		nil))
 
 	if req.AuthSrc != string(authSrc[:]) {
-		// conn.Logger().Errorln("handleLogin error: ", cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnAuthFailed])
-		resp.Status = uint32(cmpp.ErrnoConnAuthFailed)
-		return resp, cmpp.ConnRspStatusErrMap[cmpp.ErrnoConnAuthFailed]
+		// conn.Logger().Errorln("handleLogin error: ", cmpp.ConnRspStatusErrMap[smserror.ErrnoConnAuthFailed])
+		resp.Status = uint32(smserror.ErrnoConnAuthFailed)
+		return resp, smserror.ConnRspStatusErrMap[smserror.ErrnoConnAuthFailed]
 	}
 
 	authIsmg := md5.Sum(bytes.Join([][]byte{{byte(resp.Status)},

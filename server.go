@@ -8,6 +8,8 @@ import (
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
+	"github.com/zhiyin2021/zysms/sgip"
+	"github.com/zhiyin2021/zysms/smgp"
 	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
 )
@@ -26,6 +28,7 @@ type (
 		OnDisconnect func(*Conn)
 		OnError      func(*Conn, error)
 		OnRecv       func(*Packet) error
+		NodeId       uint32 // sgip 序列号使用
 	}
 	Conn struct {
 		smsConn
@@ -66,6 +69,10 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 		l = newCmppListener(ln)
 	case codec.SMPP33, codec.SMPP34:
 		l = newSmppListener(ln)
+	case codec.SMGP13, codec.SMGP20, codec.SMGP30:
+		l = newSmgpListener(ln)
+	case codec.SGIP:
+		l = newSgipListener(ln, s.NodeId)
 	}
 	go func() {
 		for {
@@ -97,7 +104,10 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 		zconn = newSmppConn(conn, smpp.V33, checkVer)
 	case codec.SMPP34:
 		zconn = newSmppConn(conn, smpp.V34, checkVer)
-
+	case codec.SMGP30:
+		zconn = newSmgpConn(conn, smgp.V30, checkVer)
+	case codec.SGIP:
+		zconn = newSgipConn(conn, sgip.V12, checkVer, s.NodeId)
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}

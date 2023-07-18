@@ -77,6 +77,10 @@ type Field struct {
 	Data []byte
 }
 
+func NewTlv(tag Tag, data []byte) Field {
+	return Field{Tag: tag, Data: data}
+}
+
 // String implements the Data interface.
 func (t *Field) String() string {
 	if l := len(t.Data); l > 0 && t.Data[l-1] == 0x00 {

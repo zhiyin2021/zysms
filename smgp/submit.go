@@ -92,14 +92,18 @@ func (p *SubmitReq) Unmarshal(w *codec.BytesReader) error {
 		// 0002   0001   40     #   TP_udhi
 		// 0009   0001   04     #   pkTotal
 		// 000a   0001   01     #   pkNumber
-		udhi := byte(0)
-		if tag, ok := p.OptionalParameters[codec.TagTPUdhi]; ok && len(tag.Data) > 0 {
-			udhi = tag.Data[0]
-		}
-		p.Message.Unmarshal(br, udhi == 1, p.MsgFormat)
+
+		p.Message.Unmarshal(br, p.TpUdhi(), p.MsgFormat)
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
 	})
+}
+func (p *SubmitReq) TpUdhi() bool {
+	udhi := byte(0)
+	if tag, ok := p.OptionalParameters[codec.TagTPUdhi]; ok && len(tag.Data) > 0 {
+		udhi = tag.Data[0]
+	}
+	return udhi == 1
 }
 
 // GetResponse implements PDU interface.

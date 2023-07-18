@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
 // nolint
@@ -601,5 +602,5 @@ func CreatePDUFromCmdID(cmdID codec.CommandId) (codec.PDU, error) {
 	if g, ok := pduMap[cmdID]; ok {
 		return g(), nil
 	}
-	return nil, ErrUnknownCommandID
+	return nil, smserror.ErrUnknownCommandID
 }

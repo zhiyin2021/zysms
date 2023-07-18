@@ -2,6 +2,7 @@ package cmpp
 
 import (
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
 const (
@@ -67,5 +68,5 @@ func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, er
 	if g, ok := pduMap[cmdID]; ok {
 		return g(ver), nil
 	}
-	return nil, ErrUnknownCommandID
+	return nil, smserror.ErrUnknownCommandID
 }

@@ -2,46 +2,45 @@ package sgip
 
 import "github.com/zhiyin2021/zysms/codec"
 
-type SgipUnbindReq struct {
-	SeqId []uint32
+type UnbindReq struct {
+	base
 }
-type SgipUnbindRsp struct {
-	SeqId []uint32
-}
-
-func (u *SgipUnbindReq) Pack(seqId uint32) []byte {
-	pkt := codec.NewWriter(SGIP_HEADER_LEN, SGIP_UNBIND.ToInt())
-	pkt.WriteU32(seqId)
-	pkt.WriteU32(getTm())
-	pkt.WriteU32(seqId)
-	return pkt.Bytes()
+type UnbindResp struct {
+	base
 }
 
-func (u *SgipUnbindReq) Unpack(data []byte) error {
-	var pkt = codec.NewReader(data)
-	// Sequence Id
-	u.SeqId = make([]uint32, 3)
-	u.SeqId[0] = pkt.ReadU32()
-	u.SeqId[1] = pkt.ReadU32()
-	u.SeqId[2] = pkt.ReadU32()
-	return pkt.Err()
+func NewUnbindReq(ver codec.Version, nodeId uint32) codec.PDU {
+	return &UnbindReq{
+		base: newBase(ver, SGIP_UNBIND, [3]uint32{nodeId, 0, 0}),
+	}
+}
+func NewUnbindResp(ver codec.Version, nodeId uint32) codec.PDU {
+	return &UnbindResp{
+		base: newBase(ver, SGIP_UNBIND_RESP, [3]uint32{nodeId, 0, 0}),
+	}
+}
+func (p *UnbindReq) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
 }
 
-func (r *SgipUnbindRsp) Pack(seqId uint32) []byte {
-	pkt := codec.NewWriter(SGIP_HEADER_LEN, SGIP_UNBIND_RESP.ToInt())
-	pkt.WriteU32(seqId)
-
-	pkt.WriteU32(getTm())
-	pkt.WriteU32(seqId)
-	return pkt.Bytes()
+func (p *UnbindReq) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
 }
 
-func (r *SgipUnbindRsp) Unpack(data []byte) error {
-	var pkt = codec.NewReader(data)
-	// Sequence Id
-	r.SeqId = make([]uint32, 3)
-	r.SeqId[0] = pkt.ReadU32()
-	r.SeqId[1] = pkt.ReadU32()
-	r.SeqId[2] = pkt.ReadU32()
-	return pkt.Err()
+func (b *UnbindReq) GetResponse() codec.PDU {
+	return &UnbindResp{
+		base: newBase(b.Version, SGIP_UNBIND_RESP, b.SequenceNumber),
+	}
+}
+
+func (p *UnbindResp) Marshal(w *codec.BytesWriter) {
+	p.base.marshal(w, nil)
+}
+
+func (p *UnbindResp) Unmarshal(w *codec.BytesReader) error {
+	return p.base.unmarshal(w, nil)
+}
+
+func (b *UnbindResp) GetResponse() codec.PDU {
+	return nil
 }
