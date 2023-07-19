@@ -119,8 +119,8 @@ var StatMap = map[Status]string{
 }
 
 var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
-	SMGP_REQUEST_MIN:      nil,
-	SMGP_RESPONSE_MIN:     nil,
+	// SMGP_REQUEST_MIN:      nil,
+	// SMGP_RESPONSE_MIN:     nil,
 	SMGP_LOGIN:            NewLoginReq,
 	SMGP_LOGIN_RESP:       NewLoginResp,
 	SMGP_SUBMIT:           NewSubmitReq,
@@ -131,8 +131,8 @@ var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
 	SMGP_ACTIVE_TEST_RESP: NewActiveTestResp,
 	SMGP_EXIT:             NewExitReq,
 	SMGP_EXIT_RESP:        NewExitResp,
-	SMGP_REQUEST_MAX:      nil,
-	SMGP_RESPONSE_MAX:     nil,
+	// SMGP_REQUEST_MAX:      nil,
+	// SMGP_RESPONSE_MAX:     nil,
 }
 
 func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -167,6 +168,14 @@ func (c *sgipConn) RecvPDU() (codec.PDU, error) {
 
 	switch p := pdu.(type) {
 
+	case *sgip.ReportReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
+		resp := p.GetResponse().(*sgip.ReportResp)
+		resp.Status = 0
+		c.SendPDU(resp)
+		return c.RecvPDU()
+	case *sgip.ReportResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
+		atomic.AddInt32(&c.counter, -1)
+		return c.RecvPDU()
 	case *sgip.BindResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("sgip version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
@@ -196,7 +205,35 @@ func (l *sgipListener) accept() (*Conn, error) {
 	}
 	conn := newSgipConn(c, sgip.V12, false, l.nodeId)
 	conn.SetState(enum.CONN_CONNECTED)
+	conn.smsConn.(*sgipConn).startActiveTest()
 	return conn, nil
+}
+
+func (c *sgipConn) startActiveTest() {
+	go func() {
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-c.ctx.Done():
+				// once conn close, the goroutine should exit
+				return
+			case <-t.C:
+				// send a active test packet to peer, increase the active test counter
+				p := sgip.NewReportReq(c.Typ, c.nodeId).(*sgip.ReportReq)
+				p.ReportType = 0
+				p.UserNumber = ""
+				p.State = 0
+				p.ErrorCode = 0
+				err := c.SendPDU(p)
+				if err != nil {
+					c.logger.Errorf("smgp.active send error: %v", err)
+				} else {
+					atomic.AddInt32(&c.counter, 1)
+				}
+			}
+		}
+	}()
 }
 
 func (l *sgipListener) Close() error {

@@ -2,21 +2,10 @@ package sgip
 
 import (
 	"encoding/binary"
-	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/zhiyin2021/zysms/codec"
 )
-
-type SgipHeader struct {
-	SeqId [3]uint32 // 源节点编号 + 月日时分秒 + 流水序号
-}
-
-func getTm() uint32 {
-	tm, _ := strconv.ParseUint(time.Now().Format("0215040506"), 10, 10)
-	return uint32(tm)
-}
 
 func nextSequenceNumber(s *int32) (v int32) {
 	// & 0x7FFFFFFF: cater for integer overflow

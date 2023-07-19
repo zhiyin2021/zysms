@@ -42,8 +42,8 @@ const (
 )
 
 var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
-	CMPP_REQUEST_MIN:      nil,               //"CMPP_REQUEST_MIN",
-	CMPP_RESPONSE_MIN:     nil,               //    "CMPP_RESPONSE_MIN",
+	// CMPP_REQUEST_MIN:      nil,               //"CMPP_REQUEST_MIN",
+	// CMPP_RESPONSE_MIN:     nil,               //    "CMPP_RESPONSE_MIN",
 	CMPP_CONNECT:          NewConnReq,        //   "CMPP_CONNECT",
 	CMPP_CONNECT_RESP:     NewConnResp,       // "CMPP_CONNECT_RESP",
 	CMPP_TERMINATE:        NewTerminateReq,   //   "CMPP_TERMINATE",
@@ -60,8 +60,8 @@ var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
 	CMPP_ACTIVE_TEST_RESP: NewActiveTestResp, //  "CMPP_ACTIVE_TEST_RESP",
 	CMPP_FWD:              NewFwdReq,         //  "CMPP_FWD",
 	CMPP_FWD_RESP:         NewFwdResp,        //   "CMPP_FWD_RESP",
-	CMPP_REQUEST_MAX:      nil,               //   "CMPP_REQUEST_MAX",
-	CMPP_RESPONSE_MAX:     nil,               //  "CMPP_RESPONSE_MAX",
+	// CMPP_REQUEST_MAX:      nil,               //   "CMPP_REQUEST_MAX",
+	// CMPP_RESPONSE_MAX:     nil,               //  "CMPP_RESPONSE_MAX",
 }
 
 func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, error) {

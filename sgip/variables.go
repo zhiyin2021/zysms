@@ -63,18 +63,18 @@ var ResultMap = map[Status]string{
 }
 
 var pduMap = map[codec.CommandId]func(codec.Version, uint32) codec.PDU{
-	SGIP_BIND:         nil,
-	SGIP_BIND_RESP:    nil,
-	SGIP_UNBIND:       nil,
-	SGIP_UNBIND_RESP:  nil,
-	SGIP_SUBMIT:       nil,
-	SGIP_SUBMIT_RESP:  nil,
-	SGIP_DELIVER:      nil,
-	SGIP_DELIVER_RESP: nil,
-	SGIP_REPORT:       nil,
-	SGIP_REPORT_RESP:  nil,
-	SGIP_REQUEST_MAX:  nil,
-	SGIP_RESPONSE_MAX: nil,
+	SGIP_BIND:         NewBindReq,
+	SGIP_BIND_RESP:    NewBindResp,
+	SGIP_UNBIND:       NewUnbindReq,
+	SGIP_UNBIND_RESP:  NewUnbindResp,
+	SGIP_SUBMIT:       NewSubmitReq,
+	SGIP_SUBMIT_RESP:  NewSubmitResp,
+	SGIP_DELIVER:      NewDeliverReq,
+	SGIP_DELIVER_RESP: NewDeliverResp,
+	SGIP_REPORT:       NewReportReq,
+	SGIP_REPORT_RESP:  NewReportResp,
+	// SGIP_REQUEST_MAX:  nil,
+	// SGIP_RESPONSE_MAX: nil,
 }
 
 func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version, nodeId uint32) (codec.PDU, error) {
