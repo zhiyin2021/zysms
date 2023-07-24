@@ -143,7 +143,7 @@ func Parse(r io.Reader, ver codec.Version) (pdu codec.PDU, err error) {
 	}
 
 	// try to create pdu
-	if pdu, err = CreatePDUFromCmdID(header.CommandID, ver); err == nil {
+	if pdu, err = CreatePDUHeader(header, ver); err == nil {
 		buf := codec.NewWriter()
 		_, _ = buf.Write(headerBytes[:])
 		if len(bodyBytes) > 0 {

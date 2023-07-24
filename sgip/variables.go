@@ -62,24 +62,30 @@ var ResultMap = map[Status]string{
 	33: "短信中心队列满",
 }
 
-var pduMap = map[codec.CommandId]func(codec.Version, uint32) codec.PDU{
-	SGIP_BIND:         NewBindReq,
-	SGIP_BIND_RESP:    NewBindResp,
-	SGIP_UNBIND:       NewUnbindReq,
-	SGIP_UNBIND_RESP:  NewUnbindResp,
-	SGIP_SUBMIT:       NewSubmitReq,
-	SGIP_SUBMIT_RESP:  NewSubmitResp,
-	SGIP_DELIVER:      NewDeliverReq,
-	SGIP_DELIVER_RESP: NewDeliverResp,
-	SGIP_REPORT:       NewReportReq,
-	SGIP_REPORT_RESP:  NewReportResp,
-	// SGIP_REQUEST_MAX:  nil,
-	// SGIP_RESPONSE_MAX: nil,
-}
-
-func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version, nodeId uint32) (codec.PDU, error) {
-	if g, ok := pduMap[cmdID]; ok {
-		return g(ver, nodeId), nil
+func CreatePDUHeader(header Header, ver codec.Version) (codec.PDU, error) {
+	base := newBase(ver, header.CommandID, header.SequenceNumber)
+	switch header.CommandID {
+	case SGIP_BIND:
+		return &BindReq{base: base}, nil
+	case SGIP_BIND_RESP:
+		return &BindResp{base: base}, nil
+	case SGIP_UNBIND:
+		return &UnbindReq{base: base}, nil
+	case SGIP_UNBIND_RESP:
+		return &UnbindResp{base: base}, nil
+	case SGIP_SUBMIT:
+		return &SubmitReq{base: base}, nil
+	case SGIP_SUBMIT_RESP:
+		return &SubmitResp{base: base}, nil
+	case SGIP_DELIVER:
+		return &DeliverReq{base: base}, nil
+	case SGIP_DELIVER_RESP:
+		return &DeliverResp{base: base}, nil
+	case SGIP_REPORT:
+		return &ReportReq{base: base}, nil
+	case SGIP_REPORT_RESP:
+		return &ReportResp{base: base}, nil
+	default:
+		return nil, smserror.ErrUnknownCommandID
 	}
-	return nil, smserror.ErrUnknownCommandID
 }

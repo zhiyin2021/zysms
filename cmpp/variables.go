@@ -41,32 +41,42 @@ const (
 	CMPP_REQUEST_MAX, CMPP_RESPONSE_MAX
 )
 
-var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
-	// CMPP_REQUEST_MIN:      nil,               //"CMPP_REQUEST_MIN",
-	// CMPP_RESPONSE_MIN:     nil,               //    "CMPP_RESPONSE_MIN",
-	CMPP_CONNECT:          NewConnReq,        //   "CMPP_CONNECT",
-	CMPP_CONNECT_RESP:     NewConnResp,       // "CMPP_CONNECT_RESP",
-	CMPP_TERMINATE:        NewTerminateReq,   //   "CMPP_TERMINATE",
-	CMPP_TERMINATE_RESP:   NewTerminateResp,  //   "CMPP_TERMINATE_RESP",
-	CMPP_SUBMIT:           NewSubmitReq,      //   "CMPP_SUBMIT",
-	CMPP_SUBMIT_RESP:      NewSubmitResp,     //   "CMPP_SUBMIT_RESP",
-	CMPP_DELIVER:          NewDeliverReq,     //   "CMPP_DELIVER",
-	CMPP_DELIVER_RESP:     NewDeliverResp,    //   "CMPP_DELIVER_RESP",
-	CMPP_QUERY:            NewQueryReq,       //   "CMPP_QUERY",
-	CMPP_QUERY_RESP:       NewQueryResp,      //   "CMPP_QUERY_RESP",
-	CMPP_CANCEL:           NewCancelReq,      //   "CMPP_CANCEL",
-	CMPP_CANCEL_RESP:      NewCancelResp,     //   "CMPP_CANCEL_RESP",
-	CMPP_ACTIVE_TEST:      NewActiveTestReq,  //   "CMPP_ACTIVE_TEST",
-	CMPP_ACTIVE_TEST_RESP: NewActiveTestResp, //  "CMPP_ACTIVE_TEST_RESP",
-	CMPP_FWD:              NewFwdReq,         //  "CMPP_FWD",
-	CMPP_FWD_RESP:         NewFwdResp,        //   "CMPP_FWD_RESP",
-	// CMPP_REQUEST_MAX:      nil,               //   "CMPP_REQUEST_MAX",
-	// CMPP_RESPONSE_MAX:     nil,               //  "CMPP_RESPONSE_MAX",
-}
-
-func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, error) {
-	if g, ok := pduMap[cmdID]; ok {
-		return g(ver), nil
+func CreatePDUHeader(header Header, ver codec.Version) (codec.PDU, error) {
+	base := newBase(ver, header.CommandID, header.SequenceNumber)
+	switch header.CommandID {
+	case CMPP_CONNECT:
+		return &ConnReq{base: base}, nil
+	case CMPP_CONNECT_RESP:
+		return &ConnResp{base: base}, nil
+	case CMPP_TERMINATE:
+		return &TerminateReq{base: base}, nil
+	case CMPP_TERMINATE_RESP:
+		return &TerminateResp{base: base}, nil
+	case CMPP_SUBMIT:
+		return &SubmitReq{base: base}, nil
+	case CMPP_SUBMIT_RESP:
+		return &SubmitResp{base: base}, nil
+	case CMPP_DELIVER:
+		return &DeliverReq{base: base}, nil
+	case CMPP_DELIVER_RESP:
+		return &DeliverResp{base: base}, nil
+	case CMPP_QUERY:
+		return &QueryReq{base: base}, nil
+	case CMPP_QUERY_RESP:
+		return &QueryResp{base: base}, nil
+	case CMPP_CANCEL:
+		return &CancelReq{base: base}, nil
+	case CMPP_CANCEL_RESP:
+		return &CancelResp{base: base}, nil
+	case CMPP_ACTIVE_TEST:
+		return &ActiveTestReq{base: base}, nil
+	case CMPP_ACTIVE_TEST_RESP:
+		return &ActiveTestResp{base: base}, nil
+	case CMPP_FWD:
+		return &FwdReq{base: base}, nil
+	case CMPP_FWD_RESP:
+		return &FwdResp{base: base}, nil
+	default:
+		return nil, smserror.ErrUnknownCommandID
 	}
-	return nil, smserror.ErrUnknownCommandID
 }

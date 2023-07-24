@@ -567,40 +567,65 @@ const (
 
 type pduGenerator func() codec.PDU
 
-var pduMap = map[codec.CommandId]pduGenerator{
-	BIND_TRANSMITTER:      NewBindTransmitter,
-	BIND_TRANSMITTER_RESP: NewBindTransmitterResp,
-	BIND_TRANSCEIVER:      NewBindTransceiver,
-	BIND_TRANSCEIVER_RESP: NewBindTransceiverResp,
-	BIND_RECEIVER:         NewBindReceiver,
-	BIND_RECEIVER_RESP:    NewBindReceiverResp,
-	UNBIND:                NewUnbind,
-	UNBIND_RESP:           NewUnbindResp,
-	OUTBIND:               NewOutbind,
-	SUBMIT_SM:             NewSubmitSM,
-	SUBMIT_SM_RESP:        NewSubmitSMResp,
-	SUBMIT_MULTI:          NewSubmitMulti,
-	SUBMIT_MULTI_RESP:     NewSubmitMultiResp,
-	DELIVER_SM:            NewDeliverSM,
-	DELIVER_SM_RESP:       NewDeliverSMResp,
-	DATA_SM:               NewDataSM,
-	DATA_SM_RESP:          NewDataSMResp,
-	QUERY_SM:              NewQuerySM,
-	QUERY_SM_RESP:         NewQuerySMResp,
-	CANCEL_SM:             NewCancelSM,
-	CANCEL_SM_RESP:        NewCancelSMResp,
-	REPLACE_SM:            NewReplaceSM,
-	REPLACE_SM_RESP:       NewReplaceSMResp,
-	ENQUIRE_LINK:          NewEnquireLink,
-	ENQUIRE_LINK_RESP:     NewEnquireLinkResp,
-	ALERT_NOTIFICATION:    NewAlertNotification,
-	GENERIC_NACK:          NewGenericNack,
-}
-
 // CreatePDUFromCmdID creates PDU from cmd id.
 func CreatePDUFromCmdID(cmdID codec.CommandId) (codec.PDU, error) {
-	if g, ok := pduMap[cmdID]; ok {
-		return g(), nil
+	base := newBase(cmdID, 999)
+	switch cmdID {
+	case BIND_TRANSMITTER:
+		return &BindRequest{base: base}, nil
+	case BIND_TRANSMITTER_RESP:
+		return &BindResp{base: base}, nil
+	case BIND_TRANSCEIVER:
+		return &BindRequest{base: base}, nil
+	case BIND_TRANSCEIVER_RESP:
+		return &BindResp{base: base}, nil
+	case BIND_RECEIVER:
+		return &BindRequest{base: base}, nil
+	case BIND_RECEIVER_RESP:
+		return &BindResp{base: base}, nil
+	case UNBIND:
+		return &Unbind{base: base}, nil
+	case UNBIND_RESP:
+		return &UnbindResp{base: base}, nil
+	case OUTBIND:
+		return &Outbind{base: base}, nil
+	case SUBMIT_SM:
+		return &SubmitSM{base: base}, nil
+	case SUBMIT_SM_RESP:
+		return &SubmitSMResp{base: base}, nil
+	case SUBMIT_MULTI:
+		return &SubmitMulti{base: base}, nil
+	case SUBMIT_MULTI_RESP:
+		return &SubmitMultiResp{base: base}, nil
+	case DELIVER_SM:
+		return &DeliverSM{base: base}, nil
+	case DELIVER_SM_RESP:
+		return &DeliverSMResp{base: base}, nil
+	case DATA_SM:
+		return &DataSM{base: base}, nil
+	case DATA_SM_RESP:
+		return &DataSMResp{base: base}, nil
+	case QUERY_SM:
+		return &QuerySM{base: base}, nil
+	case QUERY_SM_RESP:
+		return &QuerySMResp{base: base}, nil
+	case CANCEL_SM:
+		return &CancelSM{base: base}, nil
+	case CANCEL_SM_RESP:
+		return &CancelSMResp{base: base}, nil
+	case REPLACE_SM:
+		return &ReplaceSM{base: base}, nil
+	case REPLACE_SM_RESP:
+		return &ReplaceSMResp{base: base}, nil
+	case ENQUIRE_LINK:
+		return &EnquireLink{base: base}, nil
+	case ENQUIRE_LINK_RESP:
+		return &EnquireLinkResp{base: base}, nil
+	case ALERT_NOTIFICATION:
+		return &AlertNotification{base: base}, nil
+	case GENERIC_NACK:
+		return &GenericNack{base: base}, nil
+	default:
+		return nil, smserror.ErrUnknownCommandID
 	}
-	return nil, smserror.ErrUnknownCommandID
 }

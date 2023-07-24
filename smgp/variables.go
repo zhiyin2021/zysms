@@ -118,26 +118,30 @@ var StatMap = map[Status]string{
 	76: "SP帐号过有效期",
 }
 
-var pduMap = map[codec.CommandId]func(codec.Version) codec.PDU{
-	// SMGP_REQUEST_MIN:      nil,
-	// SMGP_RESPONSE_MIN:     nil,
-	SMGP_LOGIN:            NewLoginReq,
-	SMGP_LOGIN_RESP:       NewLoginResp,
-	SMGP_SUBMIT:           NewSubmitReq,
-	SMGP_SUBMIT_RESP:      NewSubmitResp,
-	SMGP_DELIVER:          NewDeliveryReq,
-	SMGP_DELIVER_RESP:     NewDeliveryResp,
-	SMGP_ACTIVE_TEST:      NewActiveTestReq,
-	SMGP_ACTIVE_TEST_RESP: NewActiveTestResp,
-	SMGP_EXIT:             NewExitReq,
-	SMGP_EXIT_RESP:        NewExitResp,
-	// SMGP_REQUEST_MAX:      nil,
-	// SMGP_RESPONSE_MAX:     nil,
-}
-
-func CreatePDUFromCmdID(cmdID codec.CommandId, ver codec.Version) (codec.PDU, error) {
-	if g, ok := pduMap[cmdID]; ok {
-		return g(ver), nil
+func CreatePDUHeader(header Header, ver codec.Version) (codec.PDU, error) {
+	base := newBase(ver, header.CommandID, header.SequenceNumber)
+	switch header.CommandID {
+	case SMGP_LOGIN:
+		return &LoginReq{base: base}, nil
+	case SMGP_LOGIN_RESP:
+		return &LoginResp{base: base}, nil
+	case SMGP_SUBMIT:
+		return &SubmitReq{base: base}, nil
+	case SMGP_SUBMIT_RESP:
+		return &SubmitResp{base: base}, nil
+	case SMGP_DELIVER:
+		return &DeliveryReq{base: base}, nil
+	case SMGP_DELIVER_RESP:
+		return &DeliveryResp{base: base}, nil
+	case SMGP_ACTIVE_TEST:
+		return &ActiveTestReq{base: base}, nil
+	case SMGP_ACTIVE_TEST_RESP:
+		return &ActiveTestResp{base: base}, nil
+	case SMGP_EXIT:
+		return &ExitReq{base: base}, nil
+	case SMGP_EXIT_RESP:
+		return &ExitResp{base: base}, nil
+	default:
+		return nil, smserror.ErrUnknownCommandID
 	}
-	return nil, smserror.ErrUnknownCommandID
 }
