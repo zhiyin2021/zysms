@@ -142,7 +142,11 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 	if udhi && c.messageLen > 0 {
 		n := c.messageData[0] + 1
 		if n == 6 && n < c.messageLen {
-			c.udHeader = &msgUDH{c.messageData[4], c.messageData[5], c.messageData[6]}
+			c.udHeader = &msgUDH{
+				c.messageData[3],
+				c.messageData[4],
+				c.messageData[5],
+			}
 			// 0x05 数据头总长度
 			// 0x00 信息标识
 			// 0x04 头信息长度
