@@ -51,10 +51,27 @@ type SubmitResp struct {
 }
 
 func NewSubmitReq(ver codec.Version) codec.PDU {
-	c := &SubmitReq{
+	p := &SubmitReq{
 		base: newBase(ver, CMPP_SUBMIT, 0),
 	}
-	return c
+	p.PkTotal = 1
+	p.PkNumber = 1
+	p.RegisteredDelivery = 1
+	p.MsgLevel = 1
+	p.ServiceId = "test"
+	p.FeeUserType = 2
+	p.FeeTerminalId = "13500002696"
+	// FeeTerminalType:    0
+	p.MsgFmt = 8
+	p.MsgSrc = "900001"
+	p.FeeType = "02"
+	p.FeeCode = "10"
+	p.ValidTime = "151105131555101+"
+	p.AtTime = ""
+	p.SrcId = "900001"
+	p.DestUsrTl = 1
+	p.DestTerminalId = []string{"+8613500002696", "8613500002697", "13500002698"}
+	return p
 }
 func NewSubmitResp(ver codec.Version) codec.PDU {
 	c := &SubmitResp{

@@ -78,7 +78,11 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 		for {
 			conn, err := l.accept()
 			if err != nil {
-				return
+				logrus.Errorf("listen.accept error:%s", err)
+				if e, ok := err.(*net.OpError); ok && e.Error() == "use of closed network connection" {
+					return
+				}
+				continue
 			}
 			go s.run(conn)
 		}

@@ -110,7 +110,7 @@ func (c *cmppConn) SendPDU(pdu codec.PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Infof("send pkt:%T , %d", pdu, c.Typ)
+	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
 	if p, ok := pdu.(*cmpp.SubmitReq); ok {
 		multiMsg, _ := p.Message.Split()
 		p.TpUdhi = 0
@@ -238,7 +238,7 @@ func (l *cmppListener) accept() (*Conn, error) {
 
 func (c *cmppConn) startActiveTest() {
 	go func() {
-		t := time.NewTicker(10 * time.Second)
+		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
 		for {
 			select {

@@ -99,7 +99,7 @@ func (c *smppConn) SendPDU(pdu codec.PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Infof("send pdu:%T , %d", pdu, c.Typ)
+	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
 	buf := codec.NewWriter()
 	pdu.Marshal(buf)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
@@ -165,7 +165,7 @@ func (l *smppListener) accept() (*Conn, error) {
 
 func (c *smppConn) startActiveTest() {
 	go func() {
-		t := time.NewTicker(10 * time.Second)
+		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
 		for {
 			select {

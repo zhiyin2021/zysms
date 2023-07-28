@@ -113,7 +113,7 @@ func (c *sgipConn) SendPDU(pdu codec.PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Infof("send pkt:%T , %d", pdu, c.Typ)
+	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
 	if p, ok := pdu.(*sgip.SubmitReq); ok {
 		multiMsg, _ := p.Message.Split()
 
@@ -211,7 +211,7 @@ func (l *sgipListener) accept() (*Conn, error) {
 
 func (c *sgipConn) startActiveTest() {
 	go func() {
-		t := time.NewTicker(10 * time.Second)
+		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
 		for {
 			select {
