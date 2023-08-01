@@ -127,10 +127,8 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 	case *smpp.EnquireLink: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 		resp := p.GetResponse()
 		c.SendPDU(resp)
-		return c.RecvPDU()
 	case *smpp.EnquireLinkResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
-		return c.RecvPDU()
 	case *smpp.BindResp: // 当收到登录回复,内部先校验版本
 		if p.CommandStatus != smpp.ESME_ROK {
 			return nil, fmt.Errorf("login error: %v", p.CommandStatus)

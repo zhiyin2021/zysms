@@ -140,39 +140,6 @@ func (c *cmppConn) SendPDU(pdu codec.PDU) error {
 	return nil
 }
 
-// func (c *cmppConn) splitSubmitContent(req *cmpp.CmppSubmitReq) [][]byte {
-// 	cLen := 140
-// 	if req.MsgFmt == 0 {
-// 		cLen = 160
-// 	}
-// 	cLen -= 6 // 减去7字节的消息头
-// 	if len(req.MsgContent) <= cLen {
-// 		return [][]byte{req.MsgContent}
-// 	}
-// 	count := len(req.MsgContent) / cLen
-// 	if len(req.MsgContent)%cLen > 0 {
-// 		count++
-// 	}
-// 	contentList := make([][]byte, count)
-// 	idx := uint16(time.Now().UnixMilli() % 0xff)
-// 	// 0x06 数据头长度
-// 	// 0x00 信息标识
-// 	// 0x04 后续信息头长度
-// 	// 0x00,0x00 信息序列号
-// 	// 0x00 总条数
-// 	// 0x01 当前条数
-// 	dhi := []byte{0x05, 0x00, 0x04, byte(idx), byte(count), 0x01}
-// 	for i := 0; i < count; i++ {
-// 		dhi[5] = byte(i + 1)
-// 		if i == count-1 {
-// 			contentList[i] = append(dhi, req.MsgContent[i*cLen:]...)
-// 		} else {
-// 			contentList[i] = append(dhi, req.MsgContent[i*cLen:(i+1)*cLen]...)
-// 		}
-// 	}
-// 	return contentList
-// }
-
 func (c *cmppConn) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
@@ -200,10 +167,8 @@ func (c *cmppConn) RecvPDU() (codec.PDU, error) {
 	case *cmpp.ActiveTestReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 		resp := p.GetResponse()
 		c.SendPDU(resp)
-		return c.RecvPDU()
 	case *cmpp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
-		return c.RecvPDU()
 	case *cmpp.ConnResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("cmpp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)

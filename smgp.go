@@ -167,10 +167,8 @@ func (c *smgpConn) RecvPDU() (codec.PDU, error) {
 	case *smgp.ActiveTestReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 		resp := p.GetResponse()
 		c.SendPDU(resp)
-		return c.RecvPDU()
 	case *smgp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
-		return c.RecvPDU()
 	case *smgp.LoginResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("smgp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)

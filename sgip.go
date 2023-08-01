@@ -172,10 +172,8 @@ func (c *sgipConn) RecvPDU() (codec.PDU, error) {
 		resp := p.GetResponse().(*sgip.ReportResp)
 		resp.Status = 0
 		c.SendPDU(resp)
-		return c.RecvPDU()
 	case *sgip.ReportResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
-		return c.RecvPDU()
 	case *sgip.BindResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("sgip version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
