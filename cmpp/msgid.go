@@ -1,6 +1,7 @@
 package cmpp
 
 import (
+	"strconv"
 	"time"
 )
 
@@ -29,4 +30,8 @@ func (m *msgId) UInt64() uint64 {
 	uid |= uint64(m.sequence) & 0xffff
 	return uint64(uid)
 
+}
+
+func (m *msgId) String() string {
+	return strconv.FormatUint(m.UInt64(), 10)
 }

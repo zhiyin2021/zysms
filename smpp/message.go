@@ -21,6 +21,14 @@ type ShortMessage struct {
 	withoutDataCoding bool // purpose of ReplaceSM usage
 }
 
+func (c *ShortMessage) MsgLength() int {
+	n := len(c.messageData)
+	if c.udHeader != nil {
+		n += 6
+	}
+	return n
+}
+
 // NewShortMessage returns new ShortMessage.
 func NewShortMessage(message string) (s ShortMessage, err error) {
 	err = s.SetMessageWithEncoding(message, codec.GSM7BIT)

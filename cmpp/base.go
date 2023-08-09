@@ -144,12 +144,15 @@ func Parse(r io.Reader, ver codec.Version) (pdu codec.PDU, err error) {
 
 	// try to create pdu
 	if pdu, err = CreatePDUHeader(header, ver); err == nil {
-		buf := codec.NewWriter()
-		_, _ = buf.Write(headerBytes[:])
+		wr := codec.NewWriter()
+		_, _ = wr.Write(headerBytes[:])
 		if len(bodyBytes) > 0 {
-			_, _ = buf.Write(bodyBytes)
+			_, _ = wr.Write(bodyBytes)
 		}
-		err = pdu.Unmarshal(codec.NewReader(buf.Bytes()))
+		reader := codec.NewReader(wr.Bytes())
+		err = pdu.Unmarshal(reader)
+		wr.Reset()
+		reader.Reset()
 	}
 	return
 }

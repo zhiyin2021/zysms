@@ -18,6 +18,7 @@ type SubmitSM struct {
 	RegisteredDelivery   byte
 	ReplaceIfPresentFlag byte // not used
 	Message              ShortMessage
+	MessageID            string
 }
 
 // NewSubmitSM returns SubmitSM PDU.

@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/encoding/unicode"
 )
 
@@ -33,7 +34,8 @@ const (
 	// HEBREWCoding is iso-8859-8 coding
 	HEBREWCoding byte = 0x07
 	// UCS2Coding is UCS2 coding
-	UCS2Coding byte = 0x08
+	UCS2Coding    byte = 0x08
+	GB18030Coding byte = 0x0F
 )
 
 // EncDec wraps encoder and decoder interface.
@@ -216,7 +218,7 @@ func (*ucs2) Decode(data []byte) (string, error) {
 }
 
 func (*ucs2) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len(text)*2) > octetLimit
+	return uint(len(text)) > octetLimit
 }
 
 func (c *ucs2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
@@ -249,6 +251,50 @@ func (c *ucs2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err e
 
 func (*ucs2) DataCoding() byte { return UCS2Coding }
 
+type gb18030 struct{}
+
+func (*gb18030) Encode(str string) ([]byte, error) {
+	return encode(str, simplifiedchinese.GB18030.NewEncoder())
+}
+
+func (*gb18030) Decode(data []byte) (string, error) {
+	return decode(data, simplifiedchinese.GB18030.NewDecoder())
+}
+
+func (*gb18030) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
+	return uint(len(text)) > octetLimit
+}
+
+func (c *gb18030) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+	if octetLimit < 64 {
+		octetLimit = 134
+	}
+
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+	hextetLim := int(octetLimit / 2) // round down
+
+	// hextet = 16 bits, the correct terms should be hexadectet
+	fr, to := 0, hextetLim
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+
+		fr, to = to, to+hextetLim
+	}
+
+	return
+}
+
+func (*gb18030) DataCoding() byte { return GB18030Coding }
+
 var (
 	// GSM7BIT is gsm-7bit encoding.
 	GSM7BIT Encoding = &gsm7bit{packed: false}
@@ -277,7 +323,8 @@ var (
 	HEBREW Encoding = &iso88598{}
 
 	// UCS2 encoding.
-	UCS2 Encoding = &ucs2{}
+	UCS2    Encoding = &ucs2{}
+	GB18030 Encoding = &gb18030{}
 )
 
 var codingMap = map[byte]Encoding{
@@ -289,6 +336,7 @@ var codingMap = map[byte]Encoding{
 	CYRILLICCoding:    CYRILLIC,
 	HEBREWCoding:      HEBREW,
 	UCS2Coding:        UCS2,
+	GB18030Coding:     GB18030,
 }
 
 // FromDataCoding returns encoding from DataCoding value.

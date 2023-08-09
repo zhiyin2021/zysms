@@ -40,7 +40,8 @@ func NewReader(inp []byte) *BytesReader {
 	if inp == nil {
 		inp = make([]byte, 0, 512)
 	}
-	return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
+	b := &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
+	return b
 
 }
 func NewWriter() *BytesWriter {
