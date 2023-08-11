@@ -69,6 +69,22 @@ func NewLongMessageWithEncoding(message string, enc codec.Encoding) (s []*ShortM
 
 // SetMessageWithEncoding sets message with encoding.
 func (c *ShortMessage) SetMessageWithEncoding(message string, enc codec.Encoding) (err error) {
+	if enc == nil {
+		if hasWidthChar(message) {
+			if c.messageData, err = codec.UCS2.Encode(message); err == nil {
+				c.message = message
+				c.enc = codec.UCS2
+				return
+			}
+		}
+		if c.messageData, err = codec.GSM7BIT.Encode(message); err == nil {
+			c.message = message
+			c.enc = codec.GSM7BIT
+		} else if c.messageData, err = codec.ASCII.Encode(message); err == nil {
+			c.message = message
+			c.enc = codec.ASCII
+		}
+	}
 	if c.messageData, err = enc.Encode(message); err == nil {
 		if len(c.messageData) > SM_MSG_LEN {
 			err = smserror.ErrShortMessageLengthTooLarge
@@ -78,6 +94,19 @@ func (c *ShortMessage) SetMessageWithEncoding(message string, enc codec.Encoding
 		}
 	}
 	return
+}
+
+// 判断字符串是否包含中文
+func hasWidthChar(content string) bool {
+	if content == "" {
+		return false
+	}
+	for _, c := range content {
+		if c > 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 // SetLongMessageWithEnc sets ShortMessage with message longer than  256 bytes
@@ -140,6 +169,7 @@ func (c *ShortMessage) GetMessageWithEncoding(enc codec.Encoding) (st string, er
 // The encoding interface can implement the Splitter interface for ad-hoc splitting rule
 func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	var encoding codec.Encoding
+
 	if c.enc == nil {
 		encoding = codec.GSM7BIT
 	} else {
