@@ -2,6 +2,8 @@ package smpp
 
 import "github.com/zhiyin2021/zysms/codec"
 
+const ReportLen byte = 66
+
 // DeliverSM PDU is issued by the SMSC to send a message to an ESME.
 // Using this command, the SMSC may route a short message to the ESME for delivery.
 type DeliverSM struct {
@@ -17,6 +19,7 @@ type DeliverSM struct {
 	RegisteredDelivery   byte
 	ReplaceIfPresentFlag byte // not used
 	Message              ShortMessage
+	Report               *DeliverReport
 }
 
 // NewDeliverSM returns DeliverSM PDU.
@@ -62,7 +65,17 @@ func (c *DeliverSM) Marshal(b *codec.BytesWriter) {
 		_ = b.WriteCStr(c.ValidityPeriod)
 		_ = b.WriteByte(c.RegisteredDelivery)
 		_ = b.WriteByte(c.ReplaceIfPresentFlag)
-		c.Message.Marshal(b)
+		if c.RegisteredDelivery == 1 && c.Report != nil {
+			b.WriteStr(c.Report.MsgId, 10)
+			b.WriteStr(c.Report.Sub, 3)
+			b.WriteStr(c.Report.Dlvrd, 3)
+			b.WriteStr(c.Report.SubmitDate, 10)
+			b.WriteStr(c.Report.DoneDate, 10)
+			b.WriteStr(c.Report.Stat, 7)
+			b.WriteStr(c.Report.Text, 20)
+		} else {
+			c.Message.Marshal(b)
+		}
 	})
 }
 
@@ -79,7 +92,19 @@ func (c *DeliverSM) Unmarshal(b *codec.BytesReader) error {
 		c.ValidityPeriod = b.ReadCStr()
 		c.RegisteredDelivery = b.ReadByte()
 		c.ReplaceIfPresentFlag = b.ReadByte()
-		c.Message.Unmarshal(b, (c.EsmClass&SM_UDH_GSM) > 0)
+		if c.RegisteredDelivery == 1 {
+			c.Report = &DeliverReport{
+				MsgId:      b.ReadStr(10),
+				Sub:        b.ReadStr(3),
+				Dlvrd:      b.ReadStr(3),
+				SubmitDate: b.ReadStr(10),
+				DoneDate:   b.ReadStr(10),
+				Stat:       b.ReadStr(7),
+				Text:       b.ReadStr(20),
+			}
+		} else {
+			c.Message.Unmarshal(b, (c.EsmClass&SM_UDH_GSM) > 0)
+		}
 		return b.Err()
 	})
 }
@@ -119,3 +144,23 @@ func (c *DeliverSMResp) Unmarshal(b *codec.BytesReader) error {
 		return b.Err()
 	})
 }
+
+type DeliverReport struct {
+	MsgId      string // 10字节 The message ID allocated to the message by the SMSC when originally submitted.
+	Sub        string // 3 字节 Number of short messages originally submitted. This is only relevant when the original message was submitted to a distribution list.The value is padded with leading zeros if necessary.
+	Dlvrd      string // 3 字节 Number of short messages delivered. This is only relevant where the original message was submitted to a distribution list.The value is padded with leading zeros if necessary.
+	SubmitDate string // 10字节 (YYMMDDhhmm)The time and date at which the short message was submitted. In the case of a message which has been replaced, this is the date that the original message was replaced.The format is as follows:
+	DoneDate   string // 10字节 (YYMMDDhhmm)The time and date at which the short message reached it’s final state. The format is the same as for the submit date.
+	Stat       string // 7 字节 The final status of the message. For settings for this field see Table B-2.
+	Text       string // 20字节 The first 20 characters of the short message.
+}
+
+/*
+DELIVRD
+EXPIRED
+DELETED
+UNDELIV
+ACCEPTD
+UNKNOWN
+REJECTD
+*/
