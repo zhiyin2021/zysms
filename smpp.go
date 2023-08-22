@@ -56,7 +56,7 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	req.SystemID = uid
 	req.Password = pwd
 	req.InterfaceVersion = c.Typ
-
+	req.SystemType = "NULL"
 	err := c.SendPDU(req)
 	if err != nil {
 		c.logger.Errorf("smpp.auth send error: %v", err)

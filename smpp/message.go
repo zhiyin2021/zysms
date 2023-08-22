@@ -84,8 +84,7 @@ func (c *ShortMessage) SetMessageWithEncoding(message string, enc codec.Encoding
 			c.message = message
 			c.enc = codec.ASCII
 		}
-	}
-	if c.messageData, err = enc.Encode(message); err == nil {
+	} else if c.messageData, err = enc.Encode(message); err == nil {
 		if len(c.messageData) > SM_MSG_LEN {
 			err = smserror.ErrShortMessageLengthTooLarge
 		} else {

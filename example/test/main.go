@@ -1,13 +1,50 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/minhajuddinkhan/huffman"
 	"github.com/zhiyin2021/zysms/cmpp"
 )
 
 func main() {
+	//data := "您的验证码为:%d, 请在5分钟内使用,请勿泄露给他人.【创瑞短信】"
+
+	text := "hello world"
+	freq := make(map[rune]int)
+	for _, char := range text {
+		freq[char]++
+	}
+
+	root := buildHuffmanTree(freq)
+
+	codes := make(map[rune]string)
+	generateHuffmanCode(root, "", codes)
+
+	fmt.Println("Huffman Codes:", codes)
+	for char, code := range codes {
+		fmt.Printf("%c: %s\n", char, code)
+	}
+	return
+	tree := huffman.NewHuffmanTree("test")
+
+	var encoded string
+	err := tree.Encode(&encoded)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(encoded) //00001000111111010110010011110111110010110000100110111000101
+
+	decoded, err := tree.Decode(encoded)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(decoded) //Are you a gopher?
+
+	return
 	tm := time.Now()
 	for i := 0; i < 1000000; i++ {
 		// cmpp.CreatePDUFromCmdID(cmpp.CMPP_ACTIVE_TEST, cmpp.V30)

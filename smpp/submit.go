@@ -147,8 +147,10 @@ func (c *SubmitSMResp) GetResponse() codec.PDU {
 // Marshal implements PDU interface.
 func (c *SubmitSMResp) Marshal(b *codec.BytesWriter) {
 	c.base.marshal(b, func(b *codec.BytesWriter) {
-		b.Grow(len(c.MessageID) + 1)
-		_ = b.WriteCStr(c.MessageID)
+		if c.CommandStatus == ESME_ROK {
+			b.Grow(len(c.MessageID) + 1)
+			_ = b.WriteCStr(c.MessageID)
+		}
 	})
 }
 

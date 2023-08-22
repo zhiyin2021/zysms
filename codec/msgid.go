@@ -1,4 +1,4 @@
-package cmpp
+package codec
 
 import (
 	"strconv"
@@ -29,9 +29,8 @@ func (m *msgId) UInt64() uint64 {
 	uid |= uint64(m.gateway) << 16
 	uid |= uint64(m.sequence) & 0xffff
 	return uint64(uid)
-
 }
 
 func (m *msgId) String() string {
-	return strconv.FormatUint(m.UInt64(), 10)
+	return strconv.FormatUint(m.UInt64(), 16)
 }

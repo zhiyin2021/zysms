@@ -1,6 +1,11 @@
 package smpp
 
-import "github.com/zhiyin2021/zysms/codec"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/zhiyin2021/zysms/codec"
+)
 
 const ReportLen byte = 66
 
@@ -58,6 +63,11 @@ func (c *DeliverSM) Marshal(b *codec.BytesWriter) {
 		_ = b.WriteCStr(c.ServiceType)
 		c.SourceAddr.Marshal(b)
 		c.DestAddr.Marshal(b)
+		if c.Report != nil {
+			c.EsmClass |= SM_SMSC_DLV_RCPT_TYPE
+			c.encodeReport()
+		}
+
 		_ = b.WriteByte(c.EsmClass)
 		_ = b.WriteByte(c.ProtocolID)
 		_ = b.WriteByte(c.PriorityFlag)
@@ -65,17 +75,7 @@ func (c *DeliverSM) Marshal(b *codec.BytesWriter) {
 		_ = b.WriteCStr(c.ValidityPeriod)
 		_ = b.WriteByte(c.RegisteredDelivery)
 		_ = b.WriteByte(c.ReplaceIfPresentFlag)
-		if c.RegisteredDelivery == 1 && c.Report != nil {
-			b.WriteStr(c.Report.MsgId, 10)
-			b.WriteStr(c.Report.Sub, 3)
-			b.WriteStr(c.Report.Dlvrd, 3)
-			b.WriteStr(c.Report.SubmitDate, 10)
-			b.WriteStr(c.Report.DoneDate, 10)
-			b.WriteStr(c.Report.Stat, 7)
-			b.WriteStr(c.Report.Text, 20)
-		} else {
-			c.Message.Marshal(b)
-		}
+		c.Message.Marshal(b)
 	})
 }
 
@@ -92,19 +92,12 @@ func (c *DeliverSM) Unmarshal(b *codec.BytesReader) error {
 		c.ValidityPeriod = b.ReadCStr()
 		c.RegisteredDelivery = b.ReadByte()
 		c.ReplaceIfPresentFlag = b.ReadByte()
-		if c.RegisteredDelivery == 1 {
-			c.Report = &DeliverReport{
-				MsgId:      b.ReadStr(10),
-				Sub:        b.ReadStr(3),
-				Dlvrd:      b.ReadStr(3),
-				SubmitDate: b.ReadStr(10),
-				DoneDate:   b.ReadStr(10),
-				Stat:       b.ReadStr(7),
-				Text:       b.ReadStr(20),
-			}
-		} else {
-			c.Message.Unmarshal(b, (c.EsmClass&SM_UDH_GSM) > 0)
+		c.Message.Unmarshal(b, (c.EsmClass&SM_UDH_GSM) > 0)
+
+		if c.EsmClass&SM_SMSC_DLV_RCPT_TYPE == SM_SMSC_DLV_RCPT_TYPE {
+			c.decodeReport()
 		}
+
 		return b.Err()
 	})
 }
@@ -155,12 +148,33 @@ type DeliverReport struct {
 	Text       string // 20字节 The first 20 characters of the short message.
 }
 
-/*
-DELIVRD
-EXPIRED
-DELETED
-UNDELIV
-ACCEPTD
-UNKNOWN
-REJECTD
-*/
+func (c *DeliverSM) decodeReport() {
+	c.Report = &DeliverReport{}
+	msg, _ := c.Message.GetMessage()
+	c.Report.MsgId, msg = splitReport(msg, "id:")
+	c.Report.Sub, msg = splitReport(msg, "sub:")
+	c.Report.Dlvrd, msg = splitReport(msg, "dlvrd:")
+	c.Report.SubmitDate, msg = splitReport(msg, "submit date:")
+	c.Report.DoneDate, msg = splitReport(msg, "done date:")
+	c.Report.Stat, msg = splitReport(msg, "stat:")
+	c.Report.Text, _ = splitReport(msg, "text:")
+}
+func (c *DeliverSM) encodeReport() {
+	if c.Report != nil {
+		msg := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s text:%s ", c.Report.MsgId, c.Report.Sub, c.Report.Dlvrd, c.Report.SubmitDate, c.Report.DoneDate, c.Report.Stat, c.Report.Text)
+		c.Message.SetMessageWithEncoding(msg, codec.GSM7BIT)
+	}
+}
+
+func splitReport(content, sub1 string) (retContent string, retSub string) {
+	n := strings.Index(content, sub1)
+	if n == -1 {
+		return content, ""
+	}
+	n += len(sub1)
+	m := strings.Index(content[n:], " ")
+	if m == -1 {
+		return content, ""
+	}
+	return content[n+m:], content[:n+m]
+}
