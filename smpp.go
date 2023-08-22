@@ -154,7 +154,7 @@ func (l *smppListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newCmppConn(c, codec.Version(smpp.V34), false)
+	conn := newSmppConn(c, codec.Version(smpp.V34), false)
 	conn.SetState(enum.CONN_CONNECTED)
 
 	conn.smsConn.(*smppConn).startActiveTest()
@@ -175,7 +175,7 @@ func (c *smppConn) startActiveTest() {
 				p := smpp.NewEnquireLink()
 				err := c.SendPDU(p)
 				if err != nil {
-					c.logger.Errorf("cmpp.active send error: %v", err)
+					c.logger.Errorf("smpp.active send error: %v", err)
 				} else {
 					atomic.AddInt32(&c.counter, 1)
 				}

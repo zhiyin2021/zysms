@@ -55,7 +55,14 @@ func NewBinaryShortMessageWithEncoding(messageData []byte, enc codec.Encoding) (
 
 // NewLongMessage returns long message splitted into multiple short message
 func NewLongMessage(message string) (s []*ShortMessage, err error) {
-	return NewLongMessageWithEncoding(message, codec.GSM7BIT)
+	enc := codec.ASCII
+	if hasWidthChar(message) {
+		enc = codec.UCS2
+	}
+	if _, err = codec.GSM7BIT.Encode(message); err == nil {
+		enc = codec.GSM7BIT
+	}
+	return NewLongMessageWithEncoding(message, enc)
 }
 
 // NewLongMessageWithEncoding returns long message splitted into multiple short message with encoding of choice

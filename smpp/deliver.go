@@ -166,7 +166,7 @@ func (c *DeliverSM) encodeReport() {
 	}
 }
 
-func splitReport(content, sub1 string) (retContent string, retSub string) {
+func splitReport(content, sub1 string) (retSub string, retContent string) {
 	n := strings.Index(content, sub1)
 	if n == -1 {
 		return content, ""
@@ -176,5 +176,5 @@ func splitReport(content, sub1 string) (retContent string, retSub string) {
 	if m == -1 {
 		return content, ""
 	}
-	return content[n+m:], content[:n+m]
+	return content[n : m+n], content[n+m:]
 }

@@ -45,6 +45,9 @@ func NewSubmitResp(ver codec.Version) codec.PDU {
 
 // Pack packs the ActiveTestReq to bytes stream for client side.
 func (p *SubmitReq) Marshal(w *codec.BytesWriter) {
+	if p.Message.IsLongMessage() {
+		p.RegisterOptionalParam(codec.NewTlv(codec.TagTPUdhi, []byte{0x01}))
+	}
 	p.base.marshal(w, func(bw *codec.BytesWriter) {
 		bw.WriteByte(p.SubType)
 		bw.WriteByte(p.NeedReport)

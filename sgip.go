@@ -114,33 +114,13 @@ func (c *sgipConn) SendPDU(pdu codec.PDU) error {
 		return smserror.ErrPktIsNil
 	}
 	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
-	if p, ok := pdu.(*sgip.SubmitReq); ok {
-		multiMsg, _ := p.Message.Split()
 
-		if len(multiMsg) > 1 {
-			p.RegisterOptionalParam(codec.NewTlv(codec.TagTPUdhi, []byte{0x01}))
-		}
-		for _, msg := range multiMsg {
-			// p.MsgLength = byte(len(content))
-			// p.MsgContent = content
-			p.Message = *msg
-			p.AssignSequenceNumber()
-			buf := codec.NewWriter()
-			pdu.Marshal(buf)
-			_, err := c.Conn.Write(buf.Bytes()) //block write
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		buf := codec.NewWriter()
-		pdu.Marshal(buf)
-		_, err := c.Conn.Write(buf.Bytes()) //block write
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	buf := codec.NewWriter()
+	pdu.Marshal(buf)
+	_, err := c.Conn.Write(buf.Bytes()) //block write
+
+	return err
+
 }
 
 func (c *sgipConn) RemoteAddr() net.Addr {

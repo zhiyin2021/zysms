@@ -1,7 +1,6 @@
 package codec
 
 import (
-	"log"
 	"sync/atomic"
 )
 
@@ -15,6 +14,11 @@ import (
  */
 var (
 	ref = uint32(0)
+)
+
+const (
+	// GSM specific, short message must be no larger than 140 octets
+	SM_GSM_MSG_LEN = 140
 )
 
 type msgUDH struct {
@@ -32,6 +36,27 @@ type ShortMessage struct {
 	messageData []byte
 }
 
+// NewLongMessage returns long message splitted into multiple short message
+func NewLongMessage(message string) (s []*ShortMessage, err error) {
+	enc := ASCII
+	if hasWidthChar(message) {
+		enc = UCS2
+	}
+	if _, err = GSM7BIT.Encode(message); err == nil {
+		enc = GSM7BIT
+	}
+	return NewLongMessageWithEncoding(message, enc)
+}
+
+// NewLongMessageWithEncoding returns long message splitted into multiple short message with encoding of choice
+func NewLongMessageWithEncoding(message string, enc Encoding) (s []*ShortMessage, err error) {
+	sm := &ShortMessage{
+		message: message,
+		enc:     enc,
+	}
+	return sm.split()
+}
+
 func (c *ShortMessage) UDHeader() *msgUDH {
 	return c.udHeader
 }
@@ -39,6 +64,9 @@ func (c *ShortMessage) UDHeader() *msgUDH {
 // GetMessageData returns underlying binary message.
 func (c *ShortMessage) GetMessageData() (d []byte) {
 	return c.messageData
+}
+func (c *ShortMessage) IsLongMessage() bool {
+	return len(c.messageData) > 3 && (c.messageData[0] == 0x05 || c.messageData[0] == 0x06) && c.messageData[1] == 0x00 && c.messageData[2] == 0x03
 }
 
 // GetMessageWithEncoding returns (decoded) underlying message.
@@ -85,7 +113,7 @@ func (c *ShortMessage) MsgLength() int {
 }
 
 // The encoding interface can implement the Splitter interface for ad-hoc splitting rule
-func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
+func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	if c.enc == nil {
 		if hasWidthChar(c.message) {
 			c.enc = UCS2
@@ -93,20 +121,17 @@ func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 			c.enc = ASCII
 		}
 	}
-	maxLen := uint(140)
-	if c.enc == ASCII {
-		maxLen = 160
-	}
+
 	// check if encoding implements Splitter
 	splitter, ok := c.enc.(Splitter)
 	// check if encoding implements Splitter or split is necessary
-	if !ok || !splitter.ShouldSplit(c.message, maxLen) {
+	if !ok || !splitter.ShouldSplit(c.message, SM_GSM_MSG_LEN) {
 		multiSM = []*ShortMessage{c}
 		return
 	}
 
 	// reserve 6 bytes for concat message UDH
-	segments, err := splitter.EncodeSplit(c.message, maxLen-6)
+	segments, err := splitter.EncodeSplit(c.message, SM_GSM_MSG_LEN-6)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +149,6 @@ func (c *ShortMessage) Split() (multiSM []*ShortMessage, err error) {
 			messageData: seg,
 			udHeader:    &msgUDH{ref, total, byte(seq + 1)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
 		})
-		log.Printf("%d => %d", seq, len(seg))
 	}
 	return
 }

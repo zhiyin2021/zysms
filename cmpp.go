@@ -111,33 +111,10 @@ func (c *cmppConn) SendPDU(pdu codec.PDU) error {
 		return smserror.ErrPktIsNil
 	}
 	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
-	if p, ok := pdu.(*cmpp.SubmitReq); ok {
-		multiMsg, _ := p.Message.Split()
-		p.TpUdhi = 0
-		if len(multiMsg) > 1 {
-			p.TpUdhi = 1
-		}
-		for _, msg := range multiMsg {
-			// p.MsgLength = byte(len(content))
-			// p.MsgContent = content
-			p.Message = *msg
-			p.AssignSequenceNumber()
-			buf := codec.NewWriter()
-			pdu.Marshal(buf)
-			_, err := c.Conn.Write(buf.Bytes()) //block write
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		buf := codec.NewWriter()
-		pdu.Marshal(buf)
-		_, err := c.Conn.Write(buf.Bytes()) //block write
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	buf := codec.NewWriter()
+	pdu.Marshal(buf)
+	_, err := c.Conn.Write(buf.Bytes()) //block write
+	return err
 }
 
 func (c *cmppConn) RemoteAddr() net.Addr {
