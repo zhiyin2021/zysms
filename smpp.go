@@ -2,7 +2,6 @@ package zysms
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -70,7 +69,7 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	if header, ok := pdu.GetHeader().(*smpp.Header); ok {
 		status := header.CommandStatus
 		if status != smpp.ESME_ROK {
-			return fmt.Errorf("login error: %v", status)
+			return smserror.NewSmsErr(int(status), "smpp.login.error") //fmt.Errorf("login error: %v", status)
 		}
 		c.SetState(enum.CONN_AUTHOK)
 	}
@@ -131,7 +130,7 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 		atomic.AddInt32(&c.counter, -1)
 	case *smpp.BindResp: // 当收到登录回复,内部先校验版本
 		if p.CommandStatus != smpp.ESME_ROK {
-			return nil, fmt.Errorf("login error: %v", p.CommandStatus)
+			return nil, smserror.NewSmsErr(int(p.CommandStatus), "smpp.login.error")
 		}
 	case *smpp.BindRequest: /// 当收到登录回复,内部先校验版本
 		// 服务端自适应版本

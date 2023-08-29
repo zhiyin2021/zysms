@@ -2,47 +2,58 @@ package smserror
 
 import (
 	"errors"
+	"fmt"
 )
 
-type SmsError error
+type SmsError struct {
+	Err  error
+	Code int
+}
+
+func (e SmsError) Error() string {
+	return fmt.Sprintf("code:%d,msg:%s", e.Code, e.Err.Error())
+}
+func NewSmsErr(code int, msg string) SmsError {
+	return SmsError{Code: code, Err: errors.New(msg)}
+}
 
 // Errors for conn operations
 var (
 
 	// Common errors.
-	ErrMethodParamsInvalid SmsError = errors.New("params passed to method is invalid")
+	ErrMethodParamsInvalid SmsError = NewSmsErr(1, "params passed to method is invalid")
 
 	// Protocol errors.
-	ErrTotalLengthInvalid    SmsError = errors.New("total_length in Packet data is invalid")
-	ErrCommandIdInvalid      SmsError = errors.New("command_Id in Packet data is invalid")
-	ErrCommandIdNotSupported SmsError = errors.New("command_Id in Packet data is not supported")
+	ErrTotalLengthInvalid    SmsError = NewSmsErr(2, "total_length in Packet data is invalid")
+	ErrCommandIdInvalid      SmsError = NewSmsErr(3, "command_Id in Packet data is invalid")
+	ErrCommandIdNotSupported SmsError = NewSmsErr(4, "command_Id in Packet data is not supported")
 
-	ErrConnIsClosed       SmsError = errors.New("connection is closed")
-	ErrReadCmdIDTimeout   SmsError = errors.New("read commandId timeout")
-	ErrReadPktBodyTimeout SmsError = errors.New("read packet body timeout")
-	ErrNotCompleted       SmsError = errors.New("data not being handled completed")
-	ErrRespNotMatch       SmsError = errors.New("the response is not matched with the request")
-	ErrEmptyServerAddr    SmsError = errors.New("sms server listen: empty server addr")
-	ErrNoHandlers         SmsError = errors.New("sms server: no connection handler")
-	ErrUnsupportedPkt     SmsError = errors.New("sms server read packet: receive a unsupported pkt")
-	ErrProtoNotSupport    SmsError = errors.New("sms unsupported proto")
-	ErrPktIsNil           SmsError = errors.New("sms packet is nil")
-	ErrVersionNotMatch    SmsError = errors.New("sms version not match")
+	ErrConnIsClosed       SmsError = NewSmsErr(5, "connection is closed")
+	ErrReadCmdIDTimeout   SmsError = NewSmsErr(6, "read commandId timeout")
+	ErrReadPktBodyTimeout SmsError = NewSmsErr(7, "read packet body timeout")
+	ErrNotCompleted       SmsError = NewSmsErr(8, "data not being handled completed")
+	ErrRespNotMatch       SmsError = NewSmsErr(9, "the response is not matched with the request")
+	ErrEmptyServerAddr    SmsError = NewSmsErr(10, "sms server listen: empty server addr")
+	ErrNoHandlers         SmsError = NewSmsErr(11, "sms server: no connection handler")
+	ErrUnsupportedPkt     SmsError = NewSmsErr(12, "sms server read packet: receive a unsupported pkt")
+	ErrProtoNotSupport    SmsError = NewSmsErr(13, "sms unsupported proto")
+	ErrPktIsNil           SmsError = NewSmsErr(14, "sms packet is nil")
+	ErrVersionNotMatch    SmsError = NewSmsErr(15, "sms version not match")
 
 	// ErrInvalidPDU indicates invalid pdu payload.
-	ErrInvalidPDU SmsError = errors.New("PDU payload is invalid")
+	ErrInvalidPDU SmsError = NewSmsErr(16, "PDU payload is invalid")
 
 	// ErrUnknownCommandID indicates unknown command id.
-	ErrUnknownCommandID SmsError = errors.New("unknown command id")
+	ErrUnknownCommandID SmsError = NewSmsErr(17, "unknown command id")
 
 	// ErrWrongDateFormat indicates wrong date format.
-	ErrWrongDateFormat SmsError = errors.New("wrong date format")
+	ErrWrongDateFormat SmsError = NewSmsErr(18, "wrong date format")
 
 	// ErrShortMessageLengthTooLarge indicates short message length is too large.
-	ErrShortMessageLengthTooLarge SmsError = errors.New("encoded short message data exceeds size out of range")
+	ErrShortMessageLengthTooLarge SmsError = NewSmsErr(19, "encoded short message data exceeds size out of range")
 
 	// ErrUDHTooLong UDH-L is larger than total length of short message data
-	ErrUDHTooLong SmsError = errors.New("user Data Header is too long for PDU short message")
+	ErrUDHTooLong SmsError = NewSmsErr(20, "user Data Header is too long for PDU short message")
 	// Errors for connect resp status.
 
 	ErrnoConnInvalidStruct  uint8 = 1
@@ -59,9 +70,9 @@ var (
 		ErrnoConnOthers:         errConnOthers,
 	}
 
-	errConnInvalidStruct  = errors.New("connect response status: invalid protocol structure")
-	errConnInvalidSrcAddr = errors.New("connect response status: invalid source address")
-	errConnAuthFailed     = errors.New("connect response status: auth failed")
-	errConnVerTooHigh     = errors.New("connect response status: protocol version is too high")
-	errConnOthers         = errors.New("connect response status: other errors")
+	errConnInvalidStruct  = NewSmsErr(1, "connect response status: invalid protocol structure")
+	errConnInvalidSrcAddr = NewSmsErr(2, "connect response status: invalid source address")
+	errConnAuthFailed     = NewSmsErr(3, "connect response status: auth failed")
+	errConnVerTooHigh     = NewSmsErr(4, "connect response status: protocol version is too high")
+	errConnOthers         = NewSmsErr(5, "connect response status: other errors")
 )

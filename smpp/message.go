@@ -75,22 +75,30 @@ func NewLongMessageWithEncoding(message string, enc codec.Encoding) (s []*ShortM
 }
 
 // SetMessageWithEncoding sets message with encoding.
+func (c *ShortMessage) SetMessage(message string) (err error) {
+	c.enc = codec.ASCII
+	if hasWidthChar(message) {
+		if c.messageData, err = codec.UCS2.Encode(message); err == nil {
+			c.message = message
+			c.enc = codec.UCS2
+			return
+		}
+	}
+	if c.messageData, err = codec.GSM7BIT.Encode(message); err == nil {
+		c.message = message
+		c.enc = codec.GSM7BIT
+	} else {
+		c.messageData, _ = codec.ASCII.Encode(message)
+		c.message = message
+		c.enc = codec.ASCII
+	}
+	return
+}
+
+// SetMessageWithEncoding sets message with encoding.
 func (c *ShortMessage) SetMessageWithEncoding(message string, enc codec.Encoding) (err error) {
 	if enc == nil {
-		if hasWidthChar(message) {
-			if c.messageData, err = codec.UCS2.Encode(message); err == nil {
-				c.message = message
-				c.enc = codec.UCS2
-				return
-			}
-		}
-		if c.messageData, err = codec.GSM7BIT.Encode(message); err == nil {
-			c.message = message
-			c.enc = codec.GSM7BIT
-		} else if c.messageData, err = codec.ASCII.Encode(message); err == nil {
-			c.message = message
-			c.enc = codec.ASCII
-		}
+		c.SetMessage(message)
 	} else if c.messageData, err = enc.Encode(message); err == nil {
 		if len(c.messageData) > SM_MSG_LEN {
 			err = smserror.ErrShortMessageLengthTooLarge

@@ -77,12 +77,12 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 	}
 
 	if status != 0 {
-		if status <= smserror.ErrnoConnOthers { //ErrnoConnOthers = 5
-			err = smserror.ConnRspStatusErrMap[status]
-		} else {
-			err = smserror.ConnRspStatusErrMap[smserror.ErrnoConnOthers]
-		}
-		return err
+		// if status <= smserror.ErrnoConnOthers { //ErrnoConnOthers = 5
+		// 	err = smserror.ConnRspStatusErrMap[status]
+		// } else {
+		// 	err = smserror.ConnRspStatusErrMap[smserror.ErrnoConnOthers]
+		// }
+		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
