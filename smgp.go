@@ -40,6 +40,7 @@ func newSmgpConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
 
+	c.startActiveTest()
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
@@ -57,12 +58,10 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 
 	err := c.SendPDU(req)
 	if err != nil {
-		c.logger.Errorf("smgp.auth send error: %v", err)
 		return err
 	}
 	p, err := c.RecvPDU()
 	if err != nil {
-		c.logger.Errorf("smgp.auth recv error: %v", err)
 		return err
 	}
 	var status uint8
@@ -175,7 +174,6 @@ func (l *smgpListener) accept() (*Conn, error) {
 	}
 	conn := newSmgpConn(c, smgp.V30, false)
 	conn.SetState(enum.CONN_CONNECTED)
-	conn.smsConn.(*smgpConn).startActiveTest()
 	return conn, nil
 }
 

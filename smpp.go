@@ -40,6 +40,7 @@ func newSmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 		checkVer: checkVer,
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
+	c.startActiveTest()
 
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
@@ -58,12 +59,10 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	req.SystemType = "NULL"
 	err := c.SendPDU(req)
 	if err != nil {
-		c.logger.Errorf("smpp.auth send error: %v", err)
 		return err
 	}
 	pdu, err := c.RecvPDU()
 	if err != nil {
-		c.logger.Errorf("smpp.auth recv error: %v", err)
 		return err
 	}
 	if header, ok := pdu.GetHeader().(*smpp.Header); ok {
@@ -156,7 +155,6 @@ func (l *smppListener) accept() (*Conn, error) {
 	conn := newSmppConn(c, codec.Version(smpp.V34), false)
 	conn.SetState(enum.CONN_CONNECTED)
 
-	conn.smsConn.(*smppConn).startActiveTest()
 	return conn, nil
 }
 

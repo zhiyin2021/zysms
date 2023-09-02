@@ -67,14 +67,14 @@ func (b *BindRequest) GetResponse() codec.PDU {
 	c := &BindResp{
 		base: newBase(BIND_TRANSCEIVER_RESP, b.SequenceNumber),
 	}
-	switch b.BindingType {
-	case Transceiver:
+	switch b.CommandID {
+	case BIND_TRANSCEIVER:
 		c.CommandID = BIND_TRANSCEIVER_RESP
 
-	case Receiver:
+	case BIND_RECEIVER:
 		c.CommandID = BIND_RECEIVER_RESP
 
-	case Transmitter:
+	case BIND_TRANSMITTER:
 		c.CommandID = BIND_TRANSMITTER_RESP
 	}
 
