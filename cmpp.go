@@ -178,6 +178,7 @@ func (l *cmppListener) accept() (*Conn, error) {
 
 func (c *cmppConn) startActiveTest() {
 	go func() {
+		fail := 0
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
 		for {
@@ -190,8 +191,13 @@ func (c *cmppConn) startActiveTest() {
 				p := cmpp.NewActiveTestReq(c.Typ)
 				err := c.SendPDU(p)
 				if err != nil {
+					fail++
 					c.logger.Errorf("cmpp.active send error: %v", err)
+					if fail > 3 {
+						return
+					}
 				} else {
+					fail = 0
 					atomic.AddInt32(&c.counter, 1)
 				}
 			}

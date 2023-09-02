@@ -160,6 +160,7 @@ func (l *smppListener) accept() (*Conn, error) {
 
 func (c *smppConn) startActiveTest() {
 	go func() {
+		fail := 0
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
 		for {
@@ -172,8 +173,13 @@ func (c *smppConn) startActiveTest() {
 				p := smpp.NewEnquireLink()
 				err := c.SendPDU(p)
 				if err != nil {
+					fail++
 					c.logger.Errorf("smpp.active send error: %v", err)
+					if fail > 3 {
+						return
+					}
 				} else {
+					fail = 0
 					atomic.AddInt32(&c.counter, 1)
 				}
 			}

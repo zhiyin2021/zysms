@@ -179,6 +179,7 @@ func (l *smgpListener) accept() (*Conn, error) {
 
 func (c *smgpConn) startActiveTest() {
 	go func() {
+		fail := 0
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
 		for {
@@ -191,8 +192,13 @@ func (c *smgpConn) startActiveTest() {
 				p := smgp.NewActiveTestReq(c.Typ)
 				err := c.SendPDU(p)
 				if err != nil {
+					fail++
 					c.logger.Errorf("smgp.active send error: %v", err)
+					if fail > 3 {
+						return
+					}
 				} else {
+					fail = 0
 					atomic.AddInt32(&c.counter, 1)
 				}
 			}
