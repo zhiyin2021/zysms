@@ -40,7 +40,6 @@ func newSmgpConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
 
-	c.startActiveTest()
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
@@ -84,6 +83,7 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
+	c.startActiveTest()
 	return nil
 }
 func (c *smgpConn) Close() {
@@ -174,6 +174,7 @@ func (l *smgpListener) accept() (*Conn, error) {
 	}
 	conn := newSmgpConn(c, smgp.V30, false)
 	conn.SetState(enum.CONN_CONNECTED)
+	conn.smsConn.(*smgpConn).startActiveTest()
 	return conn, nil
 }
 

@@ -40,7 +40,6 @@ func newSmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 		checkVer: checkVer,
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
-	c.startActiveTest()
 
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
@@ -71,6 +70,7 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 			return smserror.NewSmsErr(int(status), "smpp.login.error") //fmt.Errorf("login error: %v", status)
 		}
 		c.SetState(enum.CONN_AUTHOK)
+		c.startActiveTest()
 	}
 	return nil
 }
@@ -154,6 +154,7 @@ func (l *smppListener) accept() (*Conn, error) {
 	}
 	conn := newSmppConn(c, codec.Version(smpp.V34), false)
 	conn.SetState(enum.CONN_CONNECTED)
+	conn.smsConn.(*smppConn).startActiveTest()
 
 	return conn, nil
 }

@@ -1,6 +1,8 @@
 package smpp
 
-import "github.com/zhiyin2021/zysms/codec"
+import (
+	"github.com/zhiyin2021/zysms/codec"
+)
 
 // SubmitSM PDU is used by an ESME to submit a short message to the SMSC for onward
 // transmission to a specified short message entity (SME). The submit_sm PDU does
@@ -157,9 +159,9 @@ func (c *SubmitSMResp) Marshal(b *codec.BytesWriter) {
 // Unmarshal implements PDU interface.
 func (c *SubmitSMResp) Unmarshal(b *codec.BytesReader) error {
 	return c.base.unmarshal(b, func(b *codec.BytesReader) (err error) {
-		if c.CommandStatus == ESME_ROK {
-			c.MessageID = b.ReadCStr()
-		}
-		return b.Err()
+		// if c.CommandStatus == ESME_ROK {
+		c.MessageID = b.ReadCStr()
+		// }
+		return nil
 	})
 }

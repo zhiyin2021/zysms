@@ -41,7 +41,6 @@ func newSgipConn(conn net.Conn, typ codec.Version, checkVer bool, nodeId uint32)
 		nodeId:   nodeId,
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
-	c.startActiveTest()
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
@@ -86,6 +85,7 @@ func (c *sgipConn) Auth(uid string, pwd string) error {
 		return smserror.NewSmsErr(int(status), "sgip.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
+	c.startActiveTest()
 	return nil
 }
 func (c *sgipConn) Close() {
@@ -181,6 +181,7 @@ func (l *sgipListener) accept() (*Conn, error) {
 	}
 	conn := newSgipConn(c, sgip.V12, false, l.nodeId)
 	conn.SetState(enum.CONN_CONNECTED)
+	conn.smsConn.(*sgipConn).startActiveTest()
 	return conn, nil
 }
 

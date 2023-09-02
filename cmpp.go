@@ -39,7 +39,6 @@ func newCmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
 		checkVer: checkVer,
 	}
 	c.ctx, c.stop = context.WithCancel(context.Background())
-	c.startActiveTest()
 
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
@@ -83,6 +82,7 @@ func (c *cmppConn) Auth(uid string, pwd string) error {
 		// }
 		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
+	c.startActiveTest()
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
 }
@@ -173,6 +173,7 @@ func (l *cmppListener) accept() (*Conn, error) {
 	}
 	conn := newCmppConn(c, cmpp.V30, false)
 	conn.SetState(enum.CONN_CONNECTED)
+	conn.smsConn.(*cmppConn).startActiveTest()
 	return conn, nil
 }
 
