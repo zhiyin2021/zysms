@@ -1,15 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/minhajuddinkhan/huffman"
 	"github.com/zhiyin2021/zysms/cmpp"
+	"github.com/zhiyin2021/zysms/smpp"
 )
 
 func main() {
+
+	var x = []byte{0x00, 0x00, 0x00, 0x1a, 0x80, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x67, 0x00, 0x00, 0x03, 0x0f, 0x36, 0x32, 0x37, 0x34, 0x31, 0x36, 0x33, 0x33, 0x36, 0x00}
+	r := bytes.NewReader(x)
+	pdu, err := smpp.Parse(r)
+	// resp := &smpp.SubmitSMResp{}
+	// resp.Unmarshal(codec.NewReader(x))
+	log.Println(pdu, err)
+}
+
+func main1() {
 	//data := "您的验证码为:%d, 请在5分钟内使用,请勿泄露给他人.【创瑞短信】"
 
 	text := "hello world"

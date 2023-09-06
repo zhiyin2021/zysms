@@ -126,6 +126,7 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	splitter, ok := c.enc.(Splitter)
 	// check if encoding implements Splitter or split is necessary
 	if !ok || !splitter.ShouldSplit(c.message, SM_GSM_MSG_LEN) {
+		err = c.SetMessage(c.message, c.enc)
 		multiSM = []*ShortMessage{c}
 		return
 	}

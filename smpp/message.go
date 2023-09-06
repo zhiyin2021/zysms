@@ -73,6 +73,12 @@ func NewLongMessageWithEncoding(message string, enc codec.Encoding) (s []*ShortM
 	}
 	return sm.split()
 }
+func (c *ShortMessage) GetConcatInfo() (totalParts, partNum, mref byte, found bool) {
+	if c.udHeader != nil {
+		return c.udHeader.GetConcatInfo()
+	}
+	return 0, 0, 0, false
+}
 
 // SetMessageWithEncoding sets message with encoding.
 func (c *ShortMessage) SetMessage(message string) (err error) {
