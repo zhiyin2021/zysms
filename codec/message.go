@@ -42,9 +42,6 @@ func NewLongMessage(message string) (s []*ShortMessage, err error) {
 	if hasWidthChar(message) {
 		enc = UCS2
 	}
-	if _, err = GSM7BIT.Encode(message); err == nil {
-		enc = GSM7BIT
-	}
 	return NewLongMessageWithEncoding(message, enc)
 }
 
@@ -121,18 +118,21 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 			c.enc = ASCII
 		}
 	}
-
+	gsmLen := uint(SM_GSM_MSG_LEN)
+	if c.enc == ASCII {
+		gsmLen = 160
+	}
 	// check if encoding implements Splitter
 	splitter, ok := c.enc.(Splitter)
 	// check if encoding implements Splitter or split is necessary
-	if !ok || !splitter.ShouldSplit(c.message, SM_GSM_MSG_LEN) {
+	if !ok || !splitter.ShouldSplit(c.message, gsmLen) {
 		err = c.SetMessage(c.message, c.enc)
 		multiSM = []*ShortMessage{c}
 		return
 	}
 
 	// reserve 6 bytes for concat message UDH
-	segments, err := splitter.EncodeSplit(c.message, SM_GSM_MSG_LEN-6)
+	segments, err := splitter.EncodeSplit(c.message, gsmLen-6)
 	if err != nil {
 		return nil, err
 	}
@@ -202,8 +202,12 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 }
 
 // Encoding returns message encoding.
-func (c *ShortMessage) Encoding() Encoding {
-	return c.enc
+func (c *ShortMessage) Encoding() byte {
+	if c.enc == ASCII {
+		// 国内 CMPP,SMGP 不支持 gms7bit,  ascii一样以160字符计费
+		return GSM7BITCoding
+	}
+	return c.enc.DataCoding()
 }
 
 // returns an atomically incrementing number each time it's called

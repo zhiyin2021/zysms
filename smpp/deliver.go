@@ -178,3 +178,7 @@ func splitReport(content, sub1 string) (retSub string, retContent string) {
 	}
 	return content[n : m+n], content[n+m:]
 }
+func (r *DeliverReport) String() string {
+	return fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s text:%s ", r.MsgId, r.Sub, r.Dlvrd, r.SubmitDate, r.DoneDate, r.Stat, r.Text)
+
+}

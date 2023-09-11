@@ -55,7 +55,6 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	req.SystemID = uid
 	req.Password = pwd
 	req.InterfaceVersion = c.Typ
-	req.SystemType = "NULL"
 	err := c.SendPDU(req)
 	if err != nil {
 		return err
@@ -97,8 +96,8 @@ func (c *smppConn) SendPDU(pdu codec.PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
 	buf := codec.NewWriter()
+	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
 	pdu.Marshal(buf)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
 

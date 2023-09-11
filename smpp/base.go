@@ -3,6 +3,7 @@ package smpp
 import (
 	"io"
 
+	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
 )
@@ -149,7 +150,13 @@ func Parse(r io.Reader) (pdu codec.PDU, err error) {
 		if len(bodyBytes) > 0 {
 			_, _ = buf.Write(bodyBytes)
 		}
-		err = pdu.Unmarshal(codec.NewReader(buf.Bytes()))
+		data := buf.Bytes()
+		err = pdu.Unmarshal(codec.NewReader(data))
+		if err != nil {
+			logrus.Infof("read.Unmarshal err:%v=>[%X]", err, data)
+		}
+	} else {
+		logrus.Infof("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
 	}
 	return
 }

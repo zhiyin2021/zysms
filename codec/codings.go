@@ -145,6 +145,29 @@ func (*ascii) Decode(data []byte) (string, error) {
 
 func (*ascii) DataCoding() byte { return ASCIICoding }
 
+func (*ascii) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
+	return uint(len(text)) > octetLimit
+}
+
+func (c *ascii) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+
+	fr, to := 0, int(octetLimit)
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+		fr, to = to, to+int(octetLimit)
+	}
+	return
+}
+
 type iso88591 struct{}
 
 func (*iso88591) Encode(str string) ([]byte, error) {
@@ -157,29 +180,83 @@ func (*iso88591) Decode(data []byte) (string, error) {
 
 func (*iso88591) DataCoding() byte { return LATIN1Coding }
 
-type binary8bit1 struct{}
-
-func (*binary8bit1) Encode(_ string) ([]byte, error) {
-	return []byte{}, ErrNotImplEncode
+func (*iso88591) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
+	return uint(len(text)) > octetLimit
 }
 
-func (*binary8bit1) Decode(_ []byte) (string, error) {
-	return "", ErrNotImplDecode
+func (c *iso88591) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+	if octetLimit < 64 {
+		octetLimit = 134
+	}
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+
+	fr, to := 0, int(octetLimit)
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+		fr, to = to, to+int(octetLimit)
+	}
+
+	return
+}
+
+type binary8bit1 struct{}
+
+func (*binary8bit1) Encode(msg string) ([]byte, error) {
+	return []byte(msg), nil
+}
+
+func (*binary8bit1) Decode(msg []byte) (string, error) {
+	return string(msg), nil
 }
 
 func (*binary8bit1) DataCoding() byte { return BINARY8BIT1Coding }
 
 type binary8bit2 struct{}
 
-func (*binary8bit2) Encode(_ string) ([]byte, error) {
-	return []byte{}, ErrNotImplEncode
+func (*binary8bit2) Encode(msg string) ([]byte, error) {
+	return []byte(msg), nil
 }
 
-func (*binary8bit2) Decode(_ []byte) (string, error) {
-	return "", ErrNotImplDecode
+func (*binary8bit2) Decode(msg []byte) (string, error) {
+	return string(msg), nil
 }
 
 func (*binary8bit2) DataCoding() byte { return BINARY8BIT2Coding }
+
+func (*binary8bit2) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
+	return uint(len(text)) > octetLimit
+}
+
+func (c *binary8bit2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+	if octetLimit < 64 {
+		octetLimit = 134
+	}
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+
+	fr, to := 0, int(octetLimit)
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+		fr, to = to, to+int(octetLimit)
+	}
+
+	return
+}
 
 type iso88595 struct{}
 
@@ -218,7 +295,7 @@ func (*ucs2) Decode(data []byte) (string, error) {
 }
 
 func (*ucs2) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len(text)) > octetLimit
+	return uint(len([]rune(text))) > octetLimit/2
 }
 
 func (c *ucs2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
