@@ -16,7 +16,7 @@ type ShortMessage struct {
 	SmDefaultMsgID    byte
 	message           string
 	enc               codec.Encoding
-	udHeader          UDH
+	udHeader          codec.UDH
 	messageData       []byte
 	withoutDataCoding bool // purpose of ReplaceSM usage
 }
@@ -56,7 +56,7 @@ func NewBinaryShortMessageWithEncoding(messageData []byte, enc codec.Encoding) (
 // NewLongMessage returns long message splitted into multiple short message
 func NewLongMessage(message string) (s []*ShortMessage, err error) {
 	enc := codec.ASCII
-	if hasWidthChar(message) {
+	if codec.HasWidthChar(message) {
 		enc = codec.UCS2
 	}
 	if _, err = codec.GSM7BIT.Encode(message); err == nil {
@@ -83,7 +83,7 @@ func (c *ShortMessage) GetConcatInfo() (totalParts, partNum, mref byte, found bo
 // SetMessageWithEncoding sets message with encoding.
 func (c *ShortMessage) SetMessage(message string) (err error) {
 	c.enc = codec.ASCII
-	if hasWidthChar(message) {
+	if codec.HasWidthChar(message) {
 		if c.messageData, err = codec.UCS2.Encode(message); err == nil {
 			c.message = message
 			c.enc = codec.UCS2
@@ -116,19 +116,6 @@ func (c *ShortMessage) SetMessageWithEncoding(message string, enc codec.Encoding
 	return
 }
 
-// 判断字符串是否包含中文
-func hasWidthChar(content string) bool {
-	if content == "" {
-		return false
-	}
-	for _, c := range content {
-		if c > 0x7f {
-			return true
-		}
-	}
-	return false
-}
-
 // SetLongMessageWithEnc sets ShortMessage with message longer than  256 bytes
 // callers are expected to call Split() after this
 func (c *ShortMessage) SetLongMessageWithEnc(message string, enc codec.Encoding) (err error) {
@@ -138,13 +125,13 @@ func (c *ShortMessage) SetLongMessageWithEnc(message string, enc codec.Encoding)
 }
 
 // UDH gets user data header for short message
-func (c *ShortMessage) UDH() UDH {
+func (c *ShortMessage) UDH() codec.UDH {
 	return c.udHeader
 }
 
 // SetUDH sets user data header for short message
 // also appends udh to the beginning of messageData
-func (c *ShortMessage) SetUDH(udh UDH) {
+func (c *ShortMessage) SetUDH(udh codec.UDH) {
 	c.udHeader = udh
 }
 
@@ -225,7 +212,7 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 			// message: we don't really care
 			messageData:       seg,
 			withoutDataCoding: c.withoutDataCoding,
-			udHeader:          UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
+			udHeader:          codec.UDH{codec.NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
 		})
 	}
 
@@ -291,7 +278,7 @@ func (c *ShortMessage) Unmarshal(b *codec.BytesReader, udhi bool) (err error) {
 	// If short message length is non zero, short message contains User-Data Header
 	// Else UDH should be in TLV field MessagePayload
 	if udhi && n > 0 {
-		udh := UDH{}
+		udh := codec.UDH{}
 		_, err = udh.UnmarshalBinary(c.messageData)
 		if err != nil {
 			return

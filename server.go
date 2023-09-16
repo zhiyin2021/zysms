@@ -32,7 +32,7 @@ type (
 	}
 	Conn struct {
 		smsConn
-		// Data   any
+		Data any
 		// Logger *logrus.Entry
 		UUID string
 	}

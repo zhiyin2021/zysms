@@ -39,7 +39,7 @@ func startAClient(idx int) {
 		case *cmpp.DeliverReq:
 			log.Printf("client %d: receive a cmpp deliver request: %v.", idx, req.MsgId)
 		default:
-			log.Printf("client %d: unknown event: %v", idx, p)
+			p.Conn.Logger().Infof("event %T", p)
 		}
 		return nil
 	}
@@ -53,39 +53,38 @@ func startAClient(idx int) {
 
 	t := time.NewTicker(time.Second * 1)
 	defer t.Stop()
-	for i := 0; i < 1; i++ {
-		go func() {
-			//submit a message
+	msgs, _ := codec.NewLongMessage("通过 Topic 实现各种特性是 RocketMQ 设计精妙之处，定时消息、事务消息、消息重试，包括我们今天接触到的消息轨迹都是这种思想的体现。至于它们具体是如何实现的，我们在文章的后半段的源码分析部分详细展开。【百度网盘】")
 
-			msg := "测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789##测试 abcdefghijklmnopqrstuvwxyz0123456789【百度网盘】"
-			p := cmpp.NewSubmitReq(cmpp.V30).(*cmpp.SubmitReq)
-			p.PkTotal = 1
-			p.PkNumber = 1
-			p.RegisteredDelivery = 1
-			p.MsgLevel = 1
-			p.ServiceId = "test"
-			p.FeeUserType = 2
-			p.FeeTerminalId = "13500002696"
-			// FeeTerminalType:    0
-			p.MsgFmt = 8
-			p.MsgSrc = "900001"
-			p.FeeType = "02"
-			p.FeeCode = "10"
-			p.ValidTime = "151105131555101+"
-			p.AtTime = ""
-			p.SrcId = "900001"
-			p.DestUsrTl = 1
-			p.DestTerminalId = []string{"+8613500002696", "8613500002697", "13500002698"}
-			p.Message.SetMessage(msg, codec.UCS2)
-			err = c.SendPDU(p)
-			if err != nil {
-				log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
-				return
-			} else {
-				log.Printf("client %d: send a cmpp3 submit request ok", idx)
-			}
-		}()
-		time.Sleep(time.Second * 5)
+	for _, msg := range msgs {
+		//submit a message
+		// msg := "测试 abcdefghiwx5789【百度网盘】"
+		p := cmpp.NewSubmitReq(cmpp.V30).(*cmpp.SubmitReq)
+		p.PkTotal = 1
+		p.PkNumber = 1
+		p.RegisteredDelivery = 1
+		p.MsgLevel = 1
+		p.ServiceId = "test"
+		p.FeeUserType = 2
+		p.FeeTerminalId = "13500002696"
+		// FeeTerminalType:    0
+		p.MsgFmt = 8
+		p.MsgSrc = "900001"
+		p.FeeType = "02"
+		p.FeeCode = "10"
+		p.ValidTime = "151105131555101+"
+		p.AtTime = ""
+		p.SrcId = "900001"
+		p.DestUsrTl = 1
+		p.TpUdhi = 1
+		p.DestTerminalId = []string{"+8613500002696"}
+		p.Message = *msg
+		err = c.SendPDU(p)
+		if err != nil {
+			log.Printf("client %d: send a cmpp submit request error: %s.", idx, err)
+			return
+		} else {
+			log.Printf("client %d: send a cmpp3 submit request ok", idx)
+		}
 	}
 
 }

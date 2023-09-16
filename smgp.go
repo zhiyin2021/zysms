@@ -22,11 +22,12 @@ type smgpConn struct {
 	// for SeqId generator goroutine
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
-	stop     func()
-	ctx      context.Context
-	counter  int32
-	logger   *logrus.Entry
-	checkVer bool
+	stop       func()
+	ctx        context.Context
+	counter    int32
+	logger     *logrus.Entry
+	checkVer   bool
+	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
 }
 
 // New returns an abstract structure for successfully
@@ -144,6 +145,9 @@ func (c *smgpConn) RecvPDU() (codec.PDU, error) {
 	case *smgp.ActiveTestReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 		resp := p.GetResponse()
 		c.SendPDU(resp)
+		if !c.activePeer {
+			c.activePeer = true
+		}
 	case *smgp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
 	case *smgp.LoginResp: // 当收到登录回复,内部先校验版本
@@ -189,6 +193,9 @@ func (c *smgpConn) startActiveTest() {
 				// once conn close, the goroutine should exit
 				return
 			case <-t.C:
+				if c.activePeer {
+					return
+				}
 				// send a active test packet to peer, increase the active test counter
 				p := smgp.NewActiveTestReq(c.Typ)
 				err := c.SendPDU(p)

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
@@ -39,21 +40,21 @@ func main() {
 		case *cmpp.ConnReq:
 			p.Resp, err = handleLogin(p, req)
 		default:
-			p.Conn.Logger().Errorf("server: unknown event: %v", p)
-			err = smserror.ErrRespNotMatch
+			p.Conn.Logger().Infof("event %T", p)
 		}
 		return err
 	}
-
-	ln, err := sms.Listen(":7890")
-	if err != nil {
-		log.Println("cmpp ListenAndServ error:", err)
-		return
-	}
+	go func() {
+		_, err := sms.Listen(":7890")
+		if err != nil {
+			log.Println("cmpp ListenAndServ error:", err)
+			return
+		}
+	}()
+	logrus.Println("server started")
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
-	ln.Close()
 }
 func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
 	resp := req.GetResponse().(*cmpp.ConnResp)
@@ -86,10 +87,10 @@ func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
 func handleSubmit(p *zysms.Packet, req *cmpp.SubmitReq) (codec.PDU, error) {
 	resp := req.GetResponse().(*cmpp.SubmitResp)
 	resp.MsgId = 12878564852733378560
-
+	msg := req.Message.GetMessage()
 	for i, d := range req.DestTerminalId {
-		p.Conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s]\n",
-			req.MsgSrc, req.SequenceNumber, resp.MsgId+uint64(i), req.SrcId, d)
+		p.Conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s],=>%s\n",
+			req.MsgSrc, req.SequenceNumber, resp.MsgId+uint64(i), req.SrcId, d, msg)
 	}
 	return resp, nil
 }

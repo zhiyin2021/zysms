@@ -1,8 +1,14 @@
-package smpp
+package codec
 
 import (
 	"bytes"
 	"fmt"
+)
+
+const (
+	// User Data Header
+	UDH_CONCAT_MSG_8_BIT_REF  = byte(0x00)
+	UDH_CONCAT_MSG_16_BIT_REF = byte(0x08)
 )
 
 // For now, this package only support message uses of UDH for message concatenation

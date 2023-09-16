@@ -3,6 +3,7 @@ package codec
 import (
 	"fmt"
 
+	"github.com/zhiyin2021/zysms/codec/gsm7"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -93,14 +94,15 @@ func (c *CustomEncoding) DataCoding() byte {
 
 type gsm7bit struct {
 	packed bool
+	lang   gsm7.Lang
 }
 
 func (c *gsm7bit) Encode(str string) ([]byte, error) {
-	return encode(str, GSM7(c.packed).NewEncoder())
+	return encode(str, gsm7.GSM7(c.packed, c.lang).NewEncoder())
 }
 
 func (c *gsm7bit) Decode(data []byte) (string, error) {
-	return decode(data, GSM7(c.packed).NewDecoder())
+	return decode(data, gsm7.GSM7(c.packed, c.lang).NewDecoder())
 }
 
 func (c *gsm7bit) DataCoding() byte { return GSM7BITCoding }
@@ -375,6 +377,12 @@ func (*gb18030) DataCoding() byte { return GB18030Coding }
 var (
 	// GSM7BIT is gsm-7bit encoding.
 	GSM7BIT Encoding = &gsm7bit{packed: false}
+	// 西班牙
+	GSM7Spanish Encoding = &gsm7bit{packed: false, lang: gsm7.LangSpanish}
+	// 葡萄牙
+	GSM7Portuguese Encoding = &gsm7bit{packed: false, lang: gsm7.LangPortuguese}
+	// 土耳其
+	GSM7Turkish Encoding = &gsm7bit{packed: false, lang: gsm7.LangTurkish}
 
 	// GSM7BITPACKED is packed gsm-7bit encoding.
 	// Most of SMSC(s) use unpack version.
@@ -429,4 +437,17 @@ type Splitter interface {
 	// ShouldSplit check if the encoded data of given text should be splitted under octetLimit
 	ShouldSplit(text string, octetLimit uint) (should bool)
 	EncodeSplit(text string, octetLimit uint) ([][]byte, error)
+}
+
+// 判断字符串是否包含中文
+func HasWidthChar(content string) bool {
+	if content == "" {
+		return false
+	}
+	for _, c := range content {
+		if c > 0x7f {
+			return true
+		}
+	}
+	return false
 }

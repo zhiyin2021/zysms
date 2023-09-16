@@ -2,6 +2,8 @@ package codec
 
 import (
 	"sync/atomic"
+
+	"github.com/zhiyin2021/zysms/smserror"
 )
 
 // 处理GSM协议TP-DCS数据编码方案
@@ -21,25 +23,25 @@ const (
 	SM_GSM_MSG_LEN = 140
 )
 
-type msgUDH struct {
-	Ref   byte
-	Total byte
-	Seq   byte
-}
+// type msgUDH struct {
+// 	Ref   byte
+// 	Total byte
+// 	Seq   byte
+// }
 
 // ShortMessage message.
 type ShortMessage struct {
 	messageLen  byte
 	message     string
 	enc         Encoding
-	udHeader    *msgUDH
+	udHeader    UDH
 	messageData []byte
 }
 
 // NewLongMessage returns long message splitted into multiple short message
 func NewLongMessage(message string) (s []*ShortMessage, err error) {
 	enc := ASCII
-	if hasWidthChar(message) {
+	if HasWidthChar(message) {
 		enc = UCS2
 	}
 	return NewLongMessageWithEncoding(message, enc)
@@ -54,7 +56,7 @@ func NewLongMessageWithEncoding(message string, enc Encoding) (s []*ShortMessage
 	return sm.split()
 }
 
-func (c *ShortMessage) UDHeader() *msgUDH {
+func (c *ShortMessage) UDHeader() UDH {
 	return c.udHeader
 }
 
@@ -72,7 +74,7 @@ func (c *ShortMessage) GetMessage() string {
 		return c.message
 	}
 	if c.enc == nil {
-		if hasWidthChar(c.message) {
+		if HasWidthChar(c.message) {
 			c.enc = UCS2
 		} else {
 			c.enc = ASCII
@@ -84,12 +86,18 @@ func (c *ShortMessage) GetMessage() string {
 	}
 	return ""
 }
+func (c *ShortMessage) GetConcatInfo() (totalParts, partNum, mref byte, found bool) {
+	if c.udHeader != nil {
+		return c.udHeader.GetConcatInfo()
+	}
+	return 0, 0, 0, false
+}
 
 // SetMessageWithEncoding sets message with encoding.
 func (c *ShortMessage) SetMessage(message string, enc Encoding) (err error) {
 	c.enc = enc
 	if c.enc == nil {
-		if hasWidthChar(message) {
+		if HasWidthChar(message) {
 			c.enc = UCS2
 		} else {
 			c.enc = ASCII
@@ -112,7 +120,7 @@ func (c *ShortMessage) MsgLength() int {
 // The encoding interface can implement the Splitter interface for ad-hoc splitting rule
 func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	if c.enc == nil {
-		if hasWidthChar(c.message) {
+		if HasWidthChar(c.message) {
 			c.enc = UCS2
 		} else {
 			c.enc = ASCII
@@ -139,16 +147,16 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	// prealloc result
 	multiSM = make([]*ShortMessage, 0, len(segments))
 	// all segments will have the same ref id
-	ref := byte(getRefNum())
-	total := byte(len(segments))
+	ref := getRefNum()
+
 	// construct SM(s)
-	for seq, seg := range segments {
+	for i, seg := range segments {
 		// create new SM, encode data
 		multiSM = append(multiSM, &ShortMessage{
 			enc: c.enc,
 			// message: we don't really care
 			messageData: seg,
-			udHeader:    &msgUDH{ref, total, byte(seq + 1)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
+			udHeader:    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))}, //&msgUDH{ref, total, byte(seq + 1)}, //    UDH{NewIEConcatMessage(uint8(len(segments)), uint8(i+1), uint8(ref))},
 		})
 	}
 	return
@@ -156,11 +164,20 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 
 // Marshal implements PDU interface.
 func (c *ShortMessage) Marshal(b *BytesWriter) {
+	var (
+		udhBin []byte
+	)
+
 	c.messageLen = byte(len(c.messageData))
+	// Prepend UDH to message data if there are any
+	if c.udHeader != nil && c.udHeader.UDHL() > 0 {
+		udhBin, _ = c.udHeader.MarshalBinary()
+		c.messageLen += byte(len(udhBin))
+	}
+
 	_ = b.WriteByte(byte(c.MsgLength()))
-	if c.udHeader != nil {
-		buf := []byte{0x05, 0x00, 0x03, c.udHeader.Ref, c.udHeader.Total, c.udHeader.Seq}
-		_, _ = b.Write(buf)
+	if udhBin != nil {
+		_, _ = b.Write(udhBin)
 	}
 	// short_message
 	_, _ = b.Write(c.messageData)
@@ -173,25 +190,24 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 	// If short message length is non zero, short message contains User-Data Header
 	// Else UDH should be in TLV field MessagePayload
 	if udhi && c.messageLen > 0 {
-		n := c.messageData[0] + 1
-		if n == 6 && n < c.messageLen {
-			c.udHeader = &msgUDH{
-				c.messageData[3],
-				c.messageData[4],
-				c.messageData[5],
-			}
-			// 0x05 数据头总长度
-			// 0x00 信息标识
-			// 0x04 头信息长度
-			// 0x00 信息序列号
-			// 0x00 总条数
-			// 0x01 当前条数
-			c.messageData = c.messageData[n:]
+		udh := UDH{}
+		_, err = udh.UnmarshalBinary(c.messageData)
+		if err != nil {
+			return
 		}
+		c.udHeader = udh
+
+		f := c.udHeader.UDHL()
+		if f > len(c.messageData) {
+			err = smserror.ErrUDHTooLong
+			return
+		}
+
+		c.messageData = c.messageData[f:]
 	}
 	c.enc = GetCodec(enc)
 	if c.enc == nil {
-		if hasWidthChar(c.message) {
+		if HasWidthChar(c.message) {
 			c.enc = UCS2
 		} else {
 			c.enc = ASCII
@@ -214,31 +230,3 @@ func (c *ShortMessage) Encoding() byte {
 func getRefNum() uint32 {
 	return atomic.AddUint32(&ref, 1)
 }
-
-// 判断字符串是否包含中文
-func hasWidthChar(content string) bool {
-	if content == "" {
-		return false
-	}
-	for _, c := range content {
-		if c > 0x7f {
-			return true
-		}
-	}
-	return false
-}
-
-// private static boolean haswidthChar(String content) {
-// 	if (StringUtils.isEmpty(content))
-// 		return false;
-
-// 	byte[] bytes = content.getBytes();
-// 	for (int i = 0; i < bytes.length; i++) {
-// 		// 判断最高位是否为1
-// 		if ((bytes[i] & (byte) 0x80) == (byte) 0x80) {
-// 			return true;
-// 		}
-// 	}
-// 	return false;
-// }
-// }

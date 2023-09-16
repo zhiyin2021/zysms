@@ -69,42 +69,42 @@ var reverseEscape = map[byte]rune{
 	0x0A: '\f', 0x14: '^', 0x28: '{', 0x29: '}', 0x2F: '\\', 0x3C: '[', 0x3D: '~', 0x3E: ']', 0x40: '|', 0x65: '€',
 }
 
-// ValidateGSM7String returns the characters, in the given text, that can not be represented in GSM 7-bit encoding.
-func ValidateGSM7String(text string) []rune {
-	invalidChars := make([]rune, 0, 4)
-	for _, r := range text {
-		if _, ok := forwardLookup[r]; !ok {
-			if _, ok := forwardEscape[r]; !ok {
-				invalidChars = append(invalidChars, r)
-			}
-		}
-	}
-	return invalidChars
-}
+// // ValidateGSM7String returns the characters, in the given text, that can not be represented in GSM 7-bit encoding.
+// func ValidateGSM7String(text string) []rune {
+// 	invalidChars := make([]rune, 0, 4)
+// 	for _, r := range text {
+// 		if _, ok := forwardLookup[r]; !ok {
+// 			if _, ok := forwardEscape[r]; !ok {
+// 				invalidChars = append(invalidChars, r)
+// 			}
+// 		}
+// 	}
+// 	return invalidChars
+// }
 
-// ValidateGSM7Buffer returns the bytes, in the given buffer, that are outside of the GSM 7-bit encoding range.
-func ValidateGSM7Buffer(buffer []byte) []byte {
-	invalidBytes := make([]byte, 0, 4)
-	count := 0
-	for count < len(buffer) {
-		b := buffer[count]
-		if b == escapeSequence {
-			count++
-			if count >= len(buffer) {
-				invalidBytes = append(invalidBytes, b)
-				break
-			}
-			e := buffer[count]
-			if _, ok := reverseEscape[e]; !ok {
-				invalidBytes = append(invalidBytes, b, e)
-			}
-		} else if _, ok := reverseLookup[b]; !ok {
-			invalidBytes = append(invalidBytes, b)
-		}
-		count++
-	}
-	return invalidBytes
-}
+// // ValidateGSM7Buffer returns the bytes, in the given buffer, that are outside of the GSM 7-bit encoding range.
+// func ValidateGSM7Buffer(buffer []byte) []byte {
+// 	invalidBytes := make([]byte, 0, 4)
+// 	count := 0
+// 	for count < len(buffer) {
+// 		b := buffer[count]
+// 		if b == escapeSequence {
+// 			count++
+// 			if count >= len(buffer) {
+// 				invalidBytes = append(invalidBytes, b)
+// 				break
+// 			}
+// 			e := buffer[count]
+// 			if _, ok := reverseEscape[e]; !ok {
+// 				invalidBytes = append(invalidBytes, b, e)
+// 			}
+// 		} else if _, ok := reverseLookup[b]; !ok {
+// 			invalidBytes = append(invalidBytes, b)
+// 		}
+// 		count++
+// 	}
+// 	return invalidBytes
+// }
 
 // GSM7 returns a GSM 7-bit Bit Encoding.
 //

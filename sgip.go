@@ -22,12 +22,13 @@ type sgipConn struct {
 	// for SeqId generator goroutine
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
-	stop     func()
-	ctx      context.Context
-	counter  int32
-	logger   *logrus.Entry
-	checkVer bool
-	nodeId   uint32
+	stop       func()
+	ctx        context.Context
+	counter    int32
+	logger     *logrus.Entry
+	checkVer   bool
+	nodeId     uint32
+	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
 }
 
 // New returns an abstract structure for successfully
@@ -150,6 +151,9 @@ func (c *sgipConn) RecvPDU() (codec.PDU, error) {
 		resp := p.GetResponse().(*sgip.ReportResp)
 		resp.Status = 0
 		c.SendPDU(resp)
+		if !c.activePeer {
+			c.activePeer = true
+		}
 	case *sgip.ReportResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
 	case *sgip.BindResp: // 当收到登录回复,内部先校验版本
@@ -196,6 +200,9 @@ func (c *sgipConn) startActiveTest() {
 				// once conn close, the goroutine should exit
 				return
 			case <-t.C:
+				if c.activePeer {
+					return
+				}
 				// send a active test packet to peer, increase the active test counter
 				p := sgip.NewReportReq(c.Typ, c.nodeId).(*sgip.ReportReq)
 				p.ReportType = 0
