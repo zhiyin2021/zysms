@@ -1,56 +1,14 @@
 package cmpp
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/zhiyin2021/zysms/codec"
 )
 
 // Packet length const for cmpp deliver request and response packets.
 const (
-	Cmpp2DeliverReqMaxLen uint32 = 12 + 233   //245d, 0xf5
-	Cmpp2DeliverRspLen    uint32 = 12 + 8 + 1 //21d, 0x15
-
-	Cmpp3DeliverReqMaxLen uint32 = 12 + 257   //269d, 0x10d
-	Cmpp3DeliverRspLen    uint32 = 12 + 8 + 4 //24d, 0x18
-
 	ReportLen byte = 60
-)
-
-// Errors for result in deliver resp.
-
-var (
-	ErrnoDeliverInvalidStruct      uint8 = 1
-	ErrnoDeliverInvalidCommandId   uint8 = 2
-	ErrnoDeliverInvalidSequence    uint8 = 3
-	ErrnoDeliverInvalidMsgLength   uint8 = 4
-	ErrnoDeliverInvalidFeeCode     uint8 = 5
-	ErrnoDeliverExceedMaxMsgLength uint8 = 6
-	ErrnoDeliverInvalidServiceId   uint8 = 7
-	ErrnoDeliverNotPassFlowControl uint8 = 8
-	ErrnoDeliverOtherError         uint8 = 9
-
-	DeliverRspResultErrMap = map[uint8]error{
-		ErrnoDeliverInvalidStruct:      errDeliverInvalidStruct,
-		ErrnoDeliverInvalidCommandId:   errDeliverInvalidCommandId,
-		ErrnoDeliverInvalidSequence:    errDeliverInvalidSequence,
-		ErrnoDeliverInvalidMsgLength:   errDeliverInvalidMsgLength,
-		ErrnoDeliverInvalidFeeCode:     errDeliverInvalidFeeCode,
-		ErrnoDeliverExceedMaxMsgLength: errDeliverExceedMaxMsgLength,
-		ErrnoDeliverInvalidServiceId:   errDeliverInvalidServiceId,
-		ErrnoDeliverNotPassFlowControl: errDeliverNotPassFlowControl,
-		ErrnoDeliverOtherError:         errDeliverOtherError,
-	}
-
-	errDeliverInvalidStruct      = errors.New("deliver response status: invalid protocol structure")
-	errDeliverInvalidCommandId   = errors.New("deliver response status: invalid command id")
-	errDeliverInvalidSequence    = errors.New("deliver response status: invalid message sequence")
-	errDeliverInvalidMsgLength   = errors.New("deliver response status: invalid message length")
-	errDeliverInvalidFeeCode     = errors.New("deliver response status: invalid fee code")
-	errDeliverExceedMaxMsgLength = errors.New("deliver response status: exceed max message length")
-	errDeliverInvalidServiceId   = errors.New("deliver response status: invalid service id")
-	errDeliverNotPassFlowControl = errors.New("deliver response status: not pass the flow control")
-	errDeliverOtherError         = errors.New("deliver response status: other error")
 )
 
 type DeliverReq struct {
@@ -74,14 +32,6 @@ type DeliverResp struct {
 	base
 	MsgId  uint64
 	Result uint32 // cmpp3.0 = 4字节, cmpp2.0 = 1字节
-}
-type DeliverReport struct {
-	MsgId          uint64 // 消息标识 8字节
-	Stat           string // 状态 7字节
-	SubmitTime     string // YYMMDDHHMM 10字节
-	DoneTime       string // YYMMDDHHMM 10字节
-	DestTerminalId string // 接收短信的手机号 21字节
-	SmscSequence   uint32 // 短信中心的Sequence 4字节
 }
 
 func NewDeliverReq(ver codec.Version) codec.PDU {
@@ -110,9 +60,9 @@ func (p *DeliverReq) Marshal(w *codec.BytesWriter) {
 		if p.Version == V30 {
 			bw.WriteByte(p.SrcTerminalType)
 		}
-		bw.WriteByte(p.RegisterDelivery)
 
-		if p.RegisterDelivery == 1 && p.Report != nil {
+		if p.Report != nil {
+			bw.WriteByte(1) // p.RegisterDelivery = 1
 			bw.WriteByte(ReportLen)
 			bw.WriteU64(p.Report.MsgId)
 			bw.WriteStr(p.Report.Stat, 7)
@@ -121,6 +71,7 @@ func (p *DeliverReq) Marshal(w *codec.BytesWriter) {
 			bw.WriteStr(p.Report.DestTerminalId, 21)
 			bw.WriteU32(p.Report.SmscSequence)
 		} else {
+			bw.WriteByte(0) // p.RegisterDelivery = 0
 			p.Message.Marshal(bw)
 		}
 		if p.Version == V30 {
@@ -207,4 +158,18 @@ func (p *DeliverResp) Unmarshal(w *codec.BytesReader) error {
 }
 func (p *DeliverResp) GetResponse() codec.PDU {
 	return nil
+}
+
+type DeliverReport struct {
+	MsgId          uint64 // 消息标识 8字节
+	Stat           string // 状态 7字节
+	SubmitTime     string // YYMMDDHHMM 10字节
+	DoneTime       string // YYMMDDHHMM 10字节
+	DestTerminalId string // 接收短信的手机号 21字节
+	SmscSequence   uint32 // 短信中心的Sequence 4字节
+}
+
+func (r *DeliverReport) String() string {
+	return fmt.Sprintf("id:%d stat:%s submit date:%s done date:%s dest:%s smsc:%d ", r.MsgId, r.Stat, r.SubmitTime, r.DoneTime, r.DestTerminalId, r.SmscSequence)
+
 }
