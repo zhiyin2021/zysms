@@ -145,6 +145,7 @@ type DeliverReport struct {
 	SubmitDate string // 10字节 (YYMMDDhhmm)The time and date at which the short message was submitted. In the case of a message which has been replaced, this is the date that the original message was replaced.The format is as follows:
 	DoneDate   string // 10字节 (YYMMDDhhmm)The time and date at which the short message reached it’s final state. The format is the same as for the submit date.
 	Stat       string // 7 字节 The final status of the message. For settings for this field see Table B-2.
+	Err        string // 3 字节
 	Text       string // 20字节 The first 20 characters of the short message.
 }
 
@@ -157,12 +158,13 @@ func (c *DeliverSM) decodeReport() {
 	c.Report.SubmitDate, msg = splitReport(msg, "submit date:")
 	c.Report.DoneDate, msg = splitReport(msg, "done date:")
 	c.Report.Stat, msg = splitReport(msg, "stat:")
+	c.Report.Err, msg = splitReport(msg, "err:")
 	c.Report.Text, _ = splitReport(msg, "text:")
 }
 func (c *DeliverSM) encodeReport() {
 	if c.Report != nil {
-		msg := fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s text:%s ", c.Report.MsgId, c.Report.Sub, c.Report.Dlvrd, c.Report.SubmitDate, c.Report.DoneDate, c.Report.Stat, c.Report.Text)
-		c.Message.SetMessageWithEncoding(msg, codec.GSM7BIT)
+		//fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s ", c.Report.MsgId, c.Report.Sub, c.Report.Dlvrd, c.Report.SubmitDate, c.Report.DoneDate, c.Report.Stat, c.Report.Text)
+		c.Message.SetMessageWithEncoding(c.Report.String(), codec.GSM7BIT)
 	}
 }
 
@@ -179,6 +181,8 @@ func splitReport(content, sub1 string) (retSub string, retContent string) {
 	return content[n : m+n], content[n+m:]
 }
 func (r *DeliverReport) String() string {
-	return fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s text:%s ", r.MsgId, r.Sub, r.Dlvrd, r.SubmitDate, r.DoneDate, r.Stat, r.Text)
-
+	if r.Err == "" {
+		r.Err = "0"
+	}
+	return fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s ", r.MsgId, r.Sub, r.Dlvrd, r.SubmitDate, r.DoneDate, r.Stat, r.Err, r.Text)
 }

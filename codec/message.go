@@ -127,8 +127,10 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 		}
 	}
 	gsmLen := uint(SM_GSM_MSG_LEN)
+	udhLen := uint(6)
 	if c.enc == ASCII {
 		gsmLen = 160
+		udhLen = 7
 	}
 	// check if encoding implements Splitter
 	splitter, ok := c.enc.(Splitter)
@@ -140,7 +142,7 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	}
 
 	// reserve 6 bytes for concat message UDH
-	segments, err := splitter.EncodeSplit(c.message, gsmLen-6)
+	segments, err := splitter.EncodeSplit(c.message, gsmLen-udhLen)
 	if err != nil {
 		return nil, err
 	}
