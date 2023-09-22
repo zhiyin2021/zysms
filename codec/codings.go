@@ -108,7 +108,11 @@ func (c *gsm7bit) Decode(data []byte) (string, error) {
 func (c *gsm7bit) DataCoding() byte { return GSM7BITCoding }
 
 func (c *gsm7bit) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len(text)) > (octetLimit / 7 * 8)
+	if c.packed {
+		return uint((len(text)*7+7)/8) > octetLimit
+	} else {
+		return uint(len(text)) > octetLimit
+	}
 }
 
 func (c *gsm7bit) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
@@ -347,38 +351,63 @@ func (*gb18030) Decode(data []byte) (string, error) {
 	return decode(data, simplifiedchinese.GB18030.NewDecoder())
 }
 
-func (*gb18030) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len([]rune(text))) > octetLimit
+func (c *gb18030) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
+	tmp, err := c.Encode(text)
+	if err != nil {
+		return false
+	}
+	return uint(len(tmp)) > octetLimit
 }
 
 func (c *gb18030) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
 	if octetLimit < 64 {
 		octetLimit = 134
 	}
-
 	allSeg = [][]byte{}
-	runeSlice := []rune(text)
-	hextetLim := int(octetLimit / 2) // round down
+	tmp, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
 
+	runeSlice := tmp
+	hextetLim := int(octetLimit) // round down
 	// hextet = 16 bits, the correct terms should be hexadectet
-	fr, to := 0, hextetLim
-	for fr < len(runeSlice) {
+	fr, to := 0, 0
+	i := 0
+	count := len(runeSlice)
+	for fr < count {
+		to = 0
+		for to < hextetLim && fr+to < count {
+			if runeSlice[fr+to] > 0x7F {
+				to += 2
+				if to > hextetLim {
+					to -= 2
+					break
+				}
+			} else {
+				to++
+			}
+		}
+		to = fr + to
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
+		// seg, err := c.Encode(string(runeSlice[fr:to]))
+		// if err != nil {
+		// 	return nil, err
+		// }
+		seg := runeSlice[fr:to]
 		allSeg = append(allSeg, seg)
-
-		fr, to = to, to+hextetLim
+		fr = to
+		i++
+		if i > 10 {
+			return
+		}
 	}
-
 	return
 }
 
+// 测试一段长短信内容,http://www.baidu.com,
 func (*gb18030) DataCoding() byte { return GB18030Coding }
 
 var (
