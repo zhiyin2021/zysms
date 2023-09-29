@@ -147,8 +147,8 @@ func (c *ShortMessage) SetMessageDataWithEncoding(d []byte, enc codec.Encoding) 
 }
 
 // GetMessageData returns underlying binary message.
-func (c *ShortMessage) GetMessageData() (d []byte, err error) {
-	return c.messageData, nil
+func (c *ShortMessage) GetMessageData() (d []byte) {
+	return c.messageData
 }
 
 // GetMessage returns underlying message.

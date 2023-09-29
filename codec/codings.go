@@ -17,6 +17,13 @@ var (
 	ErrNotImplDecode = fmt.Errorf("decode is not implemented in this Encoding")
 	// ErrNotImplEncode indicates that encoding does not support Encode method
 	ErrNotImplEncode = fmt.Errorf("encode is not implemented in this Encoding")
+
+	ErrAsciiInvalidCharacter = fmt.Errorf("invalid ascii character")
+
+	// ErrInvalidByte means that a given byte is outside of the GSM 7-bit encoding range.
+	//
+	// This can only happen during decoding.
+	ErrAsciiInvalidByte = fmt.Errorf("invalid ascii byte")
 )
 
 const (
@@ -108,11 +115,7 @@ func (c *gsm7bit) Decode(data []byte) (string, error) {
 func (c *gsm7bit) DataCoding() byte { return GSM7BITCoding }
 
 func (c *gsm7bit) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	if c.packed {
-		return uint((len(text)*7+7)/8) > octetLimit
-	} else {
-		return uint(len(text)) > octetLimit
-	}
+	return float32(len(text))/8*7 > float32(octetLimit)
 }
 
 func (c *gsm7bit) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
@@ -149,10 +152,16 @@ func (c *gsm7bit) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, er
 type ascii struct{}
 
 func (*ascii) Encode(str string) ([]byte, error) {
+	if HasWidthChar(str) {
+		return nil, ErrAsciiInvalidCharacter
+	}
 	return []byte(str), nil
 }
 
 func (*ascii) Decode(data []byte) (string, error) {
+	if HasWidthChar(string(data)) {
+		return "nil", ErrAsciiInvalidByte
+	}
 	return string(data), nil
 }
 

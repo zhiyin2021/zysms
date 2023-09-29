@@ -22,7 +22,7 @@ type (
 		Resp codec.PDU
 	}
 	// handleEvent func(*Conn, codec.Packer) error
-	sms struct {
+	SMS struct {
 		proto        codec.SmsProto
 		OnConnect    func(*Conn)
 		OnDisconnect func(*Conn)
@@ -54,11 +54,11 @@ type (
 	}
 )
 
-func New(proto codec.SmsProto) *sms {
-	return &sms{proto: proto}
+func New(proto codec.SmsProto) *SMS {
+	return &SMS{proto: proto}
 }
 
-func (s *sms) Listen(addr string) (smsListener, error) {
+func (s *SMS) Listen(addr string) (smsListener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (s *sms) Listen(addr string) (smsListener, error) {
 	return l, nil
 }
 
-func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer bool) (*Conn, error) {
+func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer bool) (*Conn, error) {
 	var err error
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
@@ -124,7 +124,7 @@ func (s *sms) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 	return zconn, nil
 }
 
-func (s *sms) run(conn *Conn) {
+func (s *SMS) run(conn *Conn) {
 	if s.OnConnect != nil {
 		s.OnConnect(conn)
 	}

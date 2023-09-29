@@ -171,7 +171,7 @@ func (c *DeliverSM) encodeReport() {
 func splitReport(content, sub1 string) (retSub string, retContent string) {
 	n := strings.Index(content, sub1)
 	if n == -1 {
-		return content, ""
+		return "", content
 	}
 	n += len(sub1)
 	m := strings.Index(content[n:], " ")
@@ -182,7 +182,7 @@ func splitReport(content, sub1 string) (retSub string, retContent string) {
 }
 func (r *DeliverReport) String() string {
 	if r.Err == "" {
-		r.Err = "0"
+		r.Err = "000"
 	}
 	return fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s ", r.MsgId, r.Sub, r.Dlvrd, r.SubmitDate, r.DoneDate, r.Stat, r.Err, r.Text)
 }

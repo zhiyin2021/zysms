@@ -130,9 +130,9 @@ func CreatePDUHeader(header Header, ver codec.Version) (codec.PDU, error) {
 	case SMGP_SUBMIT_RESP:
 		return &SubmitResp{base: base}, nil
 	case SMGP_DELIVER:
-		return &DeliveryReq{base: base}, nil
+		return &DeliverReq{base: base}, nil
 	case SMGP_DELIVER_RESP:
-		return &DeliveryResp{base: base}, nil
+		return &DeliverResp{base: base}, nil
 	case SMGP_ACTIVE_TEST:
 		return &ActiveTestReq{base: base}, nil
 	case SMGP_ACTIVE_TEST_RESP:

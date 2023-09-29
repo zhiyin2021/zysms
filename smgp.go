@@ -102,19 +102,28 @@ func (c *smgpConn) SetState(state enum.State) {
 	c.State = state
 }
 
-// SendPkt pack the smgp packet structure and send it to the other peer.
+// SendPkt pack the smpp packet structure and send it to the other peer.
 func (c *smgpConn) SendPDU(pdu codec.PDU) error {
+	defer func() {
+		if err := recover(); err != nil {
+			logrus.Errorln("smgp.send.panic:", err)
+			c.Close()
+		}
+	}()
 	if c.State == enum.CONN_CLOSED {
+		c.Close()
 		return smserror.ErrConnIsClosed
 	}
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
-
 	buf := codec.NewWriter()
+	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
 	pdu.Marshal(buf)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
+	if err != nil {
+		c.Close()
+	}
 	return err
 }
 
@@ -207,7 +216,11 @@ func (c *smgpConn) startActiveTest() {
 					}
 				} else {
 					fail = 0
-					atomic.AddInt32(&c.counter, 1)
+					n := atomic.AddInt32(&c.counter, 1)
+					if n > 10 {
+						c.Close()
+						return
+					}
 				}
 			}
 		}

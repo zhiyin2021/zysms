@@ -104,22 +104,29 @@ func (c *sgipConn) SetState(state enum.State) {
 	c.State = state
 }
 
-// SendPkt pack the sgip packet structure and send it to the other peer.
+// SendPkt pack the smpp packet structure and send it to the other peer.
 func (c *sgipConn) SendPDU(pdu codec.PDU) error {
+	defer func() {
+		if err := recover(); err != nil {
+			logrus.Errorln("sgip.send.panic:", err)
+			c.Close()
+		}
+	}()
 	if c.State == enum.CONN_CLOSED {
+		c.Close()
 		return smserror.ErrConnIsClosed
 	}
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	c.Logger().Debugf("send pdu:%T , %d", pdu, c.Typ)
-
 	buf := codec.NewWriter()
+	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
 	pdu.Marshal(buf)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
-
+	if err != nil {
+		c.Close()
+	}
 	return err
-
 }
 
 func (c *sgipConn) RemoteAddr() net.Addr {

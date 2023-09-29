@@ -7,7 +7,7 @@ import (
 	"github.com/zhiyin2021/zysms/codec"
 )
 
-type DeliveryReq struct {
+type DeliverReq struct {
 	base
 	MsgId      string // 【10字节】短消息流水号
 	IsReport   byte   // 【1字节】是否为状态报告
@@ -27,7 +27,7 @@ type DeliveryReq struct {
 	// Version Version
 }
 
-type DeliveryResp struct {
+type DeliverResp struct {
 	base
 	MsgId  string // 【10字节】短消息流水号
 	Status Status
@@ -36,19 +36,19 @@ type DeliveryResp struct {
 	// Version Version
 }
 
-func NewDeliveryReq(ver codec.Version) codec.PDU {
-	return &DeliveryReq{
+func NewDeliverReq(ver codec.Version) codec.PDU {
+	return &DeliverReq{
 		base: newBase(ver, SMGP_DELIVER, 0),
 	}
 }
-func NewDeliveryResp(ver codec.Version) codec.PDU {
-	return &DeliveryResp{
+func NewDeliverResp(ver codec.Version) codec.PDU {
+	return &DeliverResp{
 		base: newBase(ver, SMGP_DELIVER_RESP, 0),
 	}
 }
 
 // Pack packs the ActiveTestReq to bytes stream for client side.
-func (p *DeliveryReq) Marshal(w *codec.BytesWriter) {
+func (p *DeliverReq) Marshal(w *codec.BytesWriter) {
 	p.base.marshal(w, func(bw *codec.BytesWriter) {
 		bw.WriteStr(p.MsgId, 10)
 		if p.Report != nil {
@@ -69,7 +69,7 @@ func (p *DeliveryReq) Marshal(w *codec.BytesWriter) {
 // Unpack unpack the binary byte stream to a ActiveTestReq variable.
 // After unpack, you will get all value of fields in
 // ActiveTestReq struct.
-func (p *DeliveryReq) Unmarshal(w *codec.BytesReader) error {
+func (p *DeliverReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.MsgId = br.ReadStr(10)
 		p.IsReport = br.ReadByte()
@@ -87,14 +87,14 @@ func (p *DeliveryReq) Unmarshal(w *codec.BytesReader) error {
 }
 
 // GetResponse implements PDU interface.
-func (b *DeliveryReq) GetResponse() codec.PDU {
-	return &DeliveryResp{
+func (b *DeliverReq) GetResponse() codec.PDU {
+	return &DeliverResp{
 		base: newBase(b.Version, SMGP_DELIVER_RESP, b.SequenceNumber),
 	}
 }
 
 // Pack packs the ActiveTestReq to bytes stream for client side.
-func (p *DeliveryResp) Marshal(w *codec.BytesWriter) {
+func (p *DeliverResp) Marshal(w *codec.BytesWriter) {
 	p.base.marshal(w, func(bw *codec.BytesWriter) {
 		bw.WriteStr(p.MsgId, 10)
 		bw.WriteU32(uint32(p.Status))
@@ -104,7 +104,7 @@ func (p *DeliveryResp) Marshal(w *codec.BytesWriter) {
 // Unpack unpack the binary byte stream to a ActiveTestReq variable.
 // After unpack, you will get all value of fields in
 // ActiveTestReq struct.
-func (p *DeliveryResp) Unmarshal(w *codec.BytesReader) error {
+func (p *DeliverResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.MsgId = br.ReadStr(10)
 		p.Status = Status(br.ReadU32())
@@ -113,7 +113,7 @@ func (p *DeliveryResp) Unmarshal(w *codec.BytesReader) error {
 }
 
 // GetResponse implements PDU interface.
-func (b *DeliveryResp) GetResponse() codec.PDU {
+func (b *DeliverResp) GetResponse() codec.PDU {
 	return nil
 }
 
@@ -128,7 +128,7 @@ type DeliverReport struct {
 	Text       string // 20字节 The first 20 characters of the short message.
 }
 
-func (c *DeliveryReq) decodeReport() {
+func (c *DeliverReq) decodeReport() {
 	c.Report = &DeliverReport{}
 	msg := c.Message.GetMessage()
 	c.Report.MsgId, msg = splitReport(msg, "id:")
@@ -140,7 +140,7 @@ func (c *DeliveryReq) decodeReport() {
 	c.Report.Err, msg = splitReport(msg, "err:")
 	c.Report.Text, _ = splitReport(msg, "text:")
 }
-func (c *DeliveryReq) encodeReport() {
+func (c *DeliverReq) encodeReport() {
 	if c.Report != nil {
 		//fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s ", c.Report.MsgId, c.Report.Sub, c.Report.Dlvrd, c.Report.SubmitDate, c.Report.DoneDate, c.Report.Stat, c.Report.Text)
 		c.Message.SetMessage(c.Report.String(), codec.ASCII)
