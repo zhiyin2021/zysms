@@ -28,6 +28,7 @@ type smppConn struct {
 	logger     *logrus.Entry
 	checkVer   bool
 	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
+	activeLast time.Time
 }
 
 // New returns an abstract structure for successfully
@@ -139,6 +140,7 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 		}
 	case *smpp.EnquireLinkResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
+		c.activeLast = time.Now()
 	case *smpp.BindResp: // 当收到登录回复,内部先校验版本
 		if p.CommandStatus != smpp.ESME_ROK {
 			return nil, smserror.NewSmsErr(int(p.CommandStatus), "smpp.login.error")
@@ -174,7 +176,7 @@ func (l *smppListener) accept() (*Conn, error) {
 func (c *smppConn) startActiveTest() {
 	go func() {
 		fail := 0
-		t := time.NewTicker(30 * time.Second)
+		t := time.NewTicker(5 * time.Second)
 		defer t.Stop()
 		for {
 			select {
@@ -183,6 +185,9 @@ func (c *smppConn) startActiveTest() {
 				return
 			case <-t.C:
 				if c.activePeer {
+					if time.Since(c.activeLast) > 15*time.Second {
+						c.Close()
+					}
 					return
 				}
 				// send a active test packet to peer, increase the active test counter
@@ -197,7 +202,7 @@ func (c *smppConn) startActiveTest() {
 				} else {
 					fail = 0
 					n := atomic.AddInt32(&c.counter, 1)
-					if n > 10 {
+					if n > 3 {
 						c.Close()
 						return
 					}

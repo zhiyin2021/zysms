@@ -28,6 +28,7 @@ type cmppConn struct {
 	logger     *logrus.Entry
 	checkVer   bool
 	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
+	activeLast time.Time
 }
 
 // New returns an abstract structure for successfully
@@ -159,6 +160,7 @@ func (c *cmppConn) RecvPDU() (codec.PDU, error) {
 		}
 	case *cmpp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
+		c.activeLast = time.Now()
 	case *cmpp.ConnResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("cmpp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
@@ -194,7 +196,7 @@ func (l *cmppListener) accept() (*Conn, error) {
 func (c *cmppConn) startActiveTest() {
 	go func() {
 		fail := 0
-		t := time.NewTicker(30 * time.Second)
+		t := time.NewTicker(5 * time.Second)
 		defer t.Stop()
 		for {
 			select {
@@ -203,6 +205,9 @@ func (c *cmppConn) startActiveTest() {
 				return
 			case <-t.C:
 				if c.activePeer {
+					if time.Since(c.activeLast) > 15*time.Second {
+						c.Close()
+					}
 					// if peer send active test packet, we should not send active test packet to peer
 					return
 				}
@@ -217,7 +222,11 @@ func (c *cmppConn) startActiveTest() {
 					}
 				} else {
 					fail = 0
-					atomic.AddInt32(&c.counter, 1)
+					n := atomic.AddInt32(&c.counter, 1)
+					if n > 3 {
+						c.Close()
+						return
+					}
 				}
 			}
 		}
