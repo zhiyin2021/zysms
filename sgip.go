@@ -1,9 +1,9 @@
 package zysms
 
 import (
-	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -17,31 +17,33 @@ import (
 
 type sgipConn struct {
 	net.Conn
-	State enum.State
-	Typ   codec.Version
-	// for SeqId generator goroutine
-	// SeqId  <-chan uint32
-	// done   chan<- struct{}
-	stop       func()
-	ctx        context.Context
+	State      enum.State
+	Typ        codec.Version
 	counter    int32
 	logger     *logrus.Entry
 	checkVer   bool
 	nodeId     uint32
-	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
+	activeFail int32
+	extParam   map[string]string
+	// activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
 }
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newSgipConn(conn net.Conn, typ codec.Version, checkVer bool, nodeId uint32) *Conn {
+func newSgipConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
 	c := &sgipConn{
 		Conn:     conn,
 		Typ:      typ,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
 		checkVer: checkVer,
-		nodeId:   nodeId,
+		extParam: extParam,
 	}
-	c.ctx, c.stop = context.WithCancel(context.Background())
+	if extParam != nil && extParam["node_id"] != "" {
+		n, err := strconv.Atoi(extParam["node_id"])
+		if err == nil {
+			c.nodeId = uint32(n)
+		}
+	}
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
@@ -86,7 +88,6 @@ func (c *sgipConn) Auth(uid string, pwd string) error {
 		return smserror.NewSmsErr(int(status), "sgip.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
-	c.startActiveTest()
 	return nil
 }
 func (c *sgipConn) Close() {
@@ -96,7 +97,6 @@ func (c *sgipConn) Close() {
 		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
-		c.stop()
 	}
 }
 
@@ -158,9 +158,6 @@ func (c *sgipConn) RecvPDU() (codec.PDU, error) {
 		resp := p.GetResponse().(*sgip.ReportResp)
 		resp.Status = 0
 		c.SendPDU(resp)
-		if !c.activePeer {
-			c.activePeer = true
-		}
 	case *sgip.ReportResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
 	case *sgip.BindResp: // 当收到登录回复,内部先校验版本
@@ -176,13 +173,28 @@ func (c *sgipConn) RecvPDU() (codec.PDU, error) {
 
 }
 
-type sgipListener struct {
-	net.Listener
-	nodeId uint32
+func (c *sgipConn) sendActiveTest() (int32, error) {
+	p := sgip.NewReportReq(c.Typ, c.nodeId).(*sgip.ReportReq)
+	err := c.SendPDU(p)
+	if err != nil {
+		c.activeFail++
+		if c.activeFail > 2 {
+			return c.activeFail, err
+		}
+	} else {
+		c.activeFail = 0
+	}
+	n := atomic.AddInt32(&c.counter, 1)
+	return n, nil
 }
 
-func newSgipListener(l net.Listener, nodeId uint32) *sgipListener {
-	return &sgipListener{l, nodeId}
+type sgipListener struct {
+	net.Listener
+	extParam map[string]string
+}
+
+func newSgipListener(l net.Listener, extParam map[string]string) *sgipListener {
+	return &sgipListener{l, extParam}
 }
 
 func (l *sgipListener) accept() (*Conn, error) {
@@ -190,46 +202,9 @@ func (l *sgipListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newSgipConn(c, sgip.V12, false, l.nodeId)
+	conn := newSgipConn(c, sgip.V12, false, l.extParam)
 	conn.SetState(enum.CONN_CONNECTED)
-	conn.smsConn.(*sgipConn).startActiveTest()
 	return conn, nil
-}
-
-func (c *sgipConn) startActiveTest() {
-	go func() {
-		fail := 0
-		t := time.NewTicker(30 * time.Second)
-		defer t.Stop()
-		for {
-			select {
-			case <-c.ctx.Done():
-				// once conn close, the goroutine should exit
-				return
-			case <-t.C:
-				if c.activePeer {
-					return
-				}
-				// send a active test packet to peer, increase the active test counter
-				p := sgip.NewReportReq(c.Typ, c.nodeId).(*sgip.ReportReq)
-				p.ReportType = 0
-				p.UserNumber = ""
-				p.State = 0
-				p.ErrorCode = 0
-				err := c.SendPDU(p)
-				if err != nil {
-					fail++
-					c.logger.Errorf("smgp.active send error: %v", err)
-					if fail > 3 {
-						return
-					}
-				} else {
-					fail = 0
-					atomic.AddInt32(&c.counter, 1)
-				}
-			}
-		}
-	}()
 }
 
 func (l *sgipListener) Close() error {

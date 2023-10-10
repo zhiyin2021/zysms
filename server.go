@@ -1,6 +1,7 @@
 package zysms
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -28,13 +29,25 @@ type (
 		OnDisconnect func(*Conn)
 		OnError      func(*Conn, error)
 		OnRecv       func(*Packet) error
-		NodeId       uint32 // sgip 序列号使用
+		// NodeId       uint32 // sgip 序列号使用
+
+		option smsOption
 	}
+
+	smsOption struct {
+		activeInterval  time.Duration
+		activeFailCount int32
+		extParam        map[string]string
+	}
+	Opt func(*smsOption)
+
 	Conn struct {
 		smsConn
 		Data any
 		// Logger *logrus.Entry
 		UUID string
+		ctx  context.Context
+		stop func()
 	}
 	smsListener interface {
 		accept() (*Conn, error)
@@ -51,11 +64,16 @@ type (
 		SetState(enum.State)
 		Logger() *logrus.Entry
 		Ver() codec.Version
+		sendActiveTest() (int32, error)
 	}
 )
 
-func New(proto codec.SmsProto) *SMS {
-	return &SMS{proto: proto}
+func New(proto codec.SmsProto, opts ...Opt) *SMS {
+	smsOpt := smsOption{activeInterval: 5 * time.Second, activeFailCount: 3, extParam: map[string]string{}}
+	for _, opt := range opts {
+		opt(&smsOpt)
+	}
+	return &SMS{proto: proto, option: smsOpt}
 }
 
 func (s *SMS) Listen(addr string) (smsListener, error) {
@@ -66,13 +84,13 @@ func (s *SMS) Listen(addr string) (smsListener, error) {
 	var l smsListener
 	switch s.proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
-		l = newCmppListener(ln)
+		l = newCmppListener(ln, s.option.extParam)
 	case codec.SMPP33, codec.SMPP34:
-		l = newSmppListener(ln)
+		l = newSmppListener(ln, s.option.extParam)
 	case codec.SMGP13, codec.SMGP20, codec.SMGP30:
-		l = newSmgpListener(ln)
+		l = newSmgpListener(ln, s.option.extParam)
 	case codec.SGIP:
-		l = newSgipListener(ln, s.NodeId)
+		l = newSgipListener(ln, s.option.extParam)
 	}
 	go func() {
 		for {
@@ -99,27 +117,29 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 	var zconn *Conn
 	switch s.proto {
 	case codec.CMPP20:
-		zconn = newCmppConn(conn, cmpp.V20, checkVer)
+		zconn = newCmppConn(conn, cmpp.V20, checkVer, s.option.extParam)
 	case codec.CMPP21:
-		zconn = newCmppConn(conn, cmpp.V21, checkVer)
+		zconn = newCmppConn(conn, cmpp.V21, checkVer, s.option.extParam)
 	case codec.CMPP30:
-		zconn = newCmppConn(conn, cmpp.V30, checkVer)
+		zconn = newCmppConn(conn, cmpp.V30, checkVer, s.option.extParam)
 	case codec.SMPP33:
-		zconn = newSmppConn(conn, smpp.V33, checkVer)
+		zconn = newSmppConn(conn, smpp.V33, checkVer, s.option.extParam)
 	case codec.SMPP34:
-		zconn = newSmppConn(conn, smpp.V34, checkVer)
+		zconn = newSmppConn(conn, smpp.V34, checkVer, s.option.extParam)
 	case codec.SMGP30:
-		zconn = newSmgpConn(conn, smgp.V30, checkVer)
+		zconn = newSmgpConn(conn, smgp.V30, checkVer, s.option.extParam)
 	case codec.SGIP:
-		zconn = newSgipConn(conn, sgip.V12, checkVer, s.NodeId)
+		zconn = newSgipConn(conn, sgip.V12, checkVer, s.option.extParam)
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
+	zconn.ctx, zconn.stop = context.WithCancel(context.Background())
 	zconn.SetState(enum.CONN_CONNECTED)
 	err = zconn.Auth(uid, pwd)
 	if err != nil {
 		return nil, err
 	}
+	zconn.startActiveTest(s.option)
 	go s.run(zconn)
 	return zconn, nil
 }
@@ -134,7 +154,7 @@ func (s *SMS) run(conn *Conn) {
 		}
 		conn.Close()
 	}()
-
+	conn.startActiveTest(s.option)
 	for {
 		pkt, err := conn.RecvPDU()
 		if err != nil {
@@ -159,5 +179,46 @@ func (s *SMS) run(conn *Conn) {
 				return
 			}
 		}
+	}
+}
+
+func (c *Conn) startActiveTest(opt smsOption) {
+	go func() {
+		t := time.NewTicker(opt.activeInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-c.ctx.Done():
+				// once conn close, the goroutine should exit
+				return
+			case <-t.C:
+				n, err := c.sendActiveTest()
+				if err != nil {
+					c.Logger().Errorln(err)
+					return
+				}
+				if n > opt.activeFailCount {
+					c.Logger().Errorf("超过3次心跳未收到响应,关闭连接")
+					c.Close()
+					return
+				}
+			}
+		}
+	}()
+}
+
+func WithActiveInterval(interval time.Duration) Opt {
+	return func(opt *smsOption) {
+		opt.activeInterval = interval
+	}
+}
+func WithActiveFailCount(count int32) Opt {
+	return func(opt *smsOption) {
+		opt.activeFailCount = count
+	}
+}
+func WithExtParam(extParam map[string]string) Opt {
+	return func(opt *smsOption) {
+		opt.extParam = extParam
 	}
 }

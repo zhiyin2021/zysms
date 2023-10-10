@@ -1,7 +1,6 @@
 package zysms
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -17,34 +16,30 @@ import (
 
 type smgpConn struct {
 	net.Conn
-	State enum.State
-	Typ   codec.Version
-	// for SeqId generator goroutine
-	// SeqId  <-chan uint32
-	// done   chan<- struct{}
-	stop       func()
-	ctx        context.Context
+	State      enum.State
+	Typ        codec.Version
 	counter    int32
 	logger     *logrus.Entry
 	checkVer   bool
-	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
-	activeLast time.Time
+	activeFail int32
+	extParam   map[string]string
+	// activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
+	// activeLast time.Time
 }
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newSmgpConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
+func newSmgpConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
 	c := &smgpConn{
 		Conn:     conn,
 		Typ:      typ,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
 		checkVer: checkVer,
+		extParam: extParam,
 	}
-	c.ctx, c.stop = context.WithCancel(context.Background())
-
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
+	tc.SetKeepAlivePeriod(10 * time.Second) // 1min
 	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
 func (c *smgpConn) Ver() codec.Version {
@@ -85,7 +80,6 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
-	c.startActiveTest()
 	return nil
 }
 func (c *smgpConn) Close() {
@@ -95,7 +89,6 @@ func (c *smgpConn) Close() {
 		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
-		c.stop()
 	}
 }
 
@@ -155,12 +148,12 @@ func (c *smgpConn) RecvPDU() (codec.PDU, error) {
 	case *smgp.ActiveTestReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 		resp := p.GetResponse()
 		c.SendPDU(resp)
-		if !c.activePeer {
-			c.activePeer = true
-		}
+		// if !c.activePeer {
+		// 	c.activePeer = true
+		// }
 	case *smgp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
-		c.activeLast = time.Now()
+		// c.activeLast = time.Now()
 	case *smgp.LoginResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("smgp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
@@ -174,12 +167,28 @@ func (c *smgpConn) RecvPDU() (codec.PDU, error) {
 
 }
 
-type smgpListener struct {
-	net.Listener
+func (c *smgpConn) sendActiveTest() (int32, error) {
+	p := smgp.NewActiveTestReq(c.Typ)
+	err := c.SendPDU(p)
+	if err != nil {
+		c.activeFail++
+		if c.activeFail > 2 {
+			return c.activeFail, err
+		}
+	} else {
+		c.activeFail = 0
+	}
+	n := atomic.AddInt32(&c.counter, 1)
+	return n, nil
 }
 
-func newSmgpListener(l net.Listener) *smgpListener {
-	return &smgpListener{l}
+type smgpListener struct {
+	net.Listener
+	extParam map[string]string
+}
+
+func newSmgpListener(l net.Listener, extParam map[string]string) *smgpListener {
+	return &smgpListener{l, extParam}
 }
 
 func (l *smgpListener) accept() (*Conn, error) {
@@ -187,50 +196,11 @@ func (l *smgpListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newSmgpConn(c, smgp.V30, false)
+	conn := newSmgpConn(c, smgp.V30, false, l.extParam)
 	conn.SetState(enum.CONN_CONNECTED)
-	conn.smsConn.(*smgpConn).startActiveTest()
 	return conn, nil
 }
 
-func (c *smgpConn) startActiveTest() {
-	go func() {
-		fail := 0
-		t := time.NewTicker(5 * time.Second)
-		defer t.Stop()
-		for {
-			select {
-			case <-c.ctx.Done():
-				// once conn close, the goroutine should exit
-				return
-			case <-t.C:
-				if c.activePeer {
-					if time.Since(c.activeLast) > 15*time.Second {
-						c.Close()
-					}
-					return
-				}
-				// send a active test packet to peer, increase the active test counter
-				p := smgp.NewActiveTestReq(c.Typ)
-				err := c.SendPDU(p)
-				if err != nil {
-					fail++
-					c.logger.Errorf("smgp.active send error: %v", err)
-					if fail > 3 {
-						return
-					}
-				} else {
-					fail = 0
-					n := atomic.AddInt32(&c.counter, 1)
-					if n > 3 {
-						c.Close()
-						return
-					}
-				}
-			}
-		}
-	}()
-}
 func (l *smgpListener) Close() error {
 	return l.Listener.Close()
 }

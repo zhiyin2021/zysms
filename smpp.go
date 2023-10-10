@@ -1,7 +1,6 @@
 package zysms
 
 import (
-	"context"
 	"net"
 	"sync/atomic"
 	"time"
@@ -22,30 +21,30 @@ type smppConn struct {
 	// SeqId  <-chan uint32
 	// done   chan<- struct{}
 	_seqId     uint32
-	stop       func()
-	ctx        context.Context
 	counter    int32
 	logger     *logrus.Entry
 	checkVer   bool
-	activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
-	activeLast time.Time
+	OnError    func(*Conn, error)
+	activeFail int32
+	extParam   map[string]string
+	// activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
+	// activeLast time.Time
 }
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newSmppConn(conn net.Conn, typ codec.Version, checkVer bool) *Conn {
+func newSmppConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
 	c := &smppConn{
 		Conn:     conn,
 		Typ:      typ,
 		_seqId:   0,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
 		checkVer: checkVer,
+		extParam: extParam,
 	}
-	c.ctx, c.stop = context.WithCancel(context.Background())
-
 	tc := c.Conn.(*net.TCPConn)
 	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
+	tc.SetKeepAlivePeriod(10 * time.Second) // 1min
 	return &Conn{smsConn: c, UUID: uuid.New().String()}
 }
 func (c *smppConn) Ver() codec.Version {
@@ -57,6 +56,9 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	req.SystemID = uid
 	req.Password = pwd
 	req.InterfaceVersion = c.Typ
+	if c.extParam != nil && c.extParam["system_type"] != "" {
+		req.SystemType = c.extParam["system_type"]
+	}
 	err := c.SendPDU(req)
 	if err != nil {
 		return err
@@ -71,7 +73,6 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 			return smserror.NewSmsErr(int(status), "smpp.login.error") //fmt.Errorf("login error: %v", status)
 		}
 		c.SetState(enum.CONN_AUTHOK)
-		c.startActiveTest()
 	}
 	return nil
 }
@@ -82,7 +83,6 @@ func (c *smppConn) Close() {
 		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
-		c.stop()
 	}
 }
 
@@ -135,12 +135,12 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 	case *smpp.EnquireLink: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
 		resp := p.GetResponse()
 		c.SendPDU(resp)
-		if !c.activePeer {
-			c.activePeer = true
-		}
+		// if !c.activePeer {
+		// 	c.activePeer = true
+		// }
 	case *smpp.EnquireLinkResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
-		c.activeLast = time.Now()
+		// c.activeLast = time.Now()
 	case *smpp.BindResp: // 当收到登录回复,内部先校验版本
 		if p.CommandStatus != smpp.ESME_ROK {
 			return nil, smserror.NewSmsErr(int(p.CommandStatus), "smpp.login.error")
@@ -153,12 +153,28 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 	return pdu, nil
 }
 
-type smppListener struct {
-	net.Listener
+func (c *smppConn) sendActiveTest() (int32, error) {
+	p := smpp.NewEnquireLink()
+	err := c.SendPDU(p)
+	if err != nil {
+		c.activeFail++
+		if c.activeFail > 2 {
+			return c.activeFail, err
+		}
+	} else {
+		c.activeFail = 0
+	}
+	n := atomic.AddInt32(&c.counter, 1)
+	return n, nil
 }
 
-func newSmppListener(l net.Listener) *smppListener {
-	return &smppListener{l}
+type smppListener struct {
+	net.Listener
+	extParam map[string]string
+}
+
+func newSmppListener(l net.Listener, extParam map[string]string) *smppListener {
+	return &smppListener{l, extParam}
 }
 
 func (l *smppListener) accept() (*Conn, error) {
@@ -166,50 +182,9 @@ func (l *smppListener) accept() (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn := newSmppConn(c, codec.Version(smpp.V34), false)
+	conn := newSmppConn(c, codec.Version(smpp.V34), false, l.extParam)
 	conn.SetState(enum.CONN_CONNECTED)
-	conn.smsConn.(*smppConn).startActiveTest()
-
 	return conn, nil
-}
-
-func (c *smppConn) startActiveTest() {
-	go func() {
-		fail := 0
-		t := time.NewTicker(5 * time.Second)
-		defer t.Stop()
-		for {
-			select {
-			case <-c.ctx.Done():
-				// once conn close, the goroutine should exit
-				return
-			case <-t.C:
-				if c.activePeer {
-					if time.Since(c.activeLast) > 15*time.Second {
-						c.Close()
-					}
-					return
-				}
-				// send a active test packet to peer, increase the active test counter
-				p := smpp.NewEnquireLink()
-				err := c.SendPDU(p)
-				if err != nil {
-					fail++
-					c.logger.Errorf("smpp.active send error: %v", err)
-					if fail > 3 {
-						return
-					}
-				} else {
-					fail = 0
-					n := atomic.AddInt32(&c.counter, 1)
-					if n > 3 {
-						c.Close()
-						return
-					}
-				}
-			}
-		}
-	}()
 }
 
 func (l *smppListener) Close() error {
