@@ -3,6 +3,7 @@ package zysms
 import (
 	"context"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -30,16 +31,17 @@ type (
 		OnError      func(*Conn, error)
 		OnRecv       func(*Packet) error
 		// NodeId       uint32 // sgip 序列号使用
-
-		option smsOption
+		activeCount    int32
+		activeInterval int32
+		extParam       map[string]string
 	}
 
-	smsOption struct {
-		activeInterval  time.Duration
-		activeFailCount int32
-		extParam        map[string]string
-	}
-	Opt func(*smsOption)
+	// smsOption struct {
+	// 	activeInterval  time.Duration
+	// 	activeFailCount int32
+	// 	extParam        map[string]string
+	// }
+	// Opt func(*smsOption)
 
 	Conn struct {
 		smsConn
@@ -68,12 +70,28 @@ type (
 	}
 )
 
-func New(proto codec.SmsProto, opts ...Opt) *SMS {
-	smsOpt := smsOption{activeInterval: 5 * time.Second, activeFailCount: 3, extParam: map[string]string{}}
-	for _, opt := range opts {
-		opt(&smsOpt)
+func New(proto codec.SmsProto, extParam map[string]string) *SMS {
+	// smsOpt := smsOption{activeInterval: 5 * time.Second, activeFailCount: 3, extParam: map[string]string{}}
+	// for _, opt := range opts {
+	// 	opt(&smsOpt)
+	// }
+	activeCount := 3
+	activeInterval := 5
+	if extParam != nil {
+		if extParam["active_count"] != "" {
+			n, err := strconv.Atoi(extParam["active_count"])
+			if err == nil {
+				activeCount = n
+			}
+		}
+		if extParam["active_interval"] != "" {
+			n, err := strconv.Atoi(extParam["active_interval"])
+			if err == nil {
+				activeInterval = n
+			}
+		}
 	}
-	return &SMS{proto: proto, option: smsOpt}
+	return &SMS{proto: proto, extParam: extParam, activeCount: int32(activeCount), activeInterval: int32(activeInterval)}
 }
 
 func (s *SMS) Listen(addr string) (smsListener, error) {
@@ -84,13 +102,13 @@ func (s *SMS) Listen(addr string) (smsListener, error) {
 	var l smsListener
 	switch s.proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
-		l = newCmppListener(ln, s.option.extParam)
+		l = newCmppListener(ln, s.extParam)
 	case codec.SMPP33, codec.SMPP34:
-		l = newSmppListener(ln, s.option.extParam)
+		l = newSmppListener(ln, s.extParam)
 	case codec.SMGP13, codec.SMGP20, codec.SMGP30:
-		l = newSmgpListener(ln, s.option.extParam)
+		l = newSmgpListener(ln, s.extParam)
 	case codec.SGIP:
-		l = newSgipListener(ln, s.option.extParam)
+		l = newSgipListener(ln, s.extParam)
 	}
 	go func() {
 		for {
@@ -117,19 +135,19 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 	var zconn *Conn
 	switch s.proto {
 	case codec.CMPP20:
-		zconn = newCmppConn(conn, cmpp.V20, checkVer, s.option.extParam)
+		zconn = newCmppConn(conn, cmpp.V20, checkVer, s.extParam)
 	case codec.CMPP21:
-		zconn = newCmppConn(conn, cmpp.V21, checkVer, s.option.extParam)
+		zconn = newCmppConn(conn, cmpp.V21, checkVer, s.extParam)
 	case codec.CMPP30:
-		zconn = newCmppConn(conn, cmpp.V30, checkVer, s.option.extParam)
+		zconn = newCmppConn(conn, cmpp.V30, checkVer, s.extParam)
 	case codec.SMPP33:
-		zconn = newSmppConn(conn, smpp.V33, checkVer, s.option.extParam)
+		zconn = newSmppConn(conn, smpp.V33, checkVer, s.extParam)
 	case codec.SMPP34:
-		zconn = newSmppConn(conn, smpp.V34, checkVer, s.option.extParam)
+		zconn = newSmppConn(conn, smpp.V34, checkVer, s.extParam)
 	case codec.SMGP30:
-		zconn = newSmgpConn(conn, smgp.V30, checkVer, s.option.extParam)
+		zconn = newSmgpConn(conn, smgp.V30, checkVer, s.extParam)
 	case codec.SGIP:
-		zconn = newSgipConn(conn, sgip.V12, checkVer, s.option.extParam)
+		zconn = newSgipConn(conn, sgip.V12, checkVer, s.extParam)
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
@@ -139,7 +157,7 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, checkVer
 	if err != nil {
 		return nil, err
 	}
-	zconn.startActiveTest(s.option)
+	zconn.startActiveTest(s.activeInterval, s.activeCount)
 	go s.run(zconn)
 	return zconn, nil
 }
@@ -154,7 +172,7 @@ func (s *SMS) run(conn *Conn) {
 		}
 		conn.Close()
 	}()
-	conn.startActiveTest(s.option)
+	conn.startActiveTest(s.activeInterval, s.activeCount)
 	for {
 		pkt, err := conn.RecvPDU()
 		if err != nil {
@@ -182,9 +200,10 @@ func (s *SMS) run(conn *Conn) {
 	}
 }
 
-func (c *Conn) startActiveTest(opt smsOption) {
+func (c *Conn) startActiveTest(activeInterval, activeCount int32) {
+
 	go func() {
-		t := time.NewTicker(opt.activeInterval)
+		t := time.NewTicker(time.Duration(activeInterval) * time.Second)
 		defer t.Stop()
 		for {
 			select {
@@ -197,7 +216,7 @@ func (c *Conn) startActiveTest(opt smsOption) {
 					c.Logger().Errorln(err)
 					return
 				}
-				if n > opt.activeFailCount {
+				if n > activeCount {
 					c.Logger().Errorf("超过3次心跳未收到响应,关闭连接")
 					c.Close()
 					return
@@ -207,18 +226,18 @@ func (c *Conn) startActiveTest(opt smsOption) {
 	}()
 }
 
-func WithActiveInterval(interval time.Duration) Opt {
-	return func(opt *smsOption) {
-		opt.activeInterval = interval
-	}
-}
-func WithActiveFailCount(count int32) Opt {
-	return func(opt *smsOption) {
-		opt.activeFailCount = count
-	}
-}
-func WithExtParam(extParam map[string]string) Opt {
-	return func(opt *smsOption) {
-		opt.extParam = extParam
-	}
-}
+// func WithActiveInterval(interval time.Duration) Opt {
+// 	return func(opt *smsOption) {
+// 		opt.activeInterval = interval
+// 	}
+// }
+// func WithActiveFailCount(count int32) Opt {
+// 	return func(opt *smsOption) {
+// 		opt.activeFailCount = count
+// 	}
+// }
+// func WithExtParam(extParam map[string]string) Opt {
+// 	return func(opt *smsOption) {
+// 		opt.extParam = extParam
+// 	}
+// }

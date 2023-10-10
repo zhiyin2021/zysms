@@ -20,7 +20,7 @@ const (
 
 func startAClient(idx int) {
 	// defer wg.Done()
-	sms := zysms.New(codec.CMPP30)
+	sms := zysms.New(codec.CMPP30, nil)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}

@@ -22,7 +22,7 @@ const (
 )
 
 func main() {
-	sms := zysms.New(codec.CMPP30)
+	sms := zysms.New(codec.CMPP30, nil)
 	sms.OnConnect = func(c *zysms.Conn) {
 		c.Logger().Println("server: connect")
 	}
