@@ -6,12 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smgp"
 	"github.com/zhiyin2021/zysms/smserror"
+	"github.com/zhiyin2021/zysms/utils"
 )
 
 type smgpConn struct {
@@ -29,18 +29,15 @@ type smgpConn struct {
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newSmgpConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
+func newSmgpConn(conn net.Conn, typ codec.Version) smsConn {
 	c := &smgpConn{
 		Conn:     conn,
 		Typ:      typ,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		checkVer: checkVer,
-		extParam: extParam,
+		extParam: map[string]string{},
+		checkVer: false,
 	}
-	tc := c.Conn.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(10 * time.Second) // 1min
-	return &Conn{smsConn: c, UUID: uuid.New().String()}
+	return c
 }
 func (c *smgpConn) Ver() codec.Version {
 	return c.Typ
@@ -82,7 +79,7 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
 }
-func (c *smgpConn) Close() {
+func (c *smgpConn) close() {
 	if c != nil {
 		if c.State == enum.CONN_CLOSED {
 			return
@@ -94,6 +91,12 @@ func (c *smgpConn) Close() {
 
 func (c *smgpConn) SetState(state enum.State) {
 	c.State = state
+}
+func (c *smgpConn) setExtParam(ext map[string]string) {
+	if ext != nil {
+		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
+		c.extParam = ext
+	}
 }
 
 // SendPkt pack the smpp packet structure and send it to the other peer.
@@ -191,12 +194,16 @@ func newSmgpListener(l net.Listener, extParam map[string]string) *smgpListener {
 	return &smgpListener{l, extParam}
 }
 
-func (l *smgpListener) accept() (*Conn, error) {
+func (l *smgpListener) accept() (smsConn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	conn := newSmgpConn(c, smgp.V30, false, l.extParam)
+	tc := c.(*net.TCPConn)
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
+
+	conn := newSmgpConn(c, smgp.V30)
 	conn.SetState(enum.CONN_CONNECTED)
 	return conn, nil
 }

@@ -22,7 +22,7 @@ const (
 )
 
 func main() {
-	sms := zysms.New(codec.CMPP30, nil)
+	sms := zysms.New(codec.CMPP30)
 	sms.OnConnect = func(c *zysms.Conn) {
 		c.Logger().Println("server: connect")
 	}
@@ -81,6 +81,7 @@ func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
 		[]byte(passwordS)},
 		nil))
 	resp.AuthIsmg = string(authIsmg[:])
+	p.Conn.SetExtParam(map[string]string{"node_id": "123456"})
 	return resp, nil
 }
 

@@ -1,29 +1,23 @@
 package zysms
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smserror"
+	"github.com/zhiyin2021/zysms/utils"
 )
 
 type cmppConn struct {
 	net.Conn
-	State enum.State
-	Typ   codec.Version
-	// for SeqId generator goroutine
-	// SeqId  <-chan uint32
-	// done   chan<- struct{}
-	stop       func()
-	ctx        context.Context
+	State      enum.State
+	Typ        codec.Version
 	counter    int32
 	logger     *logrus.Entry
 	checkVer   bool
@@ -35,21 +29,15 @@ type cmppConn struct {
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newCmppConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
+func newCmppConn(conn net.Conn, typ codec.Version) smsConn {
 	c := &cmppConn{
 		Conn:     conn,
 		Typ:      typ,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		checkVer: checkVer,
-		extParam: extParam,
+		extParam: map[string]string{},
+		checkVer: false,
 	}
-	c.ctx, c.stop = context.WithCancel(context.Background())
-
-	tc := c.Conn.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(10 * time.Second) // 1min
-
-	return &Conn{smsConn: c, UUID: uuid.New().String()}
+	return c
 }
 func (c *cmppConn) Ver() codec.Version {
 	return c.Typ
@@ -86,19 +74,25 @@ func (c *cmppConn) Auth(uid string, pwd string) error {
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
 }
-func (c *cmppConn) Close() {
+func (c *cmppConn) close() {
 	if c != nil {
 		if c.State == enum.CONN_CLOSED {
 			return
 		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
-		c.stop()
 	}
 }
 
 func (c *cmppConn) SetState(state enum.State) {
 	c.State = state
+}
+
+func (c *cmppConn) setExtParam(ext map[string]string) {
+	if ext != nil {
+		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
+		c.extParam = ext
+	}
 }
 
 // SendPkt pack the smpp packet structure and send it to the other peer.
@@ -195,12 +189,16 @@ func newCmppListener(l net.Listener, extParam map[string]string) *cmppListener {
 	return &cmppListener{l, extParam}
 }
 
-func (l *cmppListener) accept() (*Conn, error) {
+func (l *cmppListener) accept() (smsConn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	conn := newCmppConn(c, cmpp.V30, false, l.extParam)
+	tc := c.(*net.TCPConn)
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
+
+	conn := newCmppConn(c, cmpp.V30)
 	conn.SetState(enum.CONN_CONNECTED)
 	return conn, nil
 }

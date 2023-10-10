@@ -3,16 +3,15 @@ package zysms
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/sgip"
 	"github.com/zhiyin2021/zysms/smserror"
+	"github.com/zhiyin2021/zysms/utils"
 )
 
 type sgipConn struct {
@@ -30,24 +29,15 @@ type sgipConn struct {
 
 // New returns an abstract structure for successfully
 // established underlying net.Conn.
-func newSgipConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
+func newSgipConn(conn net.Conn, typ codec.Version) smsConn {
 	c := &sgipConn{
 		Conn:     conn,
 		Typ:      typ,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		checkVer: checkVer,
-		extParam: extParam,
+		extParam: map[string]string{},
+		checkVer: false,
 	}
-	if extParam != nil && extParam["node_id"] != "" {
-		n, err := strconv.Atoi(extParam["node_id"])
-		if err == nil {
-			c.nodeId = uint32(n)
-		}
-	}
-	tc := c.Conn.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(1 * time.Minute) // 1min
-	return &Conn{smsConn: c, UUID: uuid.New().String()}
+	return c
 }
 func (c *sgipConn) Ver() codec.Version {
 	return c.Typ
@@ -90,7 +80,7 @@ func (c *sgipConn) Auth(uid string, pwd string) error {
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
 }
-func (c *sgipConn) Close() {
+func (c *sgipConn) close() {
 	if c != nil {
 		if c.State == enum.CONN_CLOSED {
 			return
@@ -102,6 +92,14 @@ func (c *sgipConn) Close() {
 
 func (c *sgipConn) SetState(state enum.State) {
 	c.State = state
+}
+
+func (c *sgipConn) setExtParam(ext map[string]string) {
+	if ext != nil {
+		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
+		c.nodeId = utils.MapItem(ext, "node_id", uint32(0))
+		c.extParam = ext
+	}
 }
 
 // SendPkt pack the smpp packet structure and send it to the other peer.
@@ -197,12 +195,16 @@ func newSgipListener(l net.Listener, extParam map[string]string) *sgipListener {
 	return &sgipListener{l, extParam}
 }
 
-func (l *sgipListener) accept() (*Conn, error) {
+func (l *sgipListener) accept() (smsConn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	conn := newSgipConn(c, sgip.V12, false, l.extParam)
+	tc := c.(*net.TCPConn)
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
+
+	conn := newSgipConn(c, sgip.V12)
 	conn.SetState(enum.CONN_CONNECTED)
 	return conn, nil
 }

@@ -250,3 +250,24 @@ func StructCopy(from, to any) {
 		}
 	}
 }
+
+func MapItem[T any](m map[string]string, key string, def T) (ret T) {
+	ret = def
+	if val, ok := m[key]; ok {
+		v := reflect.ValueOf(&ret).Elem()
+		switch v.Kind() {
+		case reflect.String:
+			v.SetString(val)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if n, err := strconv.ParseInt(val, 0, 0); err == nil {
+
+				v.SetInt(n)
+			}
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			if n, err := strconv.ParseUint(val, 0, 0); err == nil {
+				v.SetUint(n)
+			}
+		}
+	}
+	return
+}

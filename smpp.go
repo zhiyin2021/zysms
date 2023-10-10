@@ -5,22 +5,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
+	"github.com/zhiyin2021/zysms/utils"
 )
 
 type smppConn struct {
 	net.Conn
-	State enum.State
-	Typ   codec.Version
-	// for SeqId generator goroutine
-	// SeqId  <-chan uint32
-	// done   chan<- struct{}
-	_seqId     uint32
+	State      enum.State
+	Typ        codec.Version
 	counter    int32
 	logger     *logrus.Entry
 	checkVer   bool
@@ -31,21 +27,15 @@ type smppConn struct {
 	// activeLast time.Time
 }
 
-// New returns an abstract structure for successfully
-// established underlying net.Conn.
-func newSmppConn(conn net.Conn, typ codec.Version, checkVer bool, extParam map[string]string) *Conn {
+func newSmppConn(conn net.Conn, typ codec.Version) smsConn {
 	c := &smppConn{
 		Conn:     conn,
 		Typ:      typ,
-		_seqId:   0,
 		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		checkVer: checkVer,
-		extParam: extParam,
+		extParam: map[string]string{},
+		checkVer: false,
 	}
-	tc := c.Conn.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(10 * time.Second) // 1min
-	return &Conn{smsConn: c, UUID: uuid.New().String()}
+	return c
 }
 func (c *smppConn) Ver() codec.Version {
 	return c.Typ
@@ -76,7 +66,7 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	}
 	return nil
 }
-func (c *smppConn) Close() {
+func (c *smppConn) close() {
 	if c != nil {
 		if c.State == enum.CONN_CLOSED {
 			return
@@ -88,6 +78,12 @@ func (c *smppConn) Close() {
 
 func (c *smppConn) SetState(state enum.State) {
 	c.State = state
+}
+func (c *smppConn) setExtParam(ext map[string]string) {
+	if ext != nil {
+		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
+		c.extParam = ext
+	}
 }
 
 // SendPkt pack the smpp packet structure and send it to the other peer.
@@ -177,12 +173,16 @@ func newSmppListener(l net.Listener, extParam map[string]string) *smppListener {
 	return &smppListener{l, extParam}
 }
 
-func (l *smppListener) accept() (*Conn, error) {
+func (l *smppListener) accept() (smsConn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	conn := newSmppConn(c, codec.Version(smpp.V34), false, l.extParam)
+	tc := c.(*net.TCPConn)
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
+
+	conn := newSmppConn(c, codec.Version(smpp.V34))
 	conn.SetState(enum.CONN_CONNECTED)
 	return conn, nil
 }

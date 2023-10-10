@@ -20,7 +20,7 @@ const (
 
 func startAClient(idx int) {
 	// defer wg.Done()
-	sms := zysms.New(codec.CMPP30, nil)
+	sms := zysms.New(codec.CMPP30)
 	sms.OnConnect = func(c *zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
@@ -43,7 +43,7 @@ func startAClient(idx int) {
 		}
 		return nil
 	}
-	c, err := sms.Dial(":7890", user, password, connectTimeout, false)
+	c, err := sms.Dial(":7890", user, password, connectTimeout, nil)
 	if err != nil {
 		logrus.Printf("client %d: connect error: %s.", idx, err)
 		return
