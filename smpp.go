@@ -71,6 +71,10 @@ func (c *smppConn) close() {
 		if c.State == enum.CONN_CLOSED {
 			return
 		}
+		if c.State == enum.CONN_AUTHOK {
+			c.SendPDU(smpp.NewUnbind())
+			time.Sleep(100 * time.Millisecond)
+		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
 	}

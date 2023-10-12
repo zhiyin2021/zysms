@@ -2,6 +2,7 @@ package zysms
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -101,7 +102,7 @@ func (s *SMS) Listen(addr string) (smsListener, error) {
 			zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 3, activeInterval: 5}
 			zconn.ctx, zconn.stop = context.WithCancel(context.Background())
 			zconn.SetState(enum.CONN_CONNECTED)
-			go s.run(zconn)
+			go s.run(zconn, false)
 		}
 	}()
 	return l, nil
@@ -145,11 +146,12 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[
 	if err != nil {
 		return nil, err
 	}
-	go s.run(zconn)
+	zconn.startActiveTest(s.OnError)
+	go s.run(zconn, true)
 	return zconn, nil
 }
 
-func (s *SMS) run(conn *Conn) {
+func (s *SMS) run(conn *Conn, isLogin bool) {
 	if s.OnConnect != nil {
 		s.OnConnect(conn)
 	}
@@ -160,7 +162,6 @@ func (s *SMS) run(conn *Conn) {
 		conn.Close()
 	}()
 
-	isLogin := false
 	for {
 		pkt, err := conn.RecvPDU()
 		if err != nil {
@@ -176,7 +177,7 @@ func (s *SMS) run(conn *Conn) {
 				switch pkt.(type) {
 				case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
 					isLogin = true
-					conn.startActiveTest()
+					conn.startActiveTest(s.OnError)
 				}
 			}
 			if p.Resp != nil {
@@ -195,7 +196,7 @@ func (s *SMS) run(conn *Conn) {
 	}
 }
 
-func (c *Conn) startActiveTest() {
+func (c *Conn) startActiveTest(errEvent func(*Conn, error)) {
 	if c.activeInterval > 0 && c.activeCount > 0 {
 		go func() {
 			t := time.NewTicker(time.Duration(c.activeInterval) * time.Second)
@@ -211,8 +212,12 @@ func (c *Conn) startActiveTest() {
 						c.Logger().Errorln(err)
 						return
 					}
-					if n > c.activeCount {
-						c.Logger().Errorf("超过3次心跳未收到响应,关闭连接")
+					if n >= c.activeCount {
+						if errEvent != nil {
+							errEvent(c, fmt.Errorf("%d次心跳间隔(%ds)未收到响应,关闭连接", c.activeCount, c.activeInterval))
+						} else {
+							c.Logger().Errorf("%d次心跳间隔(%ds)未收到响应,关闭连接", c.activeCount, c.activeInterval)
+						}
 						c.Close()
 						return
 					}
@@ -237,5 +242,4 @@ func (c *Conn) SetExtParam(ext map[string]string) {
 	c.setExtParam(ext)
 	c.activeCount = utils.MapItem(ext, "active_count", int32(3))
 	c.activeInterval = utils.MapItem(ext, "active_interval", int(5))
-	c.startActiveTest()
 }

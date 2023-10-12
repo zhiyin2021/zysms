@@ -84,6 +84,10 @@ func (c *smgpConn) close() {
 		if c.State == enum.CONN_CLOSED {
 			return
 		}
+		if c.State == enum.CONN_AUTHOK {
+			c.SendPDU(smgp.NewExitReq(c.Typ))
+			time.Sleep(100 * time.Millisecond)
+		}
 		c.Conn.Close() // close the underlying net.Conn
 		c.State = enum.CONN_CLOSED
 	}

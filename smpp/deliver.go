@@ -159,7 +159,7 @@ func (c *DeliverSM) decodeReport() {
 	c.Report.DoneDate, msg = splitReport(msg, "done date:")
 	c.Report.Stat, msg = splitReport(msg, "stat:")
 	c.Report.Err, msg = splitReport(msg, "err:")
-	c.Report.Text, _ = splitReport(msg, "text:")
+	c.Report.Text = strings.TrimSpace(strings.Replace(msg, "text:", "", 1))
 }
 func (c *DeliverSM) encodeReport() {
 	if c.Report != nil {
