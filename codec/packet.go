@@ -187,7 +187,7 @@ func (c *BytesWriter) WriteCStrWithEnc(s string, enc Encoding) error {
 func (c *BytesReader) ReadStr(count int) string {
 	buf := c.ReadN(count)
 	if c.err == nil && len(buf) > 0 { // optimistic branching
-		return string(bytes.TrimLeft(buf, "\x00"))
+		return string(bytes.TrimRight(buf, "\x00"))
 	}
 	return ""
 }

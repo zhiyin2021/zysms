@@ -61,6 +61,7 @@ func (p *SubmitReq) Marshal(w *codec.BytesWriter) {
 		bw.WriteStr(p.AtTime, 17)
 		bw.WriteStr(p.SrcTermID, 21)
 		bw.WriteStr(p.ChargeTermID, 21)
+		p.DestTermIDCount = byte(len(p.DestTermID))
 		bw.WriteByte(p.DestTermIDCount)
 		for _, tid := range p.DestTermID {
 			bw.WriteStr(tid, 21)

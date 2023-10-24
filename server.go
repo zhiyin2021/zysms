@@ -44,6 +44,7 @@ type (
 		stop           func()
 		activeCount    int32
 		activeInterval int
+		IsHealth       bool
 	}
 	smsListener interface {
 		accept() (smsConn, error)
@@ -99,7 +100,7 @@ func (s *SMS) Listen(addr string) (smsListener, error) {
 				}
 				continue
 			}
-			zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 3, activeInterval: 5}
+			zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 0, activeInterval: 5}
 			zconn.ctx, zconn.stop = context.WithCancel(context.Background())
 			zconn.SetState(enum.CONN_CONNECTED)
 			go s.run(zconn, false)
@@ -138,7 +139,7 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[
 	default:
 		return nil, smserror.ErrProtoNotSupport
 	}
-	zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 3, activeInterval: 5}
+	zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 0, activeInterval: 5}
 	zconn.ctx, zconn.stop = context.WithCancel(context.Background())
 	zconn.SetState(enum.CONN_CONNECTED)
 	zconn.SetExtParam(ext)
@@ -197,7 +198,8 @@ func (s *SMS) run(conn *Conn, isLogin bool) {
 }
 
 func (c *Conn) startActiveTest(errEvent func(*Conn, error)) {
-	if c.activeInterval > 0 && c.activeCount > 0 {
+	c.IsHealth = true
+	if c.activeInterval > 0 {
 		go func() {
 			t := time.NewTicker(time.Duration(c.activeInterval) * time.Second)
 			defer t.Stop()
@@ -209,17 +211,23 @@ func (c *Conn) startActiveTest(errEvent func(*Conn, error)) {
 				case <-t.C:
 					n, err := c.sendActiveTest()
 					if err != nil {
-						c.Logger().Errorln(err)
+						errEvent(c, fmt.Errorf("心跳请求异常:%s", err))
 						return
 					}
-					if n >= c.activeCount {
+					if c.activeCount > 0 && n >= c.activeCount {
 						if errEvent != nil {
-							errEvent(c, fmt.Errorf("%d次心跳间隔(%ds)未收到响应,关闭连接", c.activeCount, c.activeInterval))
+							errEvent(c, fmt.Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval))
 						} else {
-							c.Logger().Errorf("%d次心跳间隔(%ds)未收到响应,关闭连接", c.activeCount, c.activeInterval)
+							c.Logger().Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval)
 						}
 						c.Close()
 						return
+					} else if n == 3 {
+						c.Logger().Warnf("间隔(%ds),%d次心跳异常", n, c.activeInterval)
+						c.IsHealth = false
+					} else if n < 3 && !c.IsHealth {
+						c.Logger().Warnf("间隔(%ds),心跳恢复", c.activeInterval)
+						c.IsHealth = true
 					}
 				}
 			}
@@ -240,6 +248,6 @@ system_type 系统类型[smpp 特有]
 */
 func (c *Conn) SetExtParam(ext map[string]string) {
 	c.setExtParam(ext)
-	c.activeCount = utils.MapItem(ext, "active_count", int32(3))
+	c.activeCount = utils.MapItem(ext, "active_count", int32(0))
 	c.activeInterval = utils.MapItem(ext, "active_interval", int(5))
 }

@@ -94,7 +94,7 @@ func (c *DeliverSM) Unmarshal(b *codec.BytesReader) error {
 		c.ReplaceIfPresentFlag = b.ReadByte()
 		c.Message.Unmarshal(b, (c.EsmClass&SM_UDH_GSM) > 0)
 
-		if c.EsmClass&SM_SMSC_DLV_RCPT_TYPE == SM_SMSC_DLV_RCPT_TYPE {
+		if c.EsmClass&SM_SMSC_DLV_RCPT_TYPE == SM_SMSC_DLV_RCPT_TYPE || c.EsmClass&SM_INTMD_DLV_NOTIFY_TYPE == SM_INTMD_DLV_NOTIFY_TYPE {
 			c.decodeReport()
 		}
 
