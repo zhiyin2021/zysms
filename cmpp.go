@@ -124,9 +124,6 @@ func (c *cmppConn) SendPDU(pdu codec.PDU) error {
 	return err
 }
 
-func (c *cmppConn) RemoteAddr() net.Addr {
-	return c.Conn.RemoteAddr()
-}
 func (c *cmppConn) Logger() *logrus.Entry {
 	return c.logger
 }

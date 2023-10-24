@@ -128,9 +128,6 @@ func (c *smgpConn) SendPDU(pdu codec.PDU) error {
 	return err
 }
 
-func (c *smgpConn) RemoteAddr() net.Addr {
-	return c.Conn.RemoteAddr()
-}
 func (c *smgpConn) Logger() *logrus.Entry {
 	return c.logger
 }

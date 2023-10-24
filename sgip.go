@@ -131,9 +131,6 @@ func (c *sgipConn) SendPDU(pdu codec.PDU) error {
 	return err
 }
 
-func (c *sgipConn) RemoteAddr() net.Addr {
-	return c.Conn.RemoteAddr()
-}
 func (c *sgipConn) Logger() *logrus.Entry {
 	return c.logger
 }

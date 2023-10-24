@@ -115,9 +115,6 @@ func (c *smppConn) SendPDU(pdu codec.PDU) error {
 	return err
 }
 
-func (c *smppConn) RemoteAddr() net.Addr {
-	return c.Conn.RemoteAddr()
-}
 func (c *smppConn) Logger() *logrus.Entry {
 	return c.logger
 }

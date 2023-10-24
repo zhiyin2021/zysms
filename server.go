@@ -55,6 +55,7 @@ type (
 		close()
 		Auth(uid string, pwd string) error
 		RemoteAddr() net.Addr
+		LocalAddr() net.Addr
 		// Recv() ([]byte, error)
 		RecvPDU() (codec.PDU, error)
 		SendPDU(codec.PDU) error
