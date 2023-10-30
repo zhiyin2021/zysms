@@ -115,7 +115,11 @@ func (c *gsm7bit) Decode(data []byte) (string, error) {
 func (c *gsm7bit) DataCoding() byte { return GSM7BITCoding }
 
 func (c *gsm7bit) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return float32(len(text))/8*7 > float32(octetLimit)
+	tmp, err := c.Encode(text)
+	if err != nil {
+		return false
+	}
+	return float32(len(tmp))/8*7 > float32(octetLimit)
 }
 
 func (c *gsm7bit) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
@@ -469,9 +473,20 @@ var codingMap = map[byte]Encoding{
 	GB18030Coding:     GB18030,
 }
 
+const (
+	// 闪信
+	FlashMsg = 0x10
+)
+
 // FromDataCoding returns encoding from DataCoding value.
 func GetCodec(code byte) (enc Encoding) {
+	if code&FlashMsg == FlashMsg {
+		code = code ^ FlashMsg
+	}
 	enc = codingMap[code]
+	if enc == nil {
+		enc = UCS2
+	}
 	return
 }
 

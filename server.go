@@ -1,12 +1,11 @@
 package zysms
 
 import (
-	"context"
 	"fmt"
 	"net"
+	"runtime"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
@@ -14,56 +13,39 @@ import (
 	"github.com/zhiyin2021/zysms/sgip"
 	"github.com/zhiyin2021/zysms/smgp"
 	"github.com/zhiyin2021/zysms/smpp"
-	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
 )
 
 // errors for cmpp server
 type (
-	Packet struct {
-		Conn *Conn
-		Req  codec.PDU
-		Resp codec.PDU
-	}
-	// handleEvent func(*Conn, codec.Packer) error
+	PDU codec.PDU
 	SMS struct {
 		proto        codec.SmsProto
-		OnConnect    func(*Conn)
-		OnDisconnect func(*Conn)
-		OnError      func(*Conn, error)
-		OnRecv       func(*Packet) error
-		extParam     map[string]string
+		OnConnect    func(Conn)
+		OnDisconnect func(Conn)
+		OnError      func(Conn, error)
+		OnRecv       func(Conn, PDU) (PDU, error)
+		// 心跳未响应次数
+		OnHeartbeatNoResp func(Conn, int)
+		extParam          map[string]string
 	}
 
-	Conn struct {
-		smsConn
-		Data any
-		// Logger *logrus.Entry
-		UUID           string
-		ctx            context.Context
-		stop           func()
-		activeCount    int32
-		activeInterval int
-		IsHealth       bool
-	}
-	smsListener interface {
-		accept() (smsConn, error)
-		Close() error
-	}
-
-	smsConn interface {
-		close()
+	Conn interface {
+		// close()
 		Auth(uid string, pwd string) error
 		RemoteAddr() net.Addr
 		LocalAddr() net.Addr
 		// Recv() ([]byte, error)
-		RecvPDU() (codec.PDU, error)
-		SendPDU(codec.PDU) error
+		// RecvPDU() (codec.PDU, error)
+		SendPDU(PDU) error
 		SetState(enum.State)
 		Logger() *logrus.Entry
 		Ver() codec.Version
 		sendActiveTest() (int32, error)
-		setExtParam(map[string]string)
+
+		SetExtParam(map[string]string)
+		GetData() any
+		SetData(any)
 	}
 )
 
@@ -74,24 +56,28 @@ func New(proto codec.SmsProto) *SMS {
 	// }
 	return &SMS{proto: proto, extParam: map[string]string{}}
 }
-
-func (s *SMS) Listen(addr string) (smsListener, error) {
+func NewConn(proto codec.SmsProto) Conn {
+	return &sms_conn{
+		UUID:           utils.RandomStr(10),
+		Typ:            proto.Version(),
+		Protocol:       proto,
+		extParam:       map[string]string{},
+		checkVer:       false,
+		autoActiveResp: true,
+		activeCount:    0,
+		activeInterval: 5,
+	}
+}
+func (s *SMS) Listen(addr string) (*Listener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	var l smsListener
-	switch s.proto {
-	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
-		l = newCmppListener(ln, s.extParam)
-	case codec.SMPP33, codec.SMPP34:
-		l = newSmppListener(ln, s.extParam)
-	case codec.SMGP13, codec.SMGP20, codec.SMGP30:
-		l = newSmgpListener(ln, s.extParam)
-	case codec.SGIP:
-		l = newSgipListener(ln, s.extParam)
+	l, err := newListener(ln, s.proto, s.extParam)
+	if err != nil {
+		return nil, err
 	}
-	go func() {
+	tryGO(func() {
 		for {
 			sConn, err := l.accept()
 			if err != nil {
@@ -101,17 +87,14 @@ func (s *SMS) Listen(addr string) (smsListener, error) {
 				}
 				continue
 			}
-			zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 0, activeInterval: 5}
-			zconn.ctx, zconn.stop = context.WithCancel(context.Background())
-			zconn.SetState(enum.CONN_CONNECTED)
-			go s.run(zconn, false)
+			s.run(sConn, false)
+
 		}
-	}()
+	})
 	return l, nil
 }
 
-func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[string]string) (*Conn, error) {
-
+func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[string]string) (Conn, error) {
 	var err error
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
@@ -121,134 +104,113 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
 
-	var sConn smsConn
-	switch s.proto {
-	case codec.CMPP20:
-		sConn = newCmppConn(conn, cmpp.V20)
-	case codec.CMPP21:
-		sConn = newCmppConn(conn, cmpp.V21)
-	case codec.CMPP30:
-		sConn = newCmppConn(conn, cmpp.V30)
-	case codec.SMPP33:
-		sConn = newSmppConn(conn, smpp.V33)
-	case codec.SMPP34:
-		sConn = newSmppConn(conn, smpp.V34)
-	case codec.SMGP30:
-		sConn = newSmgpConn(conn, smgp.V30)
-	case codec.SGIP:
-		sConn = newSgipConn(conn, sgip.V12)
-	default:
-		return nil, smserror.ErrProtoNotSupport
+	sConn := newConn(conn, s.proto)
+	if sConn == nil {
+		return nil, fmt.Errorf("不支持的协议版本")
 	}
-	zconn := &Conn{smsConn: sConn, UUID: uuid.New().String(), activeCount: 0, activeInterval: 5}
-	zconn.ctx, zconn.stop = context.WithCancel(context.Background())
-	zconn.SetState(enum.CONN_CONNECTED)
-	zconn.SetExtParam(ext)
-	err = zconn.Auth(uid, pwd)
+	sConn.SetExtParam(ext)
+	err = sConn.Auth(uid, pwd)
 	if err != nil {
 		return nil, err
 	}
-	zconn.startActiveTest(s.OnError)
-	go s.run(zconn, true)
-	return zconn, nil
+	sConn.startActiveTest(s.OnError, s.OnHeartbeatNoResp)
+	s.run(sConn, true)
+	return sConn, nil
 }
 
-func (s *SMS) run(conn *Conn, isLogin bool) {
-	if s.OnConnect != nil {
-		s.OnConnect(conn)
-	}
-	defer func() {
-		if s.OnDisconnect != nil {
-			s.OnDisconnect(conn)
+func (s *SMS) run(conn *sms_conn, isLogin bool) {
+	tryGO(func() {
+		if s.OnConnect != nil {
+			s.OnConnect(conn)
 		}
-		conn.Close()
-	}()
+		defer func() {
+			if s.OnDisconnect != nil {
+				s.OnDisconnect(conn)
+			}
+			conn.Close()
+		}()
 
-	for {
-		pkt, err := conn.RecvPDU()
-		if err != nil {
-			if s.OnError != nil {
-				s.OnError(conn, err)
-			}
-			return
-		}
-		if s.OnRecv != nil {
-			p := &Packet{conn, pkt, nil}
-			err = s.OnRecv(p)
-			if !isLogin {
-				switch pkt.(type) {
-				case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
-					isLogin = true
-					conn.startActiveTest(s.OnError)
-				}
-			}
-			if p.Resp != nil {
-				err := conn.SendPDU(p.Resp)
-				if err != nil {
-					if s.OnError != nil {
-						s.OnError(conn, err)
-					}
-					return
-				}
-			}
+		for {
+			pkt, err := conn.action.recv()
 			if err != nil {
+				if s.OnError != nil {
+					s.OnError(conn, err)
+				}
 				return
 			}
-		}
-	}
-}
 
-func (c *Conn) startActiveTest(errEvent func(*Conn, error)) {
-	c.IsHealth = true
-	if c.activeInterval > 0 {
-		go func() {
-			t := time.NewTicker(time.Duration(c.activeInterval) * time.Second)
-			defer t.Stop()
-			for {
-				select {
-				case <-c.ctx.Done():
-					// once conn close, the goroutine should exit
-					return
-				case <-t.C:
-					n, err := c.sendActiveTest()
-					if err != nil {
-						errEvent(c, fmt.Errorf("心跳请求异常:%s", err))
-						return
-					}
-					if c.activeCount > 0 && n >= c.activeCount {
-						if errEvent != nil {
-							errEvent(c, fmt.Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval))
-						} else {
-							c.Logger().Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval)
-						}
-						c.Close()
-						return
-					} else if n == 3 {
-						c.Logger().Warnf("间隔(%ds),%d次心跳异常", n, c.activeInterval)
-						c.IsHealth = false
-					} else if n < 3 && !c.IsHealth {
-						c.Logger().Warnf("间隔(%ds),心跳恢复", c.activeInterval)
-						c.IsHealth = true
+			if s.OnRecv != nil {
+				// p := &Packet{conn, pkt, nil}
+				resp, err := s.OnRecv(conn, pkt)
+				if !isLogin {
+					switch pkt.(type) {
+					case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
+						isLogin = true
+						conn.startActiveTest(s.OnError, s.OnHeartbeatNoResp)
 					}
 				}
+				if resp != nil {
+					err := conn.SendPDU(resp)
+					if err != nil {
+						if s.OnError != nil {
+							s.OnError(conn, err)
+						}
+						return
+					}
+				}
+				if err != nil {
+					return
+				}
+			}
+		}
+	})
+}
+
+type Listener struct {
+	net.Listener
+	extParam map[string]string
+	proto    codec.SmsProto
+}
+
+func newListener(l net.Listener, proto codec.SmsProto, extParam map[string]string) (*Listener, error) {
+	switch proto {
+	case codec.CMPP20, codec.CMPP21, codec.CMPP30, codec.SMGP30, codec.SGIP, codec.SMPP33, codec.SMPP34:
+	default:
+		return nil, fmt.Errorf("不支持的协议版本")
+	}
+	return &Listener{l, extParam, proto}, nil
+}
+
+func (l *Listener) accept() (*sms_conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	tc := c.(*net.TCPConn)
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
+
+	conn := newConn(c, l.proto)
+	if conn == nil {
+		return nil, fmt.Errorf("不支持的协议版本")
+	}
+	conn.SetState(enum.CONN_CONNECTED)
+	return conn, nil
+}
+
+func (l *Listener) Close() error {
+	return l.Listener.Close()
+}
+
+func tryGO(f func()) {
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				buf := make([]byte, 1<<16)
+				runtime.Stack(buf, true)
+				logrus.Errorf("panic:%v\n%s", err, buf)
 			}
 		}()
-	}
-}
-
-func (c *Conn) Close() {
-	c.stop()
-	c.close()
-}
-
-/*
-active_count 心跳失败次数
-active_interval 心跳间隔
-check_version 是否校验版本
-system_type 系统类型[smpp 特有]
-*/
-func (c *Conn) SetExtParam(ext map[string]string) {
-	c.setExtParam(ext)
-	c.activeCount = utils.MapItem(ext, "active_count", int32(0))
-	c.activeInterval = utils.MapItem(ext, "active_interval", int(5))
+		f()
+	}()
 }

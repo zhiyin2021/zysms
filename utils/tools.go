@@ -211,8 +211,29 @@ func ToTPUDHISlices(content []byte, pkgLen int) (rt [][]byte) {
 	return rt
 }
 
-func RandNum(min, max int) int {
-	return rand.Intn(max-min) + min
+func RandomNum(min, max int) int {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return rnd.Intn(max-min) + min
+}
+
+// Charsets
+const (
+	Uppercase  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	Lowercase  = "abcdefghijklmnopqrstuvwxyz"
+	Alphabetic = Uppercase + Lowercase
+)
+
+func RandomStr(length uint8, charsets ...string) string {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	charset := strings.Join(charsets, "")
+	if charset == "" {
+		charset = Alphabetic
+	}
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rnd.Int63()%int64(len(charset))]
+	}
+	return string(b)
 }
 
 // DiceCheck 投概率骰子，得到结果比给定数字大则返回true，否则返回false

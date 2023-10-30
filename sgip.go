@@ -2,7 +2,6 @@ package zysms
 
 import (
 	"fmt"
-	"net"
 	"sync/atomic"
 	"time"
 
@@ -11,38 +10,17 @@ import (
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/sgip"
 	"github.com/zhiyin2021/zysms/smserror"
-	"github.com/zhiyin2021/zysms/utils"
 )
 
-type sgipConn struct {
-	net.Conn
-	State      enum.State
-	Typ        codec.Version
-	counter    int32
-	logger     *logrus.Entry
-	checkVer   bool
-	nodeId     uint32
-	activeFail int32
-	extParam   map[string]string
-	// activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
+type sgip_action struct {
+	*sms_conn
 }
 
-// New returns an abstract structure for successfully
-// established underlying net.Conn.
-func newSgipConn(conn net.Conn, typ codec.Version) smsConn {
-	c := &sgipConn{
-		Conn:     conn,
-		Typ:      typ,
-		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		extParam: map[string]string{},
-		checkVer: false,
-	}
-	return c
+func newSgip(conn *sms_conn) *sgip_action {
+	return &sgip_action{conn}
 }
-func (c *sgipConn) Ver() codec.Version {
-	return c.Typ
-}
-func (c *sgipConn) Auth(uid string, pwd string) error {
+
+func (c *sgip_action) login(uid string, pwd string) error {
 	// Login to the server.
 	req := sgip.NewBindReq(c.Typ, c.nodeId).(*sgip.BindReq)
 	req.LoginName = uid
@@ -54,7 +32,7 @@ func (c *sgipConn) Auth(uid string, pwd string) error {
 	if err != nil {
 		return err
 	}
-	p, err := c.RecvPDU()
+	p, err := c.recv()
 	if err != nil {
 		return err
 	}
@@ -70,78 +48,17 @@ func (c *sgipConn) Auth(uid string, pwd string) error {
 	}
 
 	if status != 0 {
-		// if status <= smserror.ErrnoConnOthers { //ErrnoConnOthers = 5
-		// 	err = smserror.ConnRspStatusErrMap[status]
-		// } else {
-		// 	err = smserror.ConnRspStatusErrMap[smserror.ErrnoConnOthers]
-		// }
 		return smserror.NewSmsErr(int(status), "sgip.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
 }
-func (c *sgipConn) close() {
-	if c != nil {
-		if c.State == enum.CONN_CLOSED {
-			return
-		}
-		if c.State == enum.CONN_AUTHOK {
-			c.SendPDU(sgip.NewUnbindReq(c.Typ, c.nodeId))
-			time.Sleep(100 * time.Millisecond)
-		}
-		c.Conn.Close() // close the underlying net.Conn
-		c.State = enum.CONN_CLOSED
-	}
-}
-
-func (c *sgipConn) SetState(state enum.State) {
-	c.State = state
-}
-
-func (c *sgipConn) setExtParam(ext map[string]string) {
-	if ext != nil {
-		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
-		c.nodeId = utils.MapItem(ext, "node_id", uint32(0))
-		c.extParam = ext
-	}
-}
-
-// SendPkt pack the smpp packet structure and send it to the other peer.
-func (c *sgipConn) SendPDU(pdu codec.PDU) error {
-	defer func() {
-		if err := recover(); err != nil {
-			logrus.Errorln("sgip.send.panic:", err)
-			c.Close()
-		}
-	}()
-	if c.State == enum.CONN_CLOSED {
-		c.Close()
-		return smserror.ErrConnIsClosed
-	}
-	if pdu == nil {
-		return smserror.ErrPktIsNil
-	}
-	buf := codec.NewWriter()
-	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
-	pdu.Marshal(buf)
-	_, err := c.Conn.Write(buf.Bytes()) //block write
-	if err != nil {
-		c.Close()
-	}
-	return err
-}
-
-func (c *sgipConn) Logger() *logrus.Entry {
-	return c.logger
-}
-func (c *sgipConn) SetReadDeadline(timeout time.Duration) {
-	if timeout > 0 {
-		c.Conn.SetReadDeadline(time.Now().Add(timeout))
-	}
+func (c *sgip_action) logout() {
+	c.SendPDU(sgip.NewUnbindReq(c.Typ, c.nodeId))
 }
 
 // RecvAndUnpackPkt receives sgip byte stream, and unpack it to some sgip packet structure.
-func (c *sgipConn) RecvPDU() (codec.PDU, error) {
+func (c *sgip_action) recv() (codec.PDU, error) {
 	if c.State == enum.CONN_CLOSED {
 		return nil, smserror.ErrConnIsClosed
 	}
@@ -163,53 +80,26 @@ func (c *sgipConn) RecvPDU() (codec.PDU, error) {
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("sgip version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
 		}
-	case *sgip.BindReq: // 当收到登录回复,内部先校验版本
-		// 服务端自适应版本
-		c.Typ = p.Version
-		c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
+	case *sgip.UnbindReq: // 当收到退出请求,内部直接回复退出
+		resp := p.GetResponse()
+		c.SendPDU(resp)
+		time.Sleep(100 * time.Millisecond)
+		return nil, smserror.ErrConnIsClosed
+	case *sgip.BindReq:
+		switch p.Version {
+		case sgip.V12:
+			// 服务端自适应版本
+			c.Typ = p.Version
+			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
+		default:
+			return nil, fmt.Errorf("cmpp version not support [ %d ]", p.Version)
+		}
 	}
 	return pdu, nil
 
 }
 
-func (c *sgipConn) sendActiveTest() (int32, error) {
+func (c *sgip_action) active_test() error {
 	p := sgip.NewReportReq(c.Typ, c.nodeId).(*sgip.ReportReq)
-	err := c.SendPDU(p)
-	if err != nil {
-		c.activeFail++
-		if c.activeFail > 2 {
-			return c.activeFail, err
-		}
-	} else {
-		c.activeFail = 0
-	}
-	n := atomic.AddInt32(&c.counter, 1)
-	return n, nil
-}
-
-type sgipListener struct {
-	net.Listener
-	extParam map[string]string
-}
-
-func newSgipListener(l net.Listener, extParam map[string]string) *sgipListener {
-	return &sgipListener{l, extParam}
-}
-
-func (l *sgipListener) accept() (smsConn, error) {
-	c, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-	tc := c.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
-
-	conn := newSgipConn(c, sgip.V12)
-	conn.SetState(enum.CONN_CONNECTED)
-	return conn, nil
-}
-
-func (l *sgipListener) Close() error {
-	return l.Listener.Close()
+	return c.SendPDU(p)
 }

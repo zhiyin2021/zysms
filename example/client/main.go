@@ -13,25 +13,24 @@ import (
 
 // 11101100 01000110 11000100 0000000 00101101 11000000 00000000 00000011
 const (
-	user           string        = "010000"      // "900001" //010000,pwd:tDd34J443e3
-	password       string        = "tDd34J443e3" //"888888"
+	user           string        = "cr7415"        // "010000"      // "900001" //010000,pwd:tDd34J443e3
+	password       string        = "Chuangrui@123" //"tDd34J443e3" //"888888"
 	connectTimeout time.Duration = time.Second * 2
 )
 
 func startAClient(idx int) {
-	// defer wg.Done()
-	sms := zysms.New(codec.CMPP30)
-	sms.OnConnect = func(c *zysms.Conn) {
+	sms := zysms.New(codec.CMPP20)
+	sms.OnConnect = func(c zysms.Conn) {
 		log.Printf("client %d: connect ok", idx)
 	}
-	sms.OnDisconnect = func(c *zysms.Conn) {
+	sms.OnDisconnect = func(c zysms.Conn) {
 		log.Printf("client %d: disconnect", idx)
 	}
-	sms.OnError = func(c *zysms.Conn, err error) {
+	sms.OnError = func(c zysms.Conn, err error) {
 		log.Printf("client %d: err %s", idx, err)
 	}
-	sms.OnRecv = func(p *zysms.Packet) error {
-		switch req := p.Req.(type) {
+	sms.OnRecv = func(conn zysms.Conn, req zysms.PDU) (zysms.PDU, error) {
+		switch req := req.(type) {
 		case *cmpp.ConnResp:
 			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
 		case *cmpp.SubmitResp:
@@ -39,11 +38,11 @@ func startAClient(idx int) {
 		case *cmpp.DeliverReq:
 			log.Printf("client %d: receive a cmpp deliver request: %v.", idx, req.MsgId)
 		default:
-			p.Conn.Logger().Infof("event %T", p)
+			conn.Logger().Infof("event %T", req)
 		}
-		return nil
+		return nil, nil
 	}
-	c, err := sms.Dial(":7890", user, password, connectTimeout, nil)
+	c, err := sms.Dial("112.33.28.61:57892", user, password, connectTimeout, nil)
 	if err != nil {
 		logrus.Printf("client %d: connect error: %s.", idx, err)
 		return
@@ -92,7 +91,6 @@ func startAClient(idx int) {
 var wg sync.WaitGroup
 
 func main() {
-
 	log.Println("Client example start!")
 	for i := 0; i < 1; i++ {
 		wg.Add(1)

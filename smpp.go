@@ -1,7 +1,7 @@
 package zysms
 
 import (
-	"net"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -10,37 +10,17 @@ import (
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
-	"github.com/zhiyin2021/zysms/utils"
 )
 
-type smppConn struct {
-	net.Conn
-	State      enum.State
-	Typ        codec.Version
-	counter    int32
-	logger     *logrus.Entry
-	checkVer   bool
-	OnError    func(*Conn, error)
-	activeFail int32
-	extParam   map[string]string
-	// activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
-	// activeLast time.Time
+type smpp_action struct {
+	*sms_conn
 }
 
-func newSmppConn(conn net.Conn, typ codec.Version) smsConn {
-	c := &smppConn{
-		Conn:     conn,
-		Typ:      typ,
-		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		extParam: map[string]string{},
-		checkVer: false,
-	}
-	return c
+func newSmpp(conn *sms_conn) *smpp_action {
+	return &smpp_action{conn}
 }
-func (c *smppConn) Ver() codec.Version {
-	return c.Typ
-}
-func (c *smppConn) Auth(uid string, pwd string) error {
+
+func (c *smpp_action) login(uid string, pwd string) error {
 	// Login to the server.
 	req := smpp.NewBindRequest(smpp.Transceiver)
 	req.SystemID = uid
@@ -53,7 +33,7 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	if err != nil {
 		return err
 	}
-	pdu, err := c.RecvPDU()
+	pdu, err := c.recv()
 	if err != nil {
 		return err
 	}
@@ -66,61 +46,13 @@ func (c *smppConn) Auth(uid string, pwd string) error {
 	}
 	return nil
 }
-func (c *smppConn) close() {
-	if c != nil {
-		if c.State == enum.CONN_CLOSED {
-			return
-		}
-		if c.State == enum.CONN_AUTHOK {
-			c.SendPDU(smpp.NewUnbind())
-			time.Sleep(100 * time.Millisecond)
-		}
-		c.Conn.Close() // close the underlying net.Conn
-		c.State = enum.CONN_CLOSED
-	}
-}
 
-func (c *smppConn) SetState(state enum.State) {
-	c.State = state
-}
-func (c *smppConn) setExtParam(ext map[string]string) {
-	if ext != nil {
-		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
-		c.extParam = ext
-	}
-}
-
-// SendPkt pack the smpp packet structure and send it to the other peer.
-func (c *smppConn) SendPDU(pdu codec.PDU) error {
-	defer func() {
-		if err := recover(); err != nil {
-			logrus.Errorln("smpp.send.panic:", err)
-			c.Close()
-		}
-	}()
-	if c.State == enum.CONN_CLOSED {
-		c.Close()
-		return smserror.ErrConnIsClosed
-	}
-	if pdu == nil {
-		return smserror.ErrPktIsNil
-	}
-	buf := codec.NewWriter()
-	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
-	pdu.Marshal(buf)
-	_, err := c.Conn.Write(buf.Bytes()) //block write
-	if err != nil {
-		c.Close()
-	}
-	return err
-}
-
-func (c *smppConn) Logger() *logrus.Entry {
-	return c.logger
+func (c *smpp_action) logout() {
+	c.SendPDU(smpp.NewUnbind())
 }
 
 // RecvAndUnpackPkt receives smpp byte stream, and unpack it to some smpp packet structure.
-func (c *smppConn) RecvPDU() (codec.PDU, error) {
+func (c *smpp_action) recv() (codec.PDU, error) {
 	if c.State == enum.CONN_CLOSED {
 		return nil, smserror.ErrConnIsClosed
 	}
@@ -130,11 +62,10 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 	}
 	switch p := pdu.(type) {
 	case *smpp.EnquireLink: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
-		resp := p.GetResponse()
-		c.SendPDU(resp)
-		// if !c.activePeer {
-		// 	c.activePeer = true
-		// }
+		if c.autoActiveResp {
+			resp := p.GetResponse()
+			c.SendPDU(resp)
+		}
 	case *smpp.EnquireLinkResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
 		// c.activeLast = time.Now()
@@ -142,52 +73,25 @@ func (c *smppConn) RecvPDU() (codec.PDU, error) {
 		if p.CommandStatus != smpp.ESME_ROK {
 			return nil, smserror.NewSmsErr(int(p.CommandStatus), "smpp.login.error")
 		}
-	case *smpp.BindRequest: /// 当收到登录回复,内部先校验版本
-		// 服务端自适应版本
-		c.Typ = p.InterfaceVersion
-		c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
+	case *smpp.Unbind:
+		resp := p.GetResponse()
+		c.SendPDU(resp)
+		time.Sleep(100 * time.Millisecond)
+		return nil, smserror.ErrConnIsClosed
+	case *smpp.BindRequest:
+		switch p.InterfaceVersion {
+		case smpp.V33, smpp.V34:
+			// 服务端自适应版本
+			c.Typ = p.InterfaceVersion
+			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
+		default:
+			return nil, fmt.Errorf("smpp version not support [ %d ]", p.InterfaceVersion)
+		}
 	}
 	return pdu, nil
 }
 
-func (c *smppConn) sendActiveTest() (int32, error) {
+func (c *smpp_action) active_test() error {
 	p := smpp.NewEnquireLink()
-	err := c.SendPDU(p)
-	if err != nil {
-		c.activeFail++
-		if c.activeFail > 2 {
-			return c.activeFail, err
-		}
-	} else {
-		c.activeFail = 0
-	}
-	n := atomic.AddInt32(&c.counter, 1)
-	return n, nil
-}
-
-type smppListener struct {
-	net.Listener
-	extParam map[string]string
-}
-
-func newSmppListener(l net.Listener, extParam map[string]string) *smppListener {
-	return &smppListener{l, extParam}
-}
-
-func (l *smppListener) accept() (smsConn, error) {
-	c, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-	tc := c.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
-
-	conn := newSmppConn(c, codec.Version(smpp.V34))
-	conn.SetState(enum.CONN_CONNECTED)
-	return conn, nil
-}
-
-func (l *smppListener) Close() error {
-	return l.Listener.Close()
+	return c.SendPDU(p)
 }

@@ -19,6 +19,7 @@ type ShortMessage struct {
 	udHeader          codec.UDH
 	messageData       []byte
 	withoutDataCoding bool // purpose of ReplaceSM usage
+	dataCoding        byte
 }
 
 func (c *ShortMessage) MsgLength() int {
@@ -127,6 +128,14 @@ func (c *ShortMessage) SetLongMessageWithEnc(message string, enc codec.Encoding)
 // UDH gets user data header for short message
 func (c *ShortMessage) UDH() codec.UDH {
 	return c.udHeader
+}
+
+// UDH gets user data header for short message
+func (c *ShortMessage) DataCoding() byte {
+	if c.enc == nil {
+		return c.dataCoding
+	}
+	return c.enc.DataCoding()
 }
 
 // SetUDH sets user data header for short message
@@ -262,9 +271,9 @@ func (c *ShortMessage) Marshal(b *codec.BytesWriter) {
 
 // Unmarshal implements PDU interface.
 func (c *ShortMessage) Unmarshal(b *codec.BytesReader, udhi bool) (err error) {
-	var dataCoding byte
+
 	if !c.withoutDataCoding {
-		dataCoding = b.ReadByte()
+		c.dataCoding = b.ReadByte()
 	}
 	c.SmDefaultMsgID = b.ReadByte()
 	n := b.ReadByte()
@@ -273,7 +282,7 @@ func (c *ShortMessage) Unmarshal(b *codec.BytesReader, udhi bool) (err error) {
 		return
 	}
 
-	c.enc = codec.GetCodec(dataCoding)
+	c.enc = codec.GetCodec(c.dataCoding)
 
 	// If short message length is non zero, short message contains User-Data Header
 	// Else UDH should be in TLV field MessagePayload

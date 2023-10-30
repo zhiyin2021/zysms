@@ -2,7 +2,6 @@ package zysms
 
 import (
 	"fmt"
-	"net"
 	"sync/atomic"
 	"time"
 
@@ -11,38 +10,17 @@ import (
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smgp"
 	"github.com/zhiyin2021/zysms/smserror"
-	"github.com/zhiyin2021/zysms/utils"
 )
 
-type smgpConn struct {
-	net.Conn
-	State      enum.State
-	Typ        codec.Version
-	counter    int32
-	logger     *logrus.Entry
-	checkVer   bool
-	activeFail int32
-	extParam   map[string]string
-	// activePeer bool // 默认false,当前连接发送心跳请求, 当收到对方心跳请求后,设置true,不再发送心跳请求
-	// activeLast time.Time
+type smgp_action struct {
+	*sms_conn
 }
 
-// New returns an abstract structure for successfully
-// established underlying net.Conn.
-func newSmgpConn(conn net.Conn, typ codec.Version) smsConn {
-	c := &smgpConn{
-		Conn:     conn,
-		Typ:      typ,
-		logger:   logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr()}),
-		extParam: map[string]string{},
-		checkVer: false,
-	}
-	return c
+func newSmgp(conn *sms_conn) *smgp_action {
+	return &smgp_action{conn}
 }
-func (c *smgpConn) Ver() codec.Version {
-	return c.Typ
-}
-func (c *smgpConn) Auth(uid string, pwd string) error {
+
+func (c *smgp_action) login(uid string, pwd string) error {
 	// Login to the server.
 	req := smgp.NewLoginReq(c.Typ).(*smgp.LoginReq)
 	req.ClientID = uid
@@ -53,7 +31,7 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 	if err != nil {
 		return err
 	}
-	p, err := c.RecvPDU()
+	p, err := c.recv()
 	if err != nil {
 		return err
 	}
@@ -69,76 +47,17 @@ func (c *smgpConn) Auth(uid string, pwd string) error {
 	}
 
 	if status != 0 {
-		// if status <= smserror.ErrnoConnOthers { //ErrnoConnOthers = 5
-		// 	err = smserror.ConnRspStatusErrMap[status]
-		// } else {
-		// 	err = smserror.ConnRspStatusErrMap[smserror.ErrnoConnOthers]
-		// }
 		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
 	c.SetState(enum.CONN_AUTHOK)
 	return nil
 }
-func (c *smgpConn) close() {
-	if c != nil {
-		if c.State == enum.CONN_CLOSED {
-			return
-		}
-		if c.State == enum.CONN_AUTHOK {
-			c.SendPDU(smgp.NewExitReq(c.Typ))
-			time.Sleep(100 * time.Millisecond)
-		}
-		c.Conn.Close() // close the underlying net.Conn
-		c.State = enum.CONN_CLOSED
-	}
-}
-
-func (c *smgpConn) SetState(state enum.State) {
-	c.State = state
-}
-func (c *smgpConn) setExtParam(ext map[string]string) {
-	if ext != nil {
-		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
-		c.extParam = ext
-	}
-}
-
-// SendPkt pack the smpp packet structure and send it to the other peer.
-func (c *smgpConn) SendPDU(pdu codec.PDU) error {
-	defer func() {
-		if err := recover(); err != nil {
-			logrus.Errorln("smgp.send.panic:", err)
-			c.Close()
-		}
-	}()
-	if c.State == enum.CONN_CLOSED {
-		c.Close()
-		return smserror.ErrConnIsClosed
-	}
-	if pdu == nil {
-		return smserror.ErrPktIsNil
-	}
-	buf := codec.NewWriter()
-	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
-	pdu.Marshal(buf)
-	_, err := c.Conn.Write(buf.Bytes()) //block write
-	if err != nil {
-		c.Close()
-	}
-	return err
-}
-
-func (c *smgpConn) Logger() *logrus.Entry {
-	return c.logger
-}
-func (c *smgpConn) SetReadDeadline(timeout time.Duration) {
-	if timeout > 0 {
-		c.Conn.SetReadDeadline(time.Now().Add(timeout))
-	}
+func (c *smgp_action) logout() {
+	c.SendPDU(smgp.NewExitReq(c.Typ))
 }
 
 // RecvAndUnpackPkt receives smgp byte stream, and unpack it to some smgp packet structure.
-func (c *smgpConn) RecvPDU() (codec.PDU, error) {
+func (c *smgp_action) recv() (codec.PDU, error) {
 	if c.State == enum.CONN_CLOSED {
 		return nil, smserror.ErrConnIsClosed
 	}
@@ -150,11 +69,10 @@ func (c *smgpConn) RecvPDU() (codec.PDU, error) {
 
 	switch p := pdu.(type) {
 	case *smgp.ActiveTestReq: // 当收到心跳请求,内部直接回复心跳,并递归继续获取数据
-		resp := p.GetResponse()
-		c.SendPDU(resp)
-		// if !c.activePeer {
-		// 	c.activePeer = true
-		// }
+		if c.autoActiveResp {
+			resp := p.GetResponse()
+			c.SendPDU(resp)
+		}
 	case *smgp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.AddInt32(&c.counter, -1)
 		// c.activeLast = time.Now()
@@ -162,53 +80,26 @@ func (c *smgpConn) RecvPDU() (codec.PDU, error) {
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("smgp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
 		}
-	case *smgp.LoginReq: // 当收到登录回复,内部先校验版本
-		// 服务端自适应版本
-		c.Typ = p.Version
-		c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Typ})
+	case *smgp.ExitReq:
+		resp := p.GetResponse()
+		c.SendPDU(resp)
+		time.Sleep(100 * time.Millisecond)
+		return nil, smserror.ErrConnIsClosed
+	case *smgp.LoginReq:
+		switch p.Version {
+		case smgp.V20, smgp.V30:
+			// 服务端自适应版本
+			c.Typ = p.Version
+			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
+		default:
+			return nil, fmt.Errorf("smgp version not support [ %d ]", p.Version)
+		}
 	}
 	return pdu, nil
 
 }
 
-func (c *smgpConn) sendActiveTest() (int32, error) {
+func (c *smgp_action) active_test() error {
 	p := smgp.NewActiveTestReq(c.Typ)
-	err := c.SendPDU(p)
-	if err != nil {
-		c.activeFail++
-		if c.activeFail > 2 {
-			return c.activeFail, err
-		}
-	} else {
-		c.activeFail = 0
-	}
-	n := atomic.AddInt32(&c.counter, 1)
-	return n, nil
-}
-
-type smgpListener struct {
-	net.Listener
-	extParam map[string]string
-}
-
-func newSmgpListener(l net.Listener, extParam map[string]string) *smgpListener {
-	return &smgpListener{l, extParam}
-}
-
-func (l *smgpListener) accept() (smsConn, error) {
-	c, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-	tc := c.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
-
-	conn := newSmgpConn(c, smgp.V30)
-	conn.SetState(enum.CONN_CONNECTED)
-	return conn, nil
-}
-
-func (l *smgpListener) Close() error {
-	return l.Listener.Close()
+	return c.SendPDU(p)
 }

@@ -207,6 +207,7 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 
 		c.messageData = c.messageData[f:]
 	}
+
 	c.enc = GetCodec(enc)
 	if c.enc == nil {
 		if HasWidthChar(c.message) {
@@ -224,6 +225,9 @@ func (c *ShortMessage) Encoding() byte {
 	if c.enc == ASCII {
 		// 国内 CMPP,SMGP 不支持 gms7bit,  ascii一样以160字符计费
 		return GSM7BITCoding
+	}
+	if c.enc == nil {
+		c.enc = UCS2
 	}
 	return c.enc.DataCoding()
 }

@@ -23,26 +23,27 @@ const (
 
 func main() {
 	sms := zysms.New(codec.CMPP30)
-	sms.OnConnect = func(c *zysms.Conn) {
+	sms.OnConnect = func(c zysms.Conn) {
 		c.Logger().Println("server: connect")
 	}
-	sms.OnDisconnect = func(c *zysms.Conn) {
+	sms.OnDisconnect = func(c zysms.Conn) {
 		c.Logger().Println("server: disconnect")
 	}
-	sms.OnError = func(c *zysms.Conn, err error) {
+	sms.OnError = func(c zysms.Conn, err error) {
 		c.Logger().Errorln("server: error: ", err)
 	}
-	sms.OnRecv = func(p *zysms.Packet) error {
+	sms.OnRecv = func(conn zysms.Conn, req zysms.PDU) (zysms.PDU, error) {
 		var err error
-		switch req := p.Req.(type) {
+		var resp zysms.PDU
+		switch req := req.(type) {
 		case *cmpp.SubmitReq:
-			p.Resp, err = handleSubmit(p, req)
+			resp, err = handleSubmit(conn, req)
 		case *cmpp.ConnReq:
-			p.Resp, err = handleLogin(p, req)
+			resp, err = handleLogin(conn, req)
 		default:
-			p.Conn.Logger().Infof("event %T", p)
+			conn.Logger().Infof("event %T", req)
 		}
-		return err
+		return resp, err
 	}
 	go func() {
 		_, err := sms.Listen(":7890")
@@ -56,7 +57,7 @@ func main() {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 }
-func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
+func handleLogin(conn zysms.Conn, req *cmpp.ConnReq) (codec.PDU, error) {
 	resp := req.GetResponse().(*cmpp.ConnResp)
 	if req.SrcAddr != utils.OctetString(userS, 6) {
 		resp.Status = uint32(smserror.ErrnoConnInvalidSrcAddr)
@@ -81,16 +82,16 @@ func handleLogin(p *zysms.Packet, req *cmpp.ConnReq) (codec.PDU, error) {
 		[]byte(passwordS)},
 		nil))
 	resp.AuthIsmg = string(authIsmg[:])
-	p.Conn.SetExtParam(map[string]string{"node_id": "123456"})
+	conn.SetExtParam(map[string]string{"node_id": "123456"})
 	return resp, nil
 }
 
-func handleSubmit(p *zysms.Packet, req *cmpp.SubmitReq) (codec.PDU, error) {
+func handleSubmit(conn zysms.Conn, req *cmpp.SubmitReq) (codec.PDU, error) {
 	resp := req.GetResponse().(*cmpp.SubmitResp)
 	resp.MsgId = 12878564852733378560
 	msg := req.Message.GetMessage()
 	for i, d := range req.DestTerminalId {
-		p.Conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s],=>%s\n",
+		conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s],=>%s\n",
 			req.MsgSrc, req.SequenceNumber, resp.MsgId+uint64(i), req.SrcId, d, msg)
 	}
 	return resp, nil
