@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +38,7 @@ type sms_conn struct {
 	autoActiveResp bool
 
 	action sms_action
+	mutex  sync.Mutex
 }
 
 type sms_action interface {
@@ -139,18 +141,20 @@ func (c *sms_conn) sendActiveTest() (int32, error) {
 	return n, nil
 }
 func (c *sms_conn) Close() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	c.stop()
-	if c.State == enum.CONN_CLOSED {
-		return
-	}
-	if c.State == enum.CONN_AUTHOK {
-		if c.action != nil {
-			c.action.logout()
+	if c.State != enum.CONN_CLOSED {
+
+		if c.State == enum.CONN_AUTHOK {
+			if c.action != nil {
+				c.action.logout()
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
-		time.Sleep(100 * time.Millisecond)
+		c.Conn.Close() // close the underlying net.Conn
+		c.State = enum.CONN_CLOSED
 	}
-	c.Conn.Close() // close the underlying net.Conn
-	c.State = enum.CONN_CLOSED
 }
 
 /*

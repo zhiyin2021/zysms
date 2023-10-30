@@ -31,7 +31,7 @@ type (
 	}
 
 	Conn interface {
-		// close()
+		Close()
 		Auth(uid string, pwd string) error
 		RemoteAddr() net.Addr
 		LocalAddr() net.Addr
