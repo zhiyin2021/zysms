@@ -13,7 +13,6 @@ import (
 	"github.com/zhiyin2021/zysms/sgip"
 	"github.com/zhiyin2021/zysms/smgp"
 	"github.com/zhiyin2021/zysms/smpp"
-	"github.com/zhiyin2021/zysms/utils"
 )
 
 // errors for cmpp server
@@ -46,6 +45,7 @@ type (
 		SetExtParam(map[string]string)
 		GetData() any
 		SetData(any)
+		UID() string
 	}
 )
 
@@ -56,18 +56,7 @@ func New(proto codec.SmsProto) *SMS {
 	// }
 	return &SMS{proto: proto, extParam: map[string]string{}}
 }
-func NewConn(proto codec.SmsProto) Conn {
-	return &sms_conn{
-		UUID:           utils.RandomStr(10),
-		Typ:            proto.Version(),
-		Protocol:       proto,
-		extParam:       map[string]string{},
-		checkVer:       false,
-		autoActiveResp: true,
-		activeCount:    0,
-		activeInterval: 5,
-	}
-}
+
 func (s *SMS) Listen(addr string) (*Listener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {

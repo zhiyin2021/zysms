@@ -18,7 +18,7 @@ import (
 type sms_conn struct {
 	Data any
 	// Logger *logrus.Entry
-	UUID           string
+	uid            string
 	ctx            context.Context
 	stop           func()
 	activeCount    int32
@@ -51,7 +51,7 @@ type sms_action interface {
 func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 	c := &sms_conn{
 		Conn:           conn,
-		UUID:           utils.RandomStr(10),
+		uid:            utils.Md5(fmt.Sprintf("%s%s%d", conn.RemoteAddr(), conn.LocalAddr(), time.Now().UnixNano()))[8:24],
 		Typ:            proto.Version(),
 		Protocol:       proto,
 		logger:         logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr(), "v": proto.String()}),
@@ -91,6 +91,9 @@ func (c *sms_conn) SetData(data any) {
 }
 func (c *sms_conn) GetData() any {
 	return c.Data
+}
+func (c *sms_conn) UID() string {
+	return c.uid
 }
 
 func (c *sms_conn) startActiveTest(errEvent func(Conn, error), heartbeatNoResp func(Conn, int)) {
@@ -145,7 +148,6 @@ func (c *sms_conn) Close() {
 	defer c.mutex.Unlock()
 	c.stop()
 	if c.State != enum.CONN_CLOSED {
-
 		if c.State == enum.CONN_AUTHOK {
 			if c.action != nil {
 				c.action.logout()

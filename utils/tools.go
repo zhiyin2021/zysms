@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -222,6 +223,11 @@ const (
 	Lowercase  = "abcdefghijklmnopqrstuvwxyz"
 	Alphabetic = Uppercase + Lowercase
 )
+
+func Md5(data string) string {
+	hash := md5.Sum([]byte(data))
+	return fmt.Sprintf("%x", hash)
+}
 
 func RandomStr(length uint8, charsets ...string) string {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
