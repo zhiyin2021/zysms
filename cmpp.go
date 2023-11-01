@@ -26,8 +26,7 @@ func (c *cmpp_action) login(uid string, pwd string) error {
 	req.Secret = pwd
 	req.Version = c.Typ
 
-	err := c.SendPDU(req)
-	if err != nil {
+	if err := c.SendPDU(req); err != nil {
 		return err
 	}
 	p, err := c.recv()
@@ -89,6 +88,8 @@ func (c *cmpp_action) recv() (codec.PDU, error) {
 		case cmpp.V20, cmpp.V30, cmpp.V21:
 			// 服务端自适应版本
 			c.Typ = p.Version
+			fallthrough
+		case 0:
 			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
 		default:
 			return nil, fmt.Errorf("cmpp version not support [ %d ]", p.Version)

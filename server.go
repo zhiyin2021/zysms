@@ -45,7 +45,8 @@ type (
 		SetExtParam(map[string]string)
 		GetData() any
 		SetData(any)
-		UID() string
+		SID() string
+		Delay() []int64
 	}
 )
 

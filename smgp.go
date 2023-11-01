@@ -90,6 +90,8 @@ func (c *smgp_action) recv() (codec.PDU, error) {
 		case smgp.V20, smgp.V30:
 			// 服务端自适应版本
 			c.Typ = p.Version
+			fallthrough
+		case 0:
 			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
 		default:
 			return nil, fmt.Errorf("smgp version not support [ %d ]", p.Version)

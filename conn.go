@@ -18,7 +18,7 @@ import (
 type sms_conn struct {
 	Data any
 	// Logger *logrus.Entry
-	uid            string
+	sid            string
 	ctx            context.Context
 	stop           func()
 	activeCount    int32
@@ -39,6 +39,7 @@ type sms_conn struct {
 
 	action sms_action
 	mutex  sync.Mutex
+	delay  *utils.Queue
 }
 
 type sms_action interface {
@@ -49,17 +50,19 @@ type sms_action interface {
 }
 
 func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
+	sid := utils.Md5(fmt.Sprintf("%s%s%d", conn.RemoteAddr(), conn.LocalAddr(), time.Now().UnixNano()))[8:24]
 	c := &sms_conn{
 		Conn:           conn,
-		uid:            utils.Md5(fmt.Sprintf("%s%s%d", conn.RemoteAddr(), conn.LocalAddr(), time.Now().UnixNano()))[8:24],
+		sid:            sid,
 		Typ:            proto.Version(),
 		Protocol:       proto,
-		logger:         logrus.WithFields(logrus.Fields{"r": conn.RemoteAddr(), "v": proto.String()}),
+		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "peer": conn.RemoteAddr(), "v": proto.String()}),
 		extParam:       map[string]string{},
 		checkVer:       false,
 		autoActiveResp: true,
 		activeCount:    0,
 		activeInterval: 5,
+		delay:          utils.NewQueue(30),
 	}
 
 	c.ctx, c.stop = context.WithCancel(context.Background())
@@ -92,10 +95,12 @@ func (c *sms_conn) SetData(data any) {
 func (c *sms_conn) GetData() any {
 	return c.Data
 }
-func (c *sms_conn) UID() string {
-	return c.uid
+func (c *sms_conn) SID() string {
+	return c.sid
 }
-
+func (c *sms_conn) Delay() []int64 {
+	return c.delay.Data()
+}
 func (c *sms_conn) startActiveTest(errEvent func(Conn, error), heartbeatNoResp func(Conn, int)) {
 	c.IsHealth = true
 	if c.activeInterval > 0 {
@@ -199,7 +204,10 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	buf := codec.NewWriter()
 	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
 	pdu.Marshal(buf)
+	tm := time.Now()
 	_, err := c.Conn.Write(buf.Bytes()) //block write
+	delay := time.Since(tm).Microseconds()
+	c.delay.Push(delay)
 	if err != nil {
 		c.Close()
 	}
