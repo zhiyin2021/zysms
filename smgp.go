@@ -92,7 +92,7 @@ func (c *smgp_action) recv() (codec.PDU, error) {
 			c.Typ = p.Version
 			fallthrough
 		case 0:
-			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
+			c.logger = c.logger.WithFields(logrus.Fields{"v": c.Protocol.String(), "v1": c.Typ})
 		default:
 			return nil, fmt.Errorf("smgp version not support [ %d ]", p.Version)
 		}

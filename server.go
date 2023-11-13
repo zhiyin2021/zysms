@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -49,10 +50,6 @@ type (
 )
 
 func New(proto codec.SmsProto) *SMS {
-	// smsOpt := smsOption{activeInterval: 5 * time.Second, activeFailCount: 3, extParam: map[string]string{}}
-	// for _, opt := range opts {
-	// 	opt(&smsOpt)
-	// }
 	return &SMS{proto: proto, extParam: map[string]string{}}
 }
 
@@ -81,7 +78,13 @@ func (s *SMS) Listen(addr string) (*Listener, error) {
 	})
 	return l, nil
 }
-
+func (s *SMS) doError(conn Conn, err error) {
+	if s.OnError != nil {
+		if !strings.Contains(err.Error(), "use of closed network connection") {
+			s.OnError(conn, err)
+		}
+	}
+}
 func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[string]string) (Conn, error) {
 	var err error
 	conn, err := net.DialTimeout("tcp", addr, timeout)
@@ -101,7 +104,7 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[
 	if err != nil {
 		return nil, err
 	}
-	sConn.startActiveTest(s.OnError, s.OnHeartbeatNoResp)
+	sConn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
 	s.run(sConn, true)
 	return sConn, nil
 }
@@ -121,9 +124,7 @@ func (s *SMS) run(conn *sms_conn, isLogin bool) {
 		for {
 			pkt, err := conn.action.recv()
 			if err != nil {
-				if s.OnError != nil {
-					s.OnError(conn, err)
-				}
+				s.doError(conn, err)
 				return
 			}
 
@@ -134,15 +135,13 @@ func (s *SMS) run(conn *sms_conn, isLogin bool) {
 					switch pkt.(type) {
 					case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
 						isLogin = true
-						conn.startActiveTest(s.OnError, s.OnHeartbeatNoResp)
+						conn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
 					}
 				}
 				if resp != nil {
 					err := conn.SendPDU(resp)
 					if err != nil {
-						if s.OnError != nil {
-							s.OnError(conn, err)
-						}
+						s.doError(conn, err)
 						return
 					}
 				}

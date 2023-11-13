@@ -85,7 +85,7 @@ func (c *smpp_action) recv() (codec.PDU, error) {
 			c.Typ = p.InterfaceVersion
 			fallthrough
 		case 0:
-			c.logger = logrus.WithFields(logrus.Fields{"r": c.RemoteAddr(), "v": c.Protocol.String(), "v1": c.Typ})
+			c.logger = c.logger.WithFields(logrus.Fields{"v": c.Protocol.String(), "v1": c.Typ})
 		default:
 			return nil, fmt.Errorf("smpp version not support [ %d ]", p.InterfaceVersion)
 		}
