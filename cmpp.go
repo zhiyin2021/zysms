@@ -47,7 +47,7 @@ func (c *cmpp_action) login(uid string, pwd string) error {
 	if status != 0 {
 		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
-	c.SetState(enum.CONN_AUTHOK)
+	c.IsAuth = true
 	return nil
 }
 func (c *cmpp_action) logout() {
@@ -56,7 +56,7 @@ func (c *cmpp_action) logout() {
 
 // RecvAndUnpackPkt receives cmpp byte stream, and unpack it to some cmpp packet structure.
 func (c *cmpp_action) recv() (codec.PDU, error) {
-	if c.State == enum.CONN_CLOSED {
+	if c.Connected == enum.CONN_DISCONNECTED {
 		return nil, smserror.ErrConnIsClosed
 	}
 	pdu, err := cmpp.Parse(c.Conn, c.Typ)

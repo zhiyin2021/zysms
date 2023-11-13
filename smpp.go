@@ -42,7 +42,7 @@ func (c *smpp_action) login(uid string, pwd string) error {
 		if status != smpp.ESME_ROK {
 			return smserror.NewSmsErr(int(status), "smpp.login.error") //fmt.Errorf("login error: %v", status)
 		}
-		c.SetState(enum.CONN_AUTHOK)
+		c.IsAuth = true
 	}
 	return nil
 }
@@ -53,7 +53,7 @@ func (c *smpp_action) logout() {
 
 // RecvAndUnpackPkt receives smpp byte stream, and unpack it to some smpp packet structure.
 func (c *smpp_action) recv() (codec.PDU, error) {
-	if c.State == enum.CONN_CLOSED {
+	if c.Connected == enum.CONN_DISCONNECTED {
 		return nil, smserror.ErrConnIsClosed
 	}
 	pdu, err := smpp.Parse(c.Conn)

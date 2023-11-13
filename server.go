@@ -3,13 +3,12 @@ package zysms
 import (
 	"fmt"
 	"net"
-	"runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/sgip"
 	"github.com/zhiyin2021/zysms/smgp"
 	"github.com/zhiyin2021/zysms/smpp"
@@ -37,7 +36,6 @@ type (
 		// Recv() ([]byte, error)
 		// RecvPDU() (codec.PDU, error)
 		SendPDU(PDU) error
-		SetState(enum.State)
 		Logger() *logrus.Entry
 		Ver() codec.Version
 		sendActiveTest() (int32, error)
@@ -184,7 +182,6 @@ func (l *Listener) accept() (*sms_conn, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("不支持的协议版本")
 	}
-	conn.SetState(enum.CONN_CONNECTED)
 	return conn, nil
 }
 
@@ -196,9 +193,7 @@ func tryGO(f func()) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				buf := make([]byte, 1<<16)
-				runtime.Stack(buf, true)
-				logrus.Errorf("panic:%v\n%s", err, buf)
+				logrus.StandardLogger().Fatalln(logrus.FatalLevel, "panic:%v\n%s", err, debug.Stack())
 			}
 		}()
 		f()

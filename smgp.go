@@ -49,7 +49,7 @@ func (c *smgp_action) login(uid string, pwd string) error {
 	if status != 0 {
 		return smserror.NewSmsErr(int(status), "cmpp.login.error")
 	}
-	c.SetState(enum.CONN_AUTHOK)
+	c.IsAuth = true
 	return nil
 }
 func (c *smgp_action) logout() {
@@ -58,7 +58,7 @@ func (c *smgp_action) logout() {
 
 // RecvAndUnpackPkt receives smgp byte stream, and unpack it to some smgp packet structure.
 func (c *smgp_action) recv() (codec.PDU, error) {
-	if c.State == enum.CONN_CLOSED {
+	if c.Connected == enum.CONN_DISCONNECTED {
 		return nil, smserror.ErrConnIsClosed
 	}
 

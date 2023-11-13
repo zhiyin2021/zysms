@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,7 +26,6 @@ type sms_conn struct {
 	nodeId         uint32
 
 	net.Conn
-	State          enum.State
 	Protocol       codec.SmsProto
 	Typ            codec.Version
 	counter        int32
@@ -38,8 +36,10 @@ type sms_conn struct {
 	autoActiveResp bool
 
 	action sms_action
-	mutex  sync.Mutex
 	delay  *utils.Queue
+
+	Connected int32
+	IsAuth    bool
 }
 
 type sms_action interface {
@@ -51,12 +51,13 @@ type sms_action interface {
 
 func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 	sid := utils.Md5(fmt.Sprintf("%s%s%d", conn.RemoteAddr(), conn.LocalAddr(), time.Now().UnixNano()))[8:24]
+	addr := fmt.Sprintf("%s<->%s", conn.LocalAddr(), conn.RemoteAddr())
 	c := &sms_conn{
 		Conn:           conn,
 		sid:            sid,
 		Typ:            proto.Version(),
 		Protocol:       proto,
-		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "peer": conn.RemoteAddr(), "v": proto.String()}),
+		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "addr": addr, "v": proto.String()}),
 		extParam:       map[string]string{},
 		checkVer:       false,
 		autoActiveResp: true,
@@ -64,10 +65,6 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 		activeInterval: 5,
 		delay:          utils.NewQueue(30),
 	}
-
-	c.ctx, c.stop = context.WithCancel(context.Background())
-	c.SetState(enum.CONN_CONNECTED)
-
 	switch proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
 		c.action = newCmpp(c)
@@ -80,6 +77,8 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 	default:
 		return nil
 	}
+	c.ctx, c.stop = context.WithCancel(context.Background())
+	atomic.StoreInt32(&c.Connected, 1)
 	return c
 }
 
@@ -149,18 +148,18 @@ func (c *sms_conn) sendActiveTest() (int32, error) {
 	return n, nil
 }
 func (c *sms_conn) Close() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.stop()
-	if c.State != enum.CONN_CLOSED {
-		if c.State == enum.CONN_AUTHOK {
+	if atomic.CompareAndSwapInt32(&c.Connected, enum.CONN_CONNECTED, enum.CONN_DISCONNECTED) {
+		c.logger.Warnln("connection closing.")
+		if c.IsAuth {
 			if c.action != nil {
 				c.action.logout()
 			}
 			time.Sleep(100 * time.Millisecond)
+			c.IsAuth = false
 		}
-		c.Conn.Close() // close the underlying net.Conn
-		c.State = enum.CONN_CLOSED
+		c.stop()
+		c.Conn.Close()
+		c.logger.Warnln("connection closed.")
 	}
 }
 
@@ -182,10 +181,6 @@ func (c *sms_conn) SetExtParam(ext map[string]string) {
 	}
 }
 
-func (c *sms_conn) SetState(state enum.State) {
-	c.State = state
-}
-
 // SendPkt pack the smpp packet structure and send it to the other peer.
 func (c *sms_conn) SendPDU(pdu PDU) error {
 	defer func() {
@@ -194,8 +189,7 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 			c.Close()
 		}
 	}()
-	if c.State == enum.CONN_CLOSED {
-		c.Close()
+	if c.Connected == enum.CONN_DISCONNECTED {
 		return smserror.ErrConnIsClosed
 	}
 	if pdu == nil {
