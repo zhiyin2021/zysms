@@ -46,6 +46,7 @@ type (
 		SetData(any)
 		SID() string
 		Delay() []int64
+		IsConnected() bool
 	}
 )
 

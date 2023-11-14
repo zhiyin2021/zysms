@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/zhiyin2021/zycli/cache"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/smserror"
@@ -40,6 +41,7 @@ type sms_conn struct {
 
 	Connected int32
 	IsAuth    bool
+	cache     *cache.Memory
 }
 
 type sms_action interface {
@@ -51,7 +53,7 @@ type sms_action interface {
 
 func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 	sid := utils.Md5(fmt.Sprintf("%s%s%d", conn.RemoteAddr(), conn.LocalAddr(), time.Now().UnixNano()))[8:24]
-	addr := fmt.Sprintf("%s<->%s", conn.LocalAddr(), conn.RemoteAddr())
+	addr := fmt.Sprintf("%s->%s", conn.LocalAddr(), conn.RemoteAddr())
 	c := &sms_conn{
 		Conn:           conn,
 		sid:            sid,
@@ -64,6 +66,7 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 		activeCount:    0,
 		activeInterval: 5,
 		delay:          utils.NewQueue(30),
+		cache:          cache.NewMemory(time.Minute),
 	}
 	switch proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
@@ -81,7 +84,9 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 	atomic.StoreInt32(&c.Connected, 1)
 	return c
 }
-
+func (c *sms_conn) IsConnected() bool {
+	return c.Connected == 1
+}
 func (c *sms_conn) Auth(uid string, pwd string) error {
 	if c.action == nil {
 		return smserror.ErrProtoNotSupport
@@ -198,10 +203,7 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	buf := codec.NewWriter()
 	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
 	pdu.Marshal(buf)
-	tm := time.Now()
 	_, err := c.Conn.Write(buf.Bytes()) //block write
-	delay := time.Since(tm).Microseconds()
-	c.delay.Push(delay)
 	if err != nil {
 		c.Close()
 	}

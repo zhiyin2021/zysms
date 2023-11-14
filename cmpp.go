@@ -72,7 +72,12 @@ func (c *cmpp_action) recv() (codec.PDU, error) {
 		// 	c.activePeer = true
 		// }
 	case *cmpp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
-		atomic.AddInt32(&c.counter, -1)
+		atomic.StoreInt32(&c.counter, 0)
+		if tmp := c.cache.Get(fmt.Sprintf("active_test_%d", p.GetSequenceNumber())); tmp != nil {
+			if tm, ok := tmp.(*time.Time); ok {
+				c.delay.Push(time.Since(*tm).Microseconds())
+			}
+		}
 		// c.activeLast = time.Now()
 	case *cmpp.ConnResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
@@ -101,5 +106,7 @@ func (c *cmpp_action) recv() (codec.PDU, error) {
 
 func (c *cmpp_action) active_test() error {
 	p := cmpp.NewActiveTestReq(c.Typ)
+	now := time.Now()
+	c.cache.Set(fmt.Sprintf("active_test_%d", p.GetSequenceNumber()), &now)
 	return c.SendPDU(p)
 }
