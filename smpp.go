@@ -68,11 +68,7 @@ func (c *smpp_action) recv() (codec.PDU, error) {
 		}
 	case *smpp.EnquireLinkResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.StoreInt32(&c.counter, 0)
-		if tmp := c.cache.Get(fmt.Sprintf("active_test_%d", p.GetSequenceNumber())); tmp != nil {
-			if tm, ok := tmp.(*time.Time); ok {
-				c.delay.Push(time.Since(*tm).Microseconds())
-			}
-		}
+		c.activeTestResp(p.GetSequenceNumber())
 		// c.activeLast = time.Now()
 	case *smpp.BindResp: // 当收到登录回复,内部先校验版本
 		if p.CommandStatus != smpp.ESME_ROK {
@@ -100,7 +96,6 @@ func (c *smpp_action) recv() (codec.PDU, error) {
 
 func (c *smpp_action) active_test() error {
 	p := smpp.NewEnquireLink()
-	now := time.Now()
-	c.cache.Set(fmt.Sprintf("active_test_%d", p.GetSequenceNumber()), &now)
+	c.activeTestReq(p.GetSequenceNumber())
 	return c.SendPDU(p)
 }

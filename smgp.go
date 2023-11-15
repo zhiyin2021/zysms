@@ -75,12 +75,7 @@ func (c *smgp_action) recv() (codec.PDU, error) {
 		}
 	case *smgp.ActiveTestResp: // 当收到心跳回复,内部直接处理,并递归继续获取数据
 		atomic.StoreInt32(&c.counter, 0)
-		if tmp := c.cache.Get(fmt.Sprintf("active_test_%d", p.GetSequenceNumber())); tmp != nil {
-			if tm, ok := tmp.(*time.Time); ok {
-				c.delay.Push(time.Since(*tm).Microseconds())
-			}
-		}
-		// c.activeLast = time.Now()
+		c.activeTestResp(p.GetSequenceNumber())
 	case *smgp.LoginResp: // 当收到登录回复,内部先校验版本
 		if c.checkVer && p.Version != c.Typ {
 			return nil, fmt.Errorf("smgp version not match [ local: %d != remote: %d ]", c.Typ, p.Version)
@@ -108,7 +103,6 @@ func (c *smgp_action) recv() (codec.PDU, error) {
 
 func (c *smgp_action) active_test() error {
 	p := smgp.NewActiveTestReq(c.Typ)
-	now := time.Now()
-	c.cache.Set(fmt.Sprintf("active_test_%d", p.GetSequenceNumber()), &now)
+	c.activeTestReq(p.GetSequenceNumber())
 	return c.SendPDU(p)
 }

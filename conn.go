@@ -15,6 +15,11 @@ import (
 	"github.com/zhiyin2021/zysms/utils"
 )
 
+type activeTestItem struct {
+	time  time.Time
+	timer *time.Timer
+	flag  int32
+}
 type sms_conn struct {
 	Data any
 	// Logger *logrus.Entry
@@ -66,7 +71,7 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 		activeCount:    0,
 		activeInterval: 5,
 		delay:          utils.NewQueue(30),
-		cache:          cache.NewMemory(time.Minute),
+		cache:          cache.NewMemory(time.Second * 1),
 	}
 	switch proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
@@ -220,4 +225,28 @@ func (c *sms_conn) SetReadDeadline(timeout time.Duration) {
 }
 func (c *sms_conn) Ver() codec.Version {
 	return c.Typ
+}
+
+func (c *sms_conn) activeTestReq(seq int32) {
+	item := activeTestItem{
+		time: time.Now(),
+		flag: 0,
+	}
+	item.timer = time.AfterFunc(time.Second*1, func() {
+		time.Sleep(100 * time.Millisecond)
+		if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
+			c.delay.Push(-1)
+		}
+	})
+	c.cache.Set(fmt.Sprintf("active_test_%d", seq), &item)
+}
+func (c *sms_conn) activeTestResp(seq int32) {
+	if tmp := c.cache.Get(fmt.Sprintf("active_test_%d", seq)); tmp != nil {
+		if item, ok := tmp.(*activeTestItem); ok {
+			if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
+				item.timer.Stop()
+				c.delay.Push(time.Since(item.time).Microseconds())
+			}
+		}
+	}
 }
