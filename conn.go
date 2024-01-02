@@ -70,7 +70,7 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 		autoActiveResp: true,
 		activeCount:    0,
 		activeInterval: 5,
-		delay:          utils.NewQueue(30),
+		delay:          utils.NewQueue(10),
 		cache:          cache.NewMemory(time.Second * 1),
 	}
 	switch proto {
@@ -240,6 +240,7 @@ func (c *sms_conn) activeTestReq(seq int32) {
 	})
 	c.cache.Set(fmt.Sprintf("active_test_%d", seq), &item)
 }
+
 func (c *sms_conn) activeTestResp(seq int32) {
 	if tmp := c.cache.Get(fmt.Sprintf("active_test_%d", seq)); tmp != nil {
 		if item, ok := tmp.(*activeTestItem); ok {

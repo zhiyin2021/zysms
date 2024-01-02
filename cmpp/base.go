@@ -1,6 +1,7 @@
 package cmpp
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/zhiyin2021/zysms/codec"
@@ -56,8 +57,9 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 					err = c.unmarshalOptionalParam(optParam)
 				}
 				if err != nil {
-					return
+					fmt.Println("unmarshalOptionalParam failed:", err)
 				}
+				err = nil
 			}
 
 			// validate again

@@ -86,6 +86,12 @@ func (c *ShortMessage) SetMessage(message string) (err error) {
 	c.message = message
 	if c.messageData, err = codec.GSM7BIT.Encode(message); err == nil {
 		c.enc = codec.GSM7BIT
+	} else if c.messageData, err = codec.LATIN1.Encode(message); err == nil {
+		c.enc = codec.LATIN1
+	} else if c.messageData, err = codec.CYRILLIC.Encode(message); err == nil {
+		c.enc = codec.CYRILLIC
+	} else if c.messageData, err = codec.HEBREW.Encode(message); err == nil {
+		c.enc = codec.HEBREW
 	} else if c.messageData, err = codec.ASCII.Encode(message); err == nil {
 		c.enc = codec.ASCII
 	} else {
@@ -185,17 +191,17 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 		encoding = c.enc
 	}
 
-	// check if encoding implements Splitter
-	splitter, ok := encoding.(codec.Splitter)
-	// check if encoding implements Splitter or split is necessary
-	if !ok || !splitter.ShouldSplit(c.message, SM_GSM_MSG_LEN) {
-		err = c.SetMessageWithEncoding(c.message, c.enc)
-		multiSM = []*ShortMessage{c}
-		return
-	}
+	// // check if encoding implements Splitter
+	// splitter, ok := encoding.(codec.Splitter)
+	// // check if encoding implements Splitter or split is necessary
+	// if !ok || !splitter.ShouldSplit(c.message, SM_GSM_MSG_LEN) {
+	// 	err = c.SetMessageWithEncoding(c.message, c.enc)
+	// 	multiSM = []*ShortMessage{c}
+	// 	return
+	// }
 
 	// reserve 6 bytes for concat message UDH
-	segments, err := splitter.EncodeSplit(c.message, SM_GSM_MSG_LEN-6)
+	segments, err := encoding.EncodeSplit(c.message, SM_GSM_MSG_LEN-6)
 	if err != nil {
 		return nil, err
 	}

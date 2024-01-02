@@ -56,6 +56,7 @@ type EncDec interface {
 type Encoding interface {
 	EncDec
 	DataCoding() byte
+	EncodeSplit(text string, octetLimit int) ([][]byte, error)
 }
 
 func encode(str string, encoder *encoding.Encoder) ([]byte, error) {
@@ -68,35 +69,6 @@ func decode(data []byte, decoder *encoding.Decoder) (st string, err error) {
 		st = string(tmp)
 	}
 	return
-}
-
-// CustomEncoding is wrapper for user-defined data encoding.
-type CustomEncoding struct {
-	encDec EncDec
-	coding byte
-}
-
-// NewCustomEncoding creates new custom encoding.
-func NewCustomEncoding(coding byte, encDec EncDec) Encoding {
-	return &CustomEncoding{
-		coding: coding,
-		encDec: encDec,
-	}
-}
-
-// Encode string.
-func (c *CustomEncoding) Encode(str string) ([]byte, error) {
-	return c.encDec.Encode(str)
-}
-
-// Decode data to string.
-func (c *CustomEncoding) Decode(data []byte) (string, error) {
-	return c.encDec.Decode(data)
-}
-
-// DataCoding flag.
-func (c *CustomEncoding) DataCoding() byte {
-	return c.coding
 }
 
 type gsm7bit struct {
@@ -114,20 +86,12 @@ func (c *gsm7bit) Decode(data []byte) (string, error) {
 
 func (c *gsm7bit) DataCoding() byte { return GSM7BITCoding }
 
-func (c *gsm7bit) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	tmp, err := c.Encode(text)
-	if err != nil {
-		return false
-	}
-	return float32(len(tmp))/8*7 > float32(octetLimit)
-}
-
-func (c *gsm7bit) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+func (c *gsm7bit) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
 	// if octetLimit < 64 {
 	// 	octetLimit = 134 / 7 * 8
 	// }
 	if !c.packed {
-		octetLimit = uint(float32(octetLimit) / 7 * 8)
+		octetLimit = int(float32(octetLimit) / 7 * 8)
 	}
 	allSeg = [][]byte{}
 	tmp, err := c.Encode(text)
@@ -171,11 +135,7 @@ func (*ascii) Decode(data []byte) (string, error) {
 
 func (*ascii) DataCoding() byte { return ASCIICoding }
 
-func (*ascii) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len(text)) > octetLimit
-}
-
-func (c *ascii) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+func (c *ascii) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
 	allSeg = [][]byte{}
 	runeSlice := []rune(text)
 
@@ -206,14 +166,7 @@ func (*iso88591) Decode(data []byte) (string, error) {
 
 func (*iso88591) DataCoding() byte { return LATIN1Coding }
 
-func (*iso88591) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len(text)) > octetLimit
-}
-
-func (c *iso88591) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
-	if octetLimit < 64 {
-		octetLimit = 134
-	}
+func (c *iso88591) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
 	allSeg = [][]byte{}
 	runeSlice := []rune(text)
 
@@ -229,7 +182,6 @@ func (c *iso88591) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, e
 		allSeg = append(allSeg, seg)
 		fr, to = to, to+int(octetLimit)
 	}
-
 	return
 }
 
@@ -245,23 +197,7 @@ func (*binary8bit1) Decode(msg []byte) (string, error) {
 
 func (*binary8bit1) DataCoding() byte { return BINARY8BIT1Coding }
 
-type binary8bit2 struct{}
-
-func (*binary8bit2) Encode(msg string) ([]byte, error) {
-	return []byte(msg), nil
-}
-
-func (*binary8bit2) Decode(msg []byte) (string, error) {
-	return string(msg), nil
-}
-
-func (*binary8bit2) DataCoding() byte { return BINARY8BIT2Coding }
-
-func (*binary8bit2) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len(text)) > octetLimit
-}
-
-func (c *binary8bit2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+func (c *binary8bit1) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
 	if octetLimit < 64 {
 		octetLimit = 134
 	}
@@ -284,6 +220,37 @@ func (c *binary8bit2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte
 	return
 }
 
+type binary8bit2 struct{}
+
+func (*binary8bit2) Encode(msg string) ([]byte, error) {
+	return []byte(msg), nil
+}
+
+func (*binary8bit2) Decode(msg []byte) (string, error) {
+	return string(msg), nil
+}
+
+func (*binary8bit2) DataCoding() byte { return BINARY8BIT2Coding }
+
+func (c *binary8bit2) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+
+	fr, to := 0, int(octetLimit)
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+		fr, to = to, to+int(octetLimit)
+	}
+	return
+}
+
 type iso88595 struct{}
 
 func (*iso88595) Encode(str string) ([]byte, error) {
@@ -296,6 +263,25 @@ func (*iso88595) Decode(data []byte) (string, error) {
 
 func (*iso88595) DataCoding() byte { return CYRILLICCoding }
 
+func (c *iso88595) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+
+	fr, to := 0, int(octetLimit)
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+		fr, to = to, to+int(octetLimit)
+	}
+	return
+}
+
 type iso88598 struct{}
 
 func (*iso88598) Encode(str string) ([]byte, error) {
@@ -304,6 +290,25 @@ func (*iso88598) Encode(str string) ([]byte, error) {
 
 func (*iso88598) Decode(data []byte) (string, error) {
 	return decode(data, charmap.ISO8859_8.NewDecoder())
+}
+
+func (c *iso88598) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+	allSeg = [][]byte{}
+	runeSlice := []rune(text)
+
+	fr, to := 0, int(octetLimit)
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		seg, err := c.Encode(string(runeSlice[fr:to]))
+		if err != nil {
+			return nil, err
+		}
+		allSeg = append(allSeg, seg)
+		fr, to = to, to+int(octetLimit)
+	}
+	return
 }
 
 func (*iso88598) DataCoding() byte { return HEBREWCoding }
@@ -320,33 +325,23 @@ func (*ucs2) Decode(data []byte) (string, error) {
 	return decode(data, tmp.NewDecoder())
 }
 
-func (*ucs2) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	return uint(len([]rune(text))) > octetLimit/2
-}
-
-func (c *ucs2) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
-	if octetLimit < 64 {
-		octetLimit = 134
-	}
-
+func (c *ucs2) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
 	allSeg = [][]byte{}
-	runeSlice := []rune(text)
-	hextetLim := int(octetLimit / 2) // round down
-
-	// hextet = 16 bits, the correct terms should be hexadectet
-	fr, to := 0, hextetLim
-	for fr < len(runeSlice) {
-		if to > len(runeSlice) {
-			to = len(runeSlice)
+	if text == "" {
+		return allSeg, nil
+	}
+	runeSlice, _ := c.Encode(text)
+	size := len(runeSlice)
+	count := size / octetLimit
+	if size%octetLimit > 0 {
+		count++
+	}
+	for i := 0; i < count; i++ {
+		if (i+1)*octetLimit > size {
+			allSeg = append(allSeg, runeSlice[i*octetLimit:])
+		} else {
+			allSeg = append(allSeg, runeSlice[i*octetLimit:(i+1)*octetLimit])
 		}
-
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
-
-		fr, to = to, to+hextetLim
 	}
 
 	return
@@ -364,15 +359,7 @@ func (*gb18030) Decode(data []byte) (string, error) {
 	return decode(data, simplifiedchinese.GB18030.NewDecoder())
 }
 
-func (c *gb18030) ShouldSplit(text string, octetLimit uint) (shouldSplit bool) {
-	tmp, err := c.Encode(text)
-	if err != nil {
-		return false
-	}
-	return uint(len(tmp)) > octetLimit
-}
-
-func (c *gb18030) EncodeSplit(text string, octetLimit uint) (allSeg [][]byte, err error) {
+func (c *gb18030) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
 	if octetLimit < 64 {
 		octetLimit = 134
 	}
@@ -493,11 +480,11 @@ func GetCodec(code byte) (enc Encoding) {
 // Splitter extend encoding object by defining a split function
 // that split a string into multiple segments
 // Each segment string, when encoded, must be within a certain octet limit
-type Splitter interface {
-	// ShouldSplit check if the encoded data of given text should be splitted under octetLimit
-	ShouldSplit(text string, octetLimit uint) (should bool)
-	EncodeSplit(text string, octetLimit uint) ([][]byte, error)
-}
+// type Splitter interface {
+// 	// ShouldSplit check if the encoded data of given text should be splitted under octetLimit
+// 	ShouldSplit(text string, octetLimit uint) (should bool)
+// 	EncodeSplit(text string, octetLimit uint) ([][]byte, error)
+// }
 
 // 判断字符串是否包含中文
 func HasWidthChar(content string) bool {

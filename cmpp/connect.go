@@ -108,7 +108,7 @@ func (p *ConnResp) Marshal(w *codec.BytesWriter) {
 
 func (p *ConnResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		if p.Version == V30 {
+		if p.Version == V30 || br.Len() == 21 {
 			p.Status = br.ReadU32()
 		} else {
 			p.Status = uint32(br.ReadByte())
