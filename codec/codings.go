@@ -56,7 +56,7 @@ type EncDec interface {
 type Encoding interface {
 	EncDec
 	DataCoding() byte
-	EncodeSplit(text string, octetLimit int) ([][]byte, error)
+	EncodeSplit(text string) ([][]byte, error)
 }
 
 func encode(str string, encoder *encoding.Encoder) ([]byte, error) {
@@ -86,18 +86,25 @@ func (c *gsm7bit) Decode(data []byte) (string, error) {
 
 func (c *gsm7bit) DataCoding() byte { return GSM7BITCoding }
 
-func (c *gsm7bit) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
-	// if octetLimit < 64 {
-	// 	octetLimit = 134 / 7 * 8
-	// }
-	if !c.packed {
-		octetLimit = int(float32(octetLimit) / 7 * 8)
-	}
-	allSeg = [][]byte{}
+func (c *gsm7bit) EncodeSplit(text string) (allSeg [][]byte, err error) {
+
 	tmp, err := c.Encode(text)
 	if err != nil {
 		return nil, err
 	}
+	octetLimit := SM_GSM_LONG_LEN
+	if !c.packed {
+		octetLimit = SM_GSM_LONG_PACKLEN
+		if len(tmp) <= SM_GSM_MSG_PACKLEN {
+			return [][]byte{tmp}, nil
+		}
+	} else {
+		if len(tmp) <= SM_GSM_MSG_LEN {
+			return [][]byte{tmp}, nil
+		}
+	}
+
+	allSeg = [][]byte{}
 	runeSlice := tmp
 	fr, to := 0, int(octetLimit)
 
@@ -135,11 +142,18 @@ func (*ascii) Decode(data []byte) (string, error) {
 
 func (*ascii) DataCoding() byte { return ASCIICoding }
 
-func (c *ascii) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
-	allSeg = [][]byte{}
-	runeSlice := []rune(text)
+func (c *ascii) EncodeSplit(text string) (allSeg [][]byte, err error) {
+	octetLimit := SM_GSM_LONG_PACKLEN
 
-	fr, to := 0, int(octetLimit)
+	allSeg = [][]byte{}
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_PACKLEN {
+		return [][]byte{runeSlice}, nil
+	}
+	fr, to := 0, octetLimit
 	for fr < len(runeSlice) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
@@ -166,11 +180,19 @@ func (*iso88591) Decode(data []byte) (string, error) {
 
 func (*iso88591) DataCoding() byte { return LATIN1Coding }
 
-func (c *iso88591) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
-	allSeg = [][]byte{}
-	runeSlice := []rune(text)
+func (c *iso88591) EncodeSplit(text string) (allSeg [][]byte, err error) {
+	octetLimit := SM_GSM_LONG_LEN
 
-	fr, to := 0, int(octetLimit)
+	allSeg = [][]byte{}
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{runeSlice}, nil
+	}
+
+	fr, to := 0, octetLimit
 	for fr < len(runeSlice) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
@@ -197,12 +219,17 @@ func (*binary8bit1) Decode(msg []byte) (string, error) {
 
 func (*binary8bit1) DataCoding() byte { return BINARY8BIT1Coding }
 
-func (c *binary8bit1) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
-	if octetLimit < 64 {
-		octetLimit = 134
-	}
+func (c *binary8bit1) EncodeSplit(text string) (allSeg [][]byte, err error) {
+
+	octetLimit := SM_GSM_LONG_LEN
 	allSeg = [][]byte{}
-	runeSlice := []rune(text)
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{runeSlice}, nil
+	}
 
 	fr, to := 0, int(octetLimit)
 	for fr < len(runeSlice) {
@@ -232,9 +259,16 @@ func (*binary8bit2) Decode(msg []byte) (string, error) {
 
 func (*binary8bit2) DataCoding() byte { return BINARY8BIT2Coding }
 
-func (c *binary8bit2) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+func (c *binary8bit2) EncodeSplit(text string) (allSeg [][]byte, err error) {
+	octetLimit := SM_GSM_LONG_LEN
 	allSeg = [][]byte{}
-	runeSlice := []rune(text)
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{runeSlice}, nil
+	}
 
 	fr, to := 0, int(octetLimit)
 	for fr < len(runeSlice) {
@@ -263,9 +297,16 @@ func (*iso88595) Decode(data []byte) (string, error) {
 
 func (*iso88595) DataCoding() byte { return CYRILLICCoding }
 
-func (c *iso88595) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+func (c *iso88595) EncodeSplit(text string) (allSeg [][]byte, err error) {
+	octetLimit := SM_GSM_LONG_LEN
 	allSeg = [][]byte{}
-	runeSlice := []rune(text)
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{runeSlice}, nil
+	}
 
 	fr, to := 0, int(octetLimit)
 	for fr < len(runeSlice) {
@@ -292,9 +333,13 @@ func (*iso88598) Decode(data []byte) (string, error) {
 	return decode(data, charmap.ISO8859_8.NewDecoder())
 }
 
-func (c *iso88598) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+func (c *iso88598) EncodeSplit(text string) (allSeg [][]byte, err error) {
+	octetLimit := SM_GSM_LONG_LEN
 	allSeg = [][]byte{}
-	runeSlice := []rune(text)
+	runeSlice, _ := c.Encode(text)
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{[]byte(runeSlice)}, nil
+	}
 
 	fr, to := 0, int(octetLimit)
 	for fr < len(runeSlice) {
@@ -325,12 +370,21 @@ func (*ucs2) Decode(data []byte) (string, error) {
 	return decode(data, tmp.NewDecoder())
 }
 
-func (c *ucs2) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
+func (c *ucs2) EncodeSplit(text string) (allSeg [][]byte, err error) {
 	allSeg = [][]byte{}
 	if text == "" {
 		return allSeg, nil
 	}
-	runeSlice, _ := c.Encode(text)
+	octetLimit := SM_GSM_LONG_LEN
+	allSeg = [][]byte{}
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{runeSlice}, nil
+	}
+
 	size := len(runeSlice)
 	count := size / octetLimit
 	if size%octetLimit > 0 {
@@ -359,17 +413,15 @@ func (*gb18030) Decode(data []byte) (string, error) {
 	return decode(data, simplifiedchinese.GB18030.NewDecoder())
 }
 
-func (c *gb18030) EncodeSplit(text string, octetLimit int) (allSeg [][]byte, err error) {
-	if octetLimit < 64 {
-		octetLimit = 134
-	}
+func (c *gb18030) EncodeSplit(text string) (allSeg [][]byte, err error) {
+
+	octetLimit := SM_GSM_LONG_LEN
 	allSeg = [][]byte{}
-	tmp, err := c.Encode(text)
-	if err != nil {
-		return nil, err
+	runeSlice, _ := c.Encode(text)
+	if len(runeSlice) <= SM_GSM_MSG_LEN {
+		return [][]byte{runeSlice}, nil
 	}
 
-	runeSlice := tmp
 	hextetLim := int(octetLimit) // round down
 	// hextet = 16 bits, the correct terms should be hexadectet
 	fr, to := 0, 0

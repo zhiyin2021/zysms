@@ -201,7 +201,7 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	// }
 
 	// reserve 6 bytes for concat message UDH
-	segments, err := encoding.EncodeSplit(c.message, SM_GSM_MSG_LEN-6)
+	segments, err := encoding.EncodeSplit(c.message)
 	if err != nil {
 		return nil, err
 	}

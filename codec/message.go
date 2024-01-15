@@ -20,7 +20,11 @@ var (
 
 const (
 	// GSM specific, short message must be no larger than 140 octets
-	SM_GSM_MSG_LEN = 140
+	UDH_LEN             = 6   // 分片头长度
+	SM_GSM_MSG_LEN      = 140 // 8bit消息长度
+	SM_GSM_LONG_LEN     = 134 // 8bit分片消息长度
+	SM_GSM_MSG_PACKLEN  = 160 // 7bit消息长度
+	SM_GSM_LONG_PACKLEN = 153 // 7bit消息分片长度
 )
 
 // type msgUDH struct {
@@ -126,12 +130,13 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 			c.enc = ASCII
 		}
 	}
-	gsmLen := SM_GSM_MSG_LEN
-	udhLen := 6
-	if c.enc == ASCII {
-		gsmLen = 160
-		udhLen = 7
-	}
+	// gsmLen := SM_GSM_MSG_LEN
+	// udhLen := 6
+	// if c.enc == ASCII {
+	// 	gsmLen = 160
+	// 	udhLen = 7
+	// }
+
 	// check if encoding implements Splitter
 	// splitter, ok := c.enc.(Splitter)
 	// check if encoding implements Splitter or split is necessary
@@ -142,9 +147,14 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	// }
 
 	// reserve 6 bytes for concat message UDH
-	segments, err := c.enc.EncodeSplit(c.message, gsmLen-udhLen)
+	segments, err := c.enc.EncodeSplit(c.message)
 	if err != nil {
 		return nil, err
+	}
+	if len(segments) == 1 {
+		err = c.SetMessage(c.message, c.enc)
+		multiSM = []*ShortMessage{c}
+		return
 	}
 	// prealloc result
 	multiSM = make([]*ShortMessage, 0, len(segments))
