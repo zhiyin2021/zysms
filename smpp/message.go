@@ -205,6 +205,11 @@ func (c *ShortMessage) split() (multiSM []*ShortMessage, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(segments) == 1 {
+		err = c.SetMessageWithEncoding(c.message, encoding)
+		multiSM = []*ShortMessage{c}
+		return
+	}
 
 	// prealloc result
 	multiSM = make([]*ShortMessage, 0, len(segments))
