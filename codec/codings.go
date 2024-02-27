@@ -112,10 +112,6 @@ func (c *gsm7bit) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		// seg, err := c.Encode(string(runeSlice[fr:to]))
-		// if err != nil {
-		// 	return nil, err
-		// }
 		seg := runeSlice[fr:to]
 		allSeg = append(allSeg, seg)
 		fr, to = to, to+int(octetLimit)
@@ -158,11 +154,7 @@ func (c *ascii) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
+		allSeg = append(allSeg, runeSlice[fr:to])
 		fr, to = to, to+int(octetLimit)
 	}
 	return
@@ -197,11 +189,7 @@ func (c *iso88591) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
+		allSeg = append(allSeg, runeSlice[fr:to])
 		fr, to = to, to+int(octetLimit)
 	}
 	return
@@ -236,11 +224,7 @@ func (c *binary8bit1) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
+		allSeg = append(allSeg, runeSlice[fr:to])
 		fr, to = to, to+int(octetLimit)
 	}
 
@@ -275,11 +259,8 @@ func (c *binary8bit2) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
+
+		allSeg = append(allSeg, runeSlice[fr:to])
 		fr, to = to, to+int(octetLimit)
 	}
 	return
@@ -313,11 +294,7 @@ func (c *iso88595) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
+		allSeg = append(allSeg, runeSlice[fr:to])
 		fr, to = to, to+int(octetLimit)
 	}
 	return
@@ -346,11 +323,8 @@ func (c *iso88598) EncodeSplit(text string) (allSeg [][]byte, err error) {
 		if to > len(runeSlice) {
 			to = len(runeSlice)
 		}
-		seg, err := c.Encode(string(runeSlice[fr:to]))
-		if err != nil {
-			return nil, err
-		}
-		allSeg = append(allSeg, seg)
+
+		allSeg = append(allSeg, runeSlice[fr:to])
 		fr, to = to, to+int(octetLimit)
 	}
 	return

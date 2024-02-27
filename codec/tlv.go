@@ -87,6 +87,22 @@ func (t *Field) String() string {
 	return string(t.Data)
 }
 
+// String implements the Data interface.
+func (t *Field) UInt64() uint64 {
+	switch len(t.Data) {
+	case 1:
+		return uint64(t.Data[0])
+	case 2:
+		return uint64(binary.BigEndian.Uint16(t.Data))
+	case 4:
+		return uint64(binary.BigEndian.Uint32(t.Data))
+	case 8:
+		return binary.BigEndian.Uint64(t.Data)
+	default:
+		return 0
+	}
+}
+
 // Marshal to writer.
 func (t *Field) Marshal(w *BytesWriter) {
 	if len(t.Data) > 0 {
