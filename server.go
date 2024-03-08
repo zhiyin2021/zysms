@@ -1,6 +1,8 @@
 package zysms
 
 import (
+	"crypto/rand"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"runtime/debug"
@@ -79,6 +81,42 @@ func (s *SMS) Listen(addr string) (*Listener, error) {
 	})
 	return l, nil
 }
+func (s *SMS) ListenTls(addr string, cert []byte, key []byte) (*Listener, error) {
+	crt, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		logrus.Error(err.Error())
+		return nil, err
+	}
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	tlsConfig.Certificates = []tls.Certificate{crt}
+	// Time returns the current time as the number of seconds since the epoch.
+	// If Time is nil, TLS uses time.Now.
+	tlsConfig.Time = time.Now
+	tlsConfig.Rand = rand.Reader
+	ln, err := tls.Listen("tcp", addr, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	l, err := newListener(ln, s.proto, s.extParam)
+	if err != nil {
+		return nil, err
+	}
+	tryGO(func() {
+		for {
+			sConn, err := l.accept()
+			if err != nil {
+				logrus.Errorf("listen.accept error:%s", err)
+				if e, ok := err.(*net.OpError); ok && e.Error() == "use of closed network connection" {
+					return
+				}
+				continue
+			}
+			s.run(sConn, false)
+
+		}
+	})
+	return l, nil
+}
 func (s *SMS) doError(conn Conn, err error) {
 	if s.OnError != nil {
 		if !strings.Contains(err.Error(), "use of closed network connection") {
@@ -88,13 +126,21 @@ func (s *SMS) doError(conn Conn, err error) {
 }
 func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[string]string) (Conn, error) {
 	var err error
-	conn, err := net.DialTimeout("tcp", addr, timeout)
-	if err != nil {
-		return nil, err
+	var conn net.Conn
+	if ext["tls"] == "1" {
+		conn, err = tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		conn, err = net.DialTimeout("tcp", addr, timeout)
+		if err != nil {
+			return nil, err
+		}
+		tc := conn.(*net.TCPConn)
+		tc.SetKeepAlive(true)
+		tc.SetKeepAlivePeriod(30 * time.Second) // 1min
 	}
-	tc := conn.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
 
 	sConn := newConn(conn, s.proto)
 	if sConn == nil {
