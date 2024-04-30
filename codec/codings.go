@@ -29,6 +29,7 @@ var (
 const (
 	// GSM7BITCoding is gsm-7bit coding
 	GSM7BITCoding byte = 0x00
+	ASCII0Coding  byte = 0x00
 	// ASCIICoding is ascii coding
 	ASCIICoding byte = 0x01
 	// BINARY8BIT1Coding is 8-bit binary coding
@@ -139,6 +140,46 @@ func (*ascii) Decode(data []byte) (string, error) {
 func (*ascii) DataCoding() byte { return ASCIICoding }
 
 func (c *ascii) EncodeSplit(text string) (allSeg [][]byte, err error) {
+	octetLimit := SM_GSM_LONG_PACKLEN
+
+	allSeg = [][]byte{}
+	runeSlice, err := c.Encode(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(runeSlice) <= SM_GSM_MSG_PACKLEN {
+		return [][]byte{runeSlice}, nil
+	}
+	fr, to := 0, octetLimit
+	for fr < len(runeSlice) {
+		if to > len(runeSlice) {
+			to = len(runeSlice)
+		}
+		allSeg = append(allSeg, runeSlice[fr:to])
+		fr, to = to, to+int(octetLimit)
+	}
+	return
+}
+
+type ascii0 struct{}
+
+func (*ascii0) Encode(str string) ([]byte, error) {
+	if HasWidthChar(str) {
+		return nil, ErrAsciiInvalidCharacter
+	}
+	return []byte(str), nil
+}
+
+func (*ascii0) Decode(data []byte) (string, error) {
+	if HasWidthChar(string(data)) {
+		return "nil", ErrAsciiInvalidByte
+	}
+	return string(data), nil
+}
+
+func (*ascii0) DataCoding() byte { return ASCII0Coding }
+
+func (c *ascii0) EncodeSplit(text string) (allSeg [][]byte, err error) {
 	octetLimit := SM_GSM_LONG_PACKLEN
 
 	allSeg = [][]byte{}
@@ -472,9 +513,11 @@ var (
 	// UCS2 encoding.
 	UCS2    Encoding = &ucs2{}
 	GB18030 Encoding = &gb18030{}
+
+	ASCII0 Encoding = &ascii0{}
 )
 
-var codingMap = map[byte]Encoding{
+var smppCoding = map[byte]Encoding{
 	GSM7BITCoding:     GSM7BIT,
 	ASCIICoding:       ASCII,
 	BINARY8BIT1Coding: BINARY8BIT1,
@@ -483,7 +526,12 @@ var codingMap = map[byte]Encoding{
 	CYRILLICCoding:    CYRILLIC,
 	HEBREWCoding:      HEBREW,
 	UCS2Coding:        UCS2,
-	GB18030Coding:     GB18030,
+}
+var cmppCoding = map[byte]Encoding{
+	ASCII0Coding:  ASCII0,
+	ASCIICoding:   ASCII,
+	UCS2Coding:    UCS2,
+	GB18030Coding: GB18030,
 }
 
 const (
@@ -492,11 +540,23 @@ const (
 )
 
 // FromDataCoding returns encoding from DataCoding value.
-func GetCodec(code byte) (enc Encoding) {
+func GetCmppCodec(code byte) (enc Encoding) {
 	if code&FlashMsg == FlashMsg {
 		code = code ^ FlashMsg
 	}
-	enc = codingMap[code]
+	enc = cmppCoding[code]
+	if enc == nil {
+		enc = UCS2
+	}
+	return
+}
+
+// FromDataCoding returns encoding from DataCoding value.
+func GetSmppCodec(code byte) (enc Encoding) {
+	if code&FlashMsg == FlashMsg {
+		code = code ^ FlashMsg
+	}
+	enc = smppCoding[code]
 	if enc == nil {
 		enc = UCS2
 	}

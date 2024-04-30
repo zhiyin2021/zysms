@@ -54,6 +54,13 @@ func NewBinaryShortMessageWithEncoding(messageData []byte, enc codec.Encoding) (
 	return
 }
 
+// Clear message.
+func (c *ShortMessage) Clear() {
+	c.messageData = []byte{}
+	c.message = ""
+	c.udHeader = nil
+}
+
 // NewLongMessage returns long message splitted into multiple short message
 func NewLongMessage(message string) (s []*ShortMessage, err error) {
 	enc := codec.UCS2
@@ -91,14 +98,14 @@ func (c *ShortMessage) SetMessage(message string) (err error) {
 	c.message = message
 	if c.messageData, err = codec.GSM7BIT.Encode(message); err == nil {
 		c.enc = codec.GSM7BIT
+	} else if c.messageData, err = codec.ASCII.Encode(message); err == nil {
+		c.enc = codec.ASCII
 	} else if c.messageData, err = codec.LATIN1.Encode(message); err == nil {
 		c.enc = codec.LATIN1
 	} else if c.messageData, err = codec.CYRILLIC.Encode(message); err == nil {
 		c.enc = codec.CYRILLIC
 	} else if c.messageData, err = codec.HEBREW.Encode(message); err == nil {
 		c.enc = codec.HEBREW
-	} else if c.messageData, err = codec.ASCII.Encode(message); err == nil {
-		c.enc = codec.ASCII
 	} else {
 		c.messageData, err = codec.UCS2.Encode(message)
 		c.enc = codec.UCS2
@@ -291,7 +298,7 @@ func (c *ShortMessage) Unmarshal(b *codec.BytesReader, udhi bool) (err error) {
 		return
 	}
 
-	c.enc = codec.GetCodec(c.dataCoding)
+	c.enc = codec.GetSmppCodec(c.dataCoding)
 
 	// If short message length is non zero, short message contains User-Data Header
 	// Else UDH should be in TLV field MessagePayload

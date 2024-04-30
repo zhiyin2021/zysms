@@ -218,7 +218,7 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 		c.messageData = c.messageData[f:]
 	}
 
-	c.enc = GetCodec(enc)
+	c.enc = GetCmppCodec(enc)
 	if c.enc == nil {
 		if HasWidthChar(c.message) {
 			c.enc = UCS2
@@ -230,16 +230,17 @@ func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error
 	return
 }
 
+// UDH gets user data header for short message
+func (c *ShortMessage) DataCoding() byte {
+	return c.Encoding().DataCoding()
+}
+
 // Encoding returns message encoding.
-func (c *ShortMessage) Encoding() byte {
-	if c.enc == ASCII {
-		// 国内 CMPP,SMGP 不支持 gms7bit,  ascii一样以160字符计费
-		return GSM7BITCoding
-	}
+func (c *ShortMessage) Encoding() Encoding {
 	if c.enc == nil {
 		c.enc = UCS2
 	}
-	return c.enc.DataCoding()
+	return c.enc
 }
 
 // returns an atomically incrementing number each time it's called

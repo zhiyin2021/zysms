@@ -239,7 +239,7 @@ func tryGO(f func()) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				logrus.StandardLogger().Fatalln(logrus.FatalLevel, "panic:%v\n%s", err, debug.Stack())
+				logrus.StandardLogger().Fatalf("panic:%v\n%s", err, debug.Stack())
 			}
 		}()
 		f()
