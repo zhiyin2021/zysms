@@ -25,7 +25,7 @@ type (
 		OnConnect    func(Conn)
 		OnDisconnect func(Conn)
 		OnError      func(Conn, error)
-		OnRecv       func(Conn, PDU) (PDU, error)
+		OnRecv       func(Conn, PDU)
 		// 心跳未响应次数
 		OnHeartbeatNoResp func(Conn, int)
 		extParam          map[string]string
@@ -176,8 +176,6 @@ func (s *SMS) run(conn *sms_conn, isLogin bool) {
 			}
 
 			if s.OnRecv != nil {
-				// p := &Packet{conn, pkt, nil}
-				resp, err := s.OnRecv(conn, pkt)
 				if !isLogin {
 					switch pkt.(type) {
 					case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
@@ -185,16 +183,8 @@ func (s *SMS) run(conn *sms_conn, isLogin bool) {
 						conn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
 					}
 				}
-				if resp != nil {
-					err := conn.SendPDU(resp)
-					if err != nil {
-						s.doError(conn, err)
-						return
-					}
-				}
-				if err != nil {
-					return
-				}
+				// p := &Packet{conn, pkt, nil}
+				s.OnRecv(conn, pkt)
 			}
 		}
 	})

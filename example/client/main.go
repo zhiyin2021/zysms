@@ -29,7 +29,7 @@ func startAClient(idx int) {
 	sms.OnError = func(c zysms.Conn, err error) {
 		log.Printf("client %d: err %s", idx, err)
 	}
-	sms.OnRecv = func(conn zysms.Conn, req zysms.PDU) (zysms.PDU, error) {
+	sms.OnRecv = func(conn zysms.Conn, req zysms.PDU) {
 		switch req := req.(type) {
 		case *cmpp.ConnResp:
 			log.Printf("client %d: receive a cmpp connect response: %v.", idx, req.Status)
@@ -40,7 +40,6 @@ func startAClient(idx int) {
 		default:
 			conn.Logger().Infof("event %T", req)
 		}
-		return nil, nil
 	}
 	c, err := sms.Dial("112.33.28.61:57892", user, password, connectTimeout, nil)
 	if err != nil {

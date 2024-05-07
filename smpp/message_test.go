@@ -53,7 +53,7 @@ func TestShortMessage(t *testing.T) {
 		require.Equal(t, "abc", m)
 
 		// try to get message string with other encoding
-		m, err = s.GetMessageWithEncoding(codec.GetCodec(codec.UCS2Coding))
+		m, err = s.GetMessageWithEncoding(codec.GetSmppCodec(codec.UCS2Coding))
 		require.Nil(t, err)
 		require.NotEqual(t, "abc", m)
 
