@@ -27,7 +27,7 @@ type sms_conn struct {
 	ctx            context.Context
 	stop           func()
 	activeCount    int32
-	activeInterval int
+	activeInterval int32
 	IsHealth       bool
 	nodeId         uint32
 
@@ -47,6 +47,11 @@ type sms_conn struct {
 	Connected int32
 	IsAuth    bool
 	cache     *cache.Memory
+
+	errEvent        func(Conn, error)
+	heartbeatNoResp func(Conn, int)
+
+	parent *SMS
 }
 
 type sms_action interface {
@@ -56,15 +61,15 @@ type sms_action interface {
 	active_test() error
 }
 
-func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
+func newConn(conn net.Conn, parent *SMS) *sms_conn {
 	sid := utils.Md5(fmt.Sprintf("%s%s%d", conn.RemoteAddr(), conn.LocalAddr(), time.Now().UnixNano()))[8:24]
 	addr := fmt.Sprintf("%s->%s", conn.LocalAddr(), conn.RemoteAddr())
 	c := &sms_conn{
 		Conn:           conn,
 		sid:            sid,
-		Typ:            proto.Version(),
-		Protocol:       proto,
-		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "addr": addr, "v": proto.String()}),
+		Typ:            parent.proto.Version(),
+		Protocol:       parent.proto,
+		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "addr": addr, "v": parent.proto.String()}),
 		extParam:       map[string]string{},
 		checkVer:       false,
 		autoActiveResp: true,
@@ -72,8 +77,9 @@ func newConn(conn net.Conn, proto codec.SmsProto) *sms_conn {
 		activeInterval: 5,
 		delay:          utils.NewQueue(10),
 		cache:          cache.NewMemory(time.Second * 1),
+		parent:         parent,
 	}
-	switch proto {
+	switch parent.proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
 		c.action = newCmpp(c)
 	case codec.SMGP30:
@@ -110,11 +116,11 @@ func (c *sms_conn) SID() string {
 func (c *sms_conn) Delay() []int64 {
 	return c.delay.Data()
 }
-func (c *sms_conn) startActiveTest(errEvent func(Conn, error), heartbeatNoResp func(Conn, int)) {
+func (c *sms_conn) EnabledActiveTest() {
 	c.IsHealth = true
-	if c.activeInterval > 0 {
+	if n := atomic.LoadInt32(&c.activeInterval); n > 0 {
 		tryGO(func() {
-			t := time.NewTicker(time.Duration(c.activeInterval) * time.Second)
+			t := time.NewTicker(time.Duration(n) * time.Second)
 			defer t.Stop()
 			for {
 				select {
@@ -124,19 +130,15 @@ func (c *sms_conn) startActiveTest(errEvent func(Conn, error), heartbeatNoResp f
 				case <-t.C:
 					n, err := c.sendActiveTest()
 					if err != nil {
-						errEvent(c, fmt.Errorf("心跳请求异常:%s", err))
+						c.parent.doError(c, fmt.Errorf("心跳请求异常:%s", err))
 						return
 					}
 					if c.activeCount > 0 && n >= c.activeCount {
-						if errEvent != nil {
-							errEvent(c, fmt.Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval))
-						} else {
-							c.Logger().Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval)
-						}
+						c.parent.doError(c, fmt.Errorf("间隔(%ds),%d次心跳异常,关闭连接", c.activeCount, c.activeInterval))
 						c.Close()
 						return
-					} else if heartbeatNoResp != nil {
-						heartbeatNoResp(c, int(n))
+					} else if c.parent.OnHeartbeatNoResp != nil {
+						c.parent.OnHeartbeatNoResp(c, int(n))
 					}
 				}
 			}
@@ -183,7 +185,7 @@ func (c *sms_conn) SetExtParam(ext map[string]string) {
 	if ext != nil {
 		tryGO(func() {
 			c.activeCount = utils.MapItem(ext, "active_count", int32(0))
-			c.activeInterval = utils.MapItem(ext, "active_interval", int(5))
+			c.activeInterval = utils.MapItem(ext, "active_interval", int32(5))
 
 			c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
 			c.autoActiveResp = utils.MapItem(ext, "auto_active_resp", 1) == 1

@@ -10,11 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/sgip"
-	"github.com/zhiyin2021/zysms/smgp"
-	"github.com/zhiyin2021/zysms/smpp"
 )
 
 // errors for cmpp server
@@ -49,6 +45,7 @@ type (
 		SID() string
 		Delay() []int64
 		IsConnected() bool
+		EnabledActiveTest()
 	}
 )
 
@@ -61,7 +58,7 @@ func (s *SMS) Listen(addr string) (*Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	l, err := newListener(ln, s.proto, s.extParam)
+	l, err := newListener(ln, s)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +72,7 @@ func (s *SMS) Listen(addr string) (*Listener, error) {
 				}
 				continue
 			}
-			s.run(sConn, false)
+			s.run(sConn)
 
 		}
 	})
@@ -97,7 +94,7 @@ func (s *SMS) ListenTls(addr string, cert []byte, key []byte) (*Listener, error)
 	if err != nil {
 		return nil, err
 	}
-	l, err := newListener(ln, s.proto, s.extParam)
+	l, err := newListener(ln, s)
 	if err != nil {
 		return nil, err
 	}
@@ -111,8 +108,7 @@ func (s *SMS) ListenTls(addr string, cert []byte, key []byte) (*Listener, error)
 				}
 				continue
 			}
-			s.run(sConn, false)
-
+			s.run(sConn)
 		}
 	})
 	return l, nil
@@ -142,7 +138,7 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[
 		tc.SetKeepAlivePeriod(30 * time.Second) // 1min
 	}
 
-	sConn := newConn(conn, s.proto)
+	sConn := newConn(conn, s)
 	if sConn == nil {
 		return nil, fmt.Errorf("不支持的协议版本")
 	}
@@ -151,12 +147,12 @@ func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[
 	if err != nil {
 		return nil, err
 	}
-	sConn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
-	s.run(sConn, true)
+	// sConn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
+	s.run(sConn)
 	return sConn, nil
 }
 
-func (s *SMS) run(conn *sms_conn, isLogin bool) {
+func (s *SMS) run(conn *sms_conn) {
 	tryGO(func() {
 		if s.OnConnect != nil {
 			s.OnConnect(conn)
@@ -176,15 +172,15 @@ func (s *SMS) run(conn *sms_conn, isLogin bool) {
 			}
 
 			if s.OnRecv != nil {
-				if !isLogin {
-					switch pkt.(type) {
-					case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
-						isLogin = true
-						conn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
-					}
-				}
 				// p := &Packet{conn, pkt, nil}
 				s.OnRecv(conn, pkt)
+				// if !isLogin {
+				// 	switch pkt.(type) {
+				// 	case *cmpp.ConnReq, *smpp.BindRequest, *smgp.LoginReq, *sgip.BindReq:
+				// 		isLogin = true
+				// 		conn.startActiveTest(s.doError, s.OnHeartbeatNoResp)
+				// 	}
+				// }
 			}
 		}
 	})
@@ -192,17 +188,18 @@ func (s *SMS) run(conn *sms_conn, isLogin bool) {
 
 type Listener struct {
 	net.Listener
-	extParam map[string]string
-	proto    codec.SmsProto
+	parent *SMS
+	// extParam map[string]string
+	// proto    codec.SmsProto
 }
 
-func newListener(l net.Listener, proto codec.SmsProto, extParam map[string]string) (*Listener, error) {
-	switch proto {
+func newListener(l net.Listener, parent *SMS) (*Listener, error) {
+	switch parent.proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30, codec.SMGP30, codec.SGIP, codec.SMPP33, codec.SMPP34:
 	default:
 		return nil, fmt.Errorf("不支持的协议版本")
 	}
-	return &Listener{l, extParam, proto}, nil
+	return &Listener{l, parent}, nil
 }
 
 func (l *Listener) accept() (*sms_conn, error) {
@@ -214,7 +211,7 @@ func (l *Listener) accept() (*sms_conn, error) {
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
 
-	conn := newConn(c, l.proto)
+	conn := newConn(c, l.parent)
 	if conn == nil {
 		return nil, fmt.Errorf("不支持的协议版本")
 	}

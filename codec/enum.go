@@ -3,7 +3,8 @@ package codec
 type SmsProto byte
 
 const (
-	CMPP20 SmsProto = iota
+	UNKNOWN SmsProto = iota
+	CMPP20
 	CMPP21
 	CMPP30
 	SMGP13
@@ -25,7 +26,7 @@ var protoMap = map[SmsProto]Version{
 	SMPP33: 0x33,
 	SMPP34: 0x34,
 }
-var protoStr = map[SmsProto]string{
+var protoVer = map[SmsProto]string{
 	CMPP20: "cmpp20",
 	CMPP21: "cmpp21",
 	CMPP30: "cmpp30",
@@ -37,6 +38,18 @@ var protoStr = map[SmsProto]string{
 	SMPP34: "smpp34",
 }
 
+var proto = map[SmsProto]string{
+	CMPP20: "cmpp",
+	CMPP21: "cmpp",
+	CMPP30: "cmpp",
+	SMGP13: "smgp",
+	SMGP20: "smgp",
+	SMGP30: "smgp",
+	SGIP:   "sgip",
+	SMPP33: "smpp",
+	SMPP34: "smpp",
+}
+
 func (s SmsProto) Version() Version {
 	if v, ok := protoMap[s]; ok {
 		return v
@@ -45,8 +58,15 @@ func (s SmsProto) Version() Version {
 }
 
 func (s SmsProto) String() string {
-	if v, ok := protoStr[s]; ok {
+	if v, ok := protoVer[s]; ok {
 		return v
 	}
-	return "known"
+	return "unknown"
+}
+
+func (s SmsProto) Raw() string {
+	if v, ok := proto[s]; ok {
+		return v
+	}
+	return "unknown"
 }
