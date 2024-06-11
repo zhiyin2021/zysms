@@ -3,6 +3,7 @@ package smpp
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/zhiyin2021/zysms/codec"
 )
@@ -151,6 +152,16 @@ type DeliverReport struct {
 
 func (c *DeliverSM) decodeReport() {
 	c.Report = &DeliverReport{}
+	if v1, ok := c.OptionalParameters[codec.TagMessageStateOption]; ok && len(v1.Data) == 1 {
+		c.Report.Stat = optionalMessageState(v1.Data[0])
+		if c.Report.Stat != "" {
+			if v2, ok := c.OptionalParameters[codec.TagReceiptedMessageID]; ok {
+				c.Report.MsgId = string(v2.Data)
+			}
+			c.Report.DoneDate = time.Now().Format("0601021504")
+			return
+		}
+	}
 	msg, _ := c.Message.GetMessage()
 	c.Report.MsgId, msg = splitReport(msg, "id:")
 	c.Report.Sub, msg = splitReport(msg, "sub:")
@@ -167,7 +178,28 @@ func (c *DeliverSM) encodeReport() {
 		c.Message.SetMessageWithEncoding(c.Report.String(), codec.GSM7BIT)
 	}
 }
-
+func optionalMessageState(v byte) string {
+	switch v {
+	case 1:
+		return "ENROUTE"
+	case 2:
+		return "DELIVRD"
+	case 3:
+		return "EXPIRED"
+	case 4:
+		return "DELETED"
+	case 5:
+		return "UNDELIV"
+	case 6:
+		return "ACCEPTD"
+	case 7:
+		return "UNKNOWN"
+	case 8:
+		return "REJECTD"
+	default:
+		return ""
+	}
+}
 func splitReport(content, sub1 string) (retSub string, retContent string) {
 	n := strings.Index(content, sub1)
 	if n == -1 {
