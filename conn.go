@@ -208,8 +208,8 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 		return smserror.ErrPktIsNil
 	}
 	buf := codec.NewWriter()
-	c.Logger().Debugf("send pdu:%T , %d , %d", pdu, c.Typ, buf.Len())
 	pdu.Marshal(buf)
+	c.Logger().Debugf("send pdu: %d , %d ,%#v ", c.Typ, buf.Len(), pdu)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
 	if err != nil {
 		c.Close()

@@ -123,6 +123,12 @@ func (c *base) IsGNack() bool {
 
 // Parse PDU from reader.
 func Parse(r io.Reader) (pdu codec.PDU, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logrus.Errorln("smpp.parse.err", err)
+			err = smserror.ErrInvalidPDU
+		}
+	}()
 	var headerBytes [16]byte
 
 	if _, err = io.ReadFull(r, headerBytes[:]); err != nil {

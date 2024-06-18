@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
 )
@@ -124,6 +125,12 @@ func (c *base) IsGNack() bool {
 
 // Parse PDU from reader.
 func Parse(r io.Reader, ver codec.Version) (pdu codec.PDU, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logrus.Errorln("smpp.parse.err", err)
+			err = smserror.ErrInvalidPDU
+		}
+	}()
 	var headerBytes [PDU_HEADER_SIZE]byte
 
 	if _, err = io.ReadFull(r, headerBytes[:]); err != nil {
