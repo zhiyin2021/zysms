@@ -1,6 +1,7 @@
 package smpp
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -82,7 +83,7 @@ func (c *DeliverSM) Marshal(b *codec.BytesWriter) {
 
 // Unmarshal implements PDU interface.
 func (c *DeliverSM) Unmarshal(b *codec.BytesReader) error {
-	return c.base.unmarshal(b, func(b *codec.BytesReader) error {
+	err := c.base.unmarshal(b, func(b *codec.BytesReader) error {
 		c.ServiceType = b.ReadCStr()
 		c.SourceAddr.Unmarshal(b)
 		c.DestAddr.Unmarshal(b)
@@ -95,12 +96,14 @@ func (c *DeliverSM) Unmarshal(b *codec.BytesReader) error {
 		c.ReplaceIfPresentFlag = b.ReadByte()
 		c.Message.Unmarshal(b, (c.EsmClass&SM_UDH_GSM) > 0)
 
+		return b.Err()
+	})
+	if err == nil {
 		if c.EsmClass&SM_SMSC_DLV_RCPT_TYPE == SM_SMSC_DLV_RCPT_TYPE || c.EsmClass&SM_INTMD_DLV_NOTIFY_TYPE == SM_INTMD_DLV_NOTIFY_TYPE {
 			c.decodeReport()
 		}
-
-		return b.Err()
-	})
+	}
+	return err
 }
 
 // DeliverSMResp PDU.
@@ -156,21 +159,22 @@ func (c *DeliverSM) decodeReport() {
 		c.Report.Stat = optionalMessageState(v1.Data[0])
 		if c.Report.Stat != "" {
 			if v2, ok := c.OptionalParameters[codec.TagReceiptedMessageID]; ok {
-				c.Report.MsgId = string(v2.Data)
+				c.Report.MsgId = string(bytes.Trim(v2.Data, "\x00"))
 			}
 			c.Report.DoneDate = time.Now().Format("0601021504")
 			return
 		}
 	}
 	msg, _ := c.Message.GetMessage()
-	c.Report.MsgId, msg = splitReport(msg, "id:")
-	c.Report.Sub, msg = splitReport(msg, "sub:")
-	c.Report.Dlvrd, msg = splitReport(msg, "dlvrd:")
-	c.Report.SubmitDate, msg = splitReport(msg, "submit date:")
-	c.Report.DoneDate, msg = splitReport(msg, "done date:")
-	c.Report.Stat, msg = splitReport(msg, "stat:")
-	c.Report.Err, msg = splitReport(msg, "err:")
-	c.Report.Text = strings.TrimSpace(strings.Replace(msg, "text:", "", 1))
+	c.Report.Unmarshal(msg)
+	// c.Report.MsgId, msg = splitReport(msg, "id:")
+	// c.Report.Sub, msg = splitReport(msg, "sub:")
+	// c.Report.Dlvrd, msg = splitReport(msg, "dlvrd:")
+	// c.Report.SubmitDate, msg = splitReport(msg, "submit date:")
+	// c.Report.DoneDate, msg = splitReport(msg, "done date:")
+	// c.Report.Stat, msg = splitReport(msg, "stat:")
+	// c.Report.Err, msg = splitReport(msg, "err:")
+	// c.Report.Text = strings.TrimSpace(strings.Replace(msg, "text:", "", 1))
 }
 func (c *DeliverSM) encodeReport() {
 	if c.Report != nil {
@@ -208,7 +212,7 @@ func splitReport(content, sub1 string) (retSub string, retContent string) {
 	n += len(sub1)
 	m := strings.Index(content[n:], " ")
 	if m == -1 {
-		return content, ""
+		return content[n:], ""
 	}
 	return content[n : m+n], content[n+m:]
 }
@@ -217,4 +221,17 @@ func (r *DeliverReport) String() string {
 		r.Err = "000"
 	}
 	return fmt.Sprintf("id:%s sub:%s dlvrd:%s submit date:%s done date:%s stat:%s err:%s text:%s ", r.MsgId, r.Sub, r.Dlvrd, r.SubmitDate, r.DoneDate, r.Stat, r.Err, r.Text)
+}
+
+func (r *DeliverReport) Unmarshal(data string) error {
+	msg := data
+	r.MsgId, msg = splitReport(msg, "id:")
+	r.Sub, msg = splitReport(msg, "sub:")
+	r.Dlvrd, msg = splitReport(msg, "dlvrd:")
+	r.SubmitDate, msg = splitReport(msg, "submit date:")
+	r.DoneDate, msg = splitReport(msg, "done date:")
+	r.Stat, msg = splitReport(msg, "stat:")
+	r.Err, msg = splitReport(msg, "err:")
+	r.Text = strings.TrimSpace(strings.Replace(msg, "text:", "", 1))
+	return nil
 }

@@ -163,14 +163,15 @@ func (s *SMS) run(conn *sms_conn) {
 			}
 			conn.Close()
 		}()
-
+		// 设置第一次读取超时10秒,10秒内没有数据则主动断开请求.
+		conn.SetReadDeadline(time.Second * 10)
 		for {
 			pkt, err := conn.action.recv()
 			if err != nil {
 				s.doError(conn, err)
 				return
 			}
-
+			conn.Conn.SetReadDeadline(time.Time{})
 			if s.OnRecv != nil {
 				// p := &Packet{conn, pkt, nil}
 				s.OnRecv(conn, pkt)

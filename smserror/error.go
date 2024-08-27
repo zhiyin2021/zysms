@@ -28,6 +28,7 @@ var (
 	ErrCommandIdInvalid      = NewSmsErr(3, "command_Id in Packet data is invalid")
 	ErrCommandIdNotSupported = NewSmsErr(4, "command_Id in Packet data is not supported")
 
+	ErrConning            = NewSmsErr(16, "conning")
 	ErrConnIsClosed       = NewSmsErr(5, "connection is closed")
 	ErrReadCmdIDTimeout   = NewSmsErr(6, "read commandId timeout")
 	ErrReadPktBodyTimeout = NewSmsErr(7, "read packet body timeout")

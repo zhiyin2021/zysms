@@ -67,6 +67,13 @@ const (
 	TagAlertOnMessageDelivery   Tag = 0x130C
 	TagItsReplyType             Tag = 0x1380
 	TagItsSessionInfo           Tag = 0x1383
+	/*
+		消息类型
+		0TP (for a one-time password)
+		MKT (for a marketing message)
+		ARN (for an alert, reminder, or notification)
+	*/
+	TagMessageType Tag = 0x1414
 )
 
 // Field is a PDU Tag-Length-Value (TLV) field

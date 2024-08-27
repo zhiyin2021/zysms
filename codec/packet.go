@@ -175,7 +175,7 @@ func (c *BytesWriter) WriteStr(s string, count int) error {
 
 // WriteCString writes c-string.
 func (c *BytesWriter) WriteCStr(s string) error {
-	return c.writeString(s, true, ASCII, 0)
+	return c.writeString(s, true, LATIN1, 0)
 }
 
 // WriteCStringWithEnc write c-string with encoding.

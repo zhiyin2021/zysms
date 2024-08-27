@@ -2,8 +2,9 @@ package enum
 
 // Conn States
 const (
-	CONN_DISCONNECTED int32 = iota
+	CONN_CONNING int32 = iota
 	CONN_CONNECTED
+	CONN_DISCONNECTED
 	CONN_AUTHOK
 )
 

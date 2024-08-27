@@ -26,8 +26,8 @@ func (c *smpp_action) login(uid string, pwd string) error {
 	req.SystemID = uid
 	req.Password = pwd
 	req.InterfaceVersion = c.Typ
-	if c.extParam != nil && c.extParam["system_type"] != "" {
-		req.SystemType = c.extParam["system_type"]
+	if c.systemType != "" {
+		req.SystemType = c.systemType
 	}
 	err := c.SendPDU(req)
 	if err != nil {

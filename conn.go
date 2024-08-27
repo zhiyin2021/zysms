@@ -40,6 +40,7 @@ type sms_conn struct {
 	extParam       map[string]string
 	checkVer       bool
 	autoActiveResp bool
+	systemType     string
 
 	action sms_action
 	delay  *utils.Queue
@@ -70,7 +71,7 @@ func newConn(conn net.Conn, parent *SMS) *sms_conn {
 		Typ:            parent.proto.Version(),
 		Protocol:       parent.proto,
 		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "addr": addr, "v": parent.proto.String()}),
-		extParam:       map[string]string{},
+		extParam:       parent.extParam,
 		checkVer:       false,
 		autoActiveResp: true,
 		activeCount:    0,
@@ -161,7 +162,7 @@ func (c *sms_conn) sendActiveTest() (int32, error) {
 }
 func (c *sms_conn) Close() {
 	if atomic.CompareAndSwapInt32(&c.Connected, enum.CONN_CONNECTED, enum.CONN_DISCONNECTED) {
-		c.logger.Warnln("connection closing.")
+		// c.logger.Warnln("connection closing.")
 		if c.IsAuth {
 			if c.action != nil {
 				c.action.logout()
@@ -171,7 +172,7 @@ func (c *sms_conn) Close() {
 		}
 		c.stop()
 		c.Conn.Close()
-		c.logger.Warnln("connection closed.")
+		// c.logger.Warnln("connection closed.")
 	}
 }
 
@@ -183,13 +184,13 @@ system_type 系统类型[smpp 特有]
 */
 func (c *sms_conn) SetExtParam(ext map[string]string) {
 	if ext != nil {
-		tryGO(func() {
-			c.activeCount = utils.MapItem(ext, "active_count", int32(0))
-			c.activeInterval = utils.MapItem(ext, "active_interval", int32(5))
+		c.extParam = ext
+		c.activeCount = utils.MapItem(ext, "active_count", int32(0))
+		c.activeInterval = utils.MapItem(ext, "active_interval", int32(5))
 
-			c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
-			c.autoActiveResp = utils.MapItem(ext, "auto_active_resp", 1) == 1
-		})
+		c.checkVer = utils.MapItem(ext, "check_version", 0) == 1
+		c.autoActiveResp = utils.MapItem(ext, "auto_active_resp", 1) == 1
+		c.systemType = utils.MapItem(ext, "system_type", "")
 	}
 }
 
@@ -201,6 +202,9 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 			c.Close()
 		}
 	}()
+	if c.Connected == enum.CONN_CONNING {
+		return smserror.ErrConning
+	}
 	if c.Connected == enum.CONN_DISCONNECTED {
 		return smserror.ErrConnIsClosed
 	}
