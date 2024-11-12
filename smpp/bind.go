@@ -1,6 +1,10 @@
 package smpp
 
-import "github.com/zhiyin2021/zysms/codec"
+import (
+	"fmt"
+
+	"github.com/zhiyin2021/zysms/codec"
+)
 
 // BindingType indicates type of binding.
 type BindingType byte
@@ -79,6 +83,13 @@ func (b *BindRequest) GetResponse() codec.PDU {
 	}
 
 	return c
+}
+
+func (c BindRequest) String() string {
+	return fmt.Sprintf("loginReq:%s uid:%s,pwd:%s,type:%s,ver:%v", c.Header, c.SystemID, c.Password, c.SystemType, c.InterfaceVersion)
+}
+func (c BindResp) String() string {
+	return fmt.Sprintf("loginResp:%s uid:%s", c.Header, c.SystemID)
 }
 
 // Marshal implements PDU interface.

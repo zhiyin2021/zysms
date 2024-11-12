@@ -537,6 +537,7 @@ var cmppCoding = map[byte]Encoding{
 const (
 	// 闪信
 	FlashMsg = 0x10
+	SIMMsg   = 0xF0
 )
 
 // FromDataCoding returns encoding from DataCoding value.
@@ -553,13 +554,22 @@ func GetCmppCodec(code byte) (enc Encoding) {
 
 // FromDataCoding returns encoding from DataCoding value.
 func GetSmppCodec(code byte) (enc Encoding) {
-	if code&FlashMsg == FlashMsg {
-		code = code ^ FlashMsg
+	if code&SIMMsg == SIMMsg {
+		if code&0x04 == 0x04 {
+			enc = BINARY8BIT1
+		} else {
+			enc = GSM7BIT
+		}
+	} else {
+		if code&FlashMsg == FlashMsg {
+			code = code ^ FlashMsg
+		}
+		enc = smppCoding[code]
+		if enc == nil {
+			enc = UCS2
+		}
 	}
-	enc = smppCoding[code]
-	if enc == nil {
-		enc = UCS2
-	}
+
 	return
 }
 

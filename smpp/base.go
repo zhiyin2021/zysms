@@ -10,11 +10,11 @@ import (
 
 type base struct {
 	Header
-	OptionalParameters map[codec.Tag]codec.Field
+	OptionalParameters codec.OptionalFields
 }
 
 func newBase(commandId codec.CommandId, seqId int32) (v base) {
-	v.OptionalParameters = make(map[codec.Tag]codec.Field)
+	v.OptionalParameters = make(codec.OptionalFields)
 	v.CommandID = commandId
 	if seqId > 0 {
 		v.SequenceNumber = seqId
@@ -72,7 +72,9 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 }
 
 func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
-	buf := codec.NewReader(optParam)
+	buf := codec.ReaderPool.Get().(*codec.BytesReader)
+	defer codec.ReaderPool.Put(buf)
+	buf.Init(optParam)
 	for buf.Len() > 0 {
 		var field codec.Field
 		if err = field.Unmarshal(buf); err == nil {
@@ -86,8 +88,10 @@ func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
 
 // Marshal to buffer.
 func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)) {
-	bodyBuf := codec.NewWriter()
 
+	bodyBuf := codec.WriterPool.Get().(*codec.BytesWriter)
+	defer codec.WriterPool.Put(bodyBuf)
+	bodyBuf.Reset()
 	// body
 	if bodyWriter != nil {
 		bodyWriter(bodyBuf)
@@ -122,7 +126,7 @@ func (c *base) IsGNack() bool {
 }
 
 // Parse PDU from reader.
-func Parse(r io.Reader) (pdu codec.PDU, err error) {
+func Parse(r io.Reader, logger *logrus.Entry) (pdu codec.PDU, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logrus.Errorln("smpp.parse.err", err)
@@ -148,19 +152,26 @@ func Parse(r io.Reader) (pdu codec.PDU, err error) {
 			return
 		}
 	}
-
+	if logger != nil {
+		switch header.CommandID {
+		case ENQUIRE_LINK, ENQUIRE_LINK_RESP:
+		default:
+			logger.Infof("recv[%s]%x%x", header, headerBytes, bodyBytes)
+		}
+	}
 	// try to create pdu
 	if pdu, err = CreatePDUFromCmdID(header.CommandID); err == nil {
-		buf := codec.NewWriter()
-		_, _ = buf.Write(headerBytes[:])
+
+		buf := codec.WriterPool.Get().(*codec.BytesWriter)
+		defer codec.WriterPool.Put(buf)
+		buf.Init(headerBytes[:])
 		if len(bodyBytes) > 0 {
-			_, _ = buf.Write(bodyBytes)
+			buf.Write(bodyBytes)
 		}
-		data := buf.Bytes()
-		err = pdu.Unmarshal(codec.NewReader(data))
-		if err != nil {
-			logrus.Infof("read.Unmarshal err:%v=>[%X]", err, data)
-		}
+		reader := codec.ReaderPool.Get().(*codec.BytesReader)
+		defer codec.ReaderPool.Put(reader)
+		reader.Init(buf.Bytes())
+		err = pdu.Unmarshal(reader)
 	} else {
 		logrus.Infof("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
 	}

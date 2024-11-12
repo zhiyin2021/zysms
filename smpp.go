@@ -56,7 +56,7 @@ func (c *smpp_action) recv() (codec.PDU, error) {
 	if c.Connected == enum.CONN_DISCONNECTED {
 		return nil, smserror.ErrConnIsClosed
 	}
-	pdu, err := smpp.Parse(c.Conn)
+	pdu, err := smpp.Parse(c.Conn, c.logger)
 	if err != nil {
 		return nil, err
 	}

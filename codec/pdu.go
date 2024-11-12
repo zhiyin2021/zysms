@@ -48,4 +48,5 @@ type PDU interface {
 
 	// SetSequenceNumber manually sets sequence number.
 	SetSequenceNumber(int32)
+	String() string
 }

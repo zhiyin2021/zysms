@@ -106,6 +106,10 @@ func (c *DeliverSM) Unmarshal(b *codec.BytesReader) error {
 	return err
 }
 
+func (req DeliverSM) String() string {
+	return fmt.Sprintf("deliverReq:%s src:%v,dst:%v,esm:%x,fmt:%d,msg:%x,rep:%s,opts:%s", req.Header, req.SourceAddr, req.DestAddr, req.EsmClass, req.Message.DataCoding(), req.Message.GetMessageData(), req.Report, req.OptionalParameters)
+}
+
 // DeliverSMResp PDU.
 type DeliverSMResp struct {
 	base
@@ -124,6 +128,10 @@ func NewDeliverSMResp() codec.PDU {
 // GetResponse implements PDU interface.
 func (c *DeliverSMResp) GetResponse() codec.PDU {
 	return nil
+}
+
+func (req DeliverSMResp) String() string {
+	return fmt.Sprintf("deliverResp:%s msgId:%v,opts:%s", req.Header, req.MessageID, req.OptionalParameters)
 }
 
 // Marshal implements PDU interface.
@@ -162,7 +170,9 @@ func (c *DeliverSM) decodeReport() {
 				c.Report.MsgId = string(bytes.Trim(v2.Data, "\x00"))
 			}
 			c.Report.DoneDate = time.Now().Format("0601021504")
-			return
+			if c.Report.MsgId != "" {
+				return
+			}
 		}
 	}
 	msg, _ := c.Message.GetMessage()
@@ -216,7 +226,7 @@ func splitReport(content, sub1 string) (retSub string, retContent string) {
 	}
 	return content[n : m+n], content[n+m:]
 }
-func (r *DeliverReport) String() string {
+func (r DeliverReport) String() string {
 	if r.Err == "" {
 		r.Err = "000"
 	}

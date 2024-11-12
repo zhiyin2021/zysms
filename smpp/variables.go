@@ -625,3 +625,5 @@ func CreatePDUFromCmdID(cmdID codec.CommandId) (codec.PDU, error) {
 		return nil, smserror.ErrUnknownCommandID
 	}
 }
+
+// (tcp[36:4] >= 0x1 and tcp[36:4] <= 0x9) or (tcp[36:4] >= 0x80000001 or tcp[36:4] <= 0x80000009)

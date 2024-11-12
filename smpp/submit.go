@@ -1,6 +1,8 @@
 package smpp
 
 import (
+	"fmt"
+
 	"github.com/zhiyin2021/zysms/codec"
 )
 
@@ -55,6 +57,10 @@ func (c *SubmitSM) GetResponse() codec.PDU {
 		base:      newBase(SUBMIT_SM_RESP, c.SequenceNumber),
 		MessageID: DFLT_MSGID,
 	}
+}
+
+func (req SubmitSM) String() string {
+	return fmt.Sprintf("submitReq:%s src:%#v,dst:%#v,fmt:%d,reg:%d,msg:%x,opts:%s", req.Header, req.SourceAddr, req.DestAddr, req.Message.DataCoding(), req.RegisteredDelivery, req.Message.GetMessageData(), req.OptionalParameters)
 }
 
 // Split split a single long text message into multiple SubmitSM PDU,
@@ -139,6 +145,10 @@ func NewSubmitSMResp() codec.PDU {
 		MessageID: DFLT_MSGID,
 	}
 	return c
+}
+
+func (resp SubmitSMResp) String() string {
+	return fmt.Sprintf("submitResp:%s msgId:%s,opts:%s", resp.Header, resp.MessageID, resp.OptionalParameters)
 }
 
 // GetResponse implements PDU interface.

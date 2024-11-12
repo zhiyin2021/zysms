@@ -2,6 +2,7 @@ package smgp
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/zhiyin2021/zysms/codec"
@@ -23,6 +24,10 @@ type Header struct {
 	CommandLength  uint32
 	CommandID      codec.CommandId
 	SequenceNumber int32
+}
+
+func (c Header) String() string {
+	return fmt.Sprintf("{len:%d,cmd:%#v,seq:%d}", c.CommandLength, c.CommandID, c.SequenceNumber)
 }
 
 // ParseHeader parses PDU header.

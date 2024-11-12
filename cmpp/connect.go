@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/utils"
@@ -11,9 +12,8 @@ import (
 
 type ConnReq struct {
 	base
-	SrcAddr string // +6 = 18：源地址，此处为 SP_Id
-	AuthSrc string // +16 = 34： 用于鉴别源地址。其值通过单向 MD5 hash 计算得出，表示如下: authenticatorSource = MD5(Source_Addr+9 字节的 0 +shared secret+timestamp) Shared secret 由中国移动与源地址实 体事先商定，timestamp 格式为: MMDDHHMMSS，即月日时分秒，10 位。
-	//Version   Version // +1 = 35：双方协商的版本号(高位 4bit 表示主 版本号,低位 4bit 表示次版本号)，对 于3.0的版本，高4bit为3，低4位为 0
+	SrcAddr   string // +6 = 18：源地址，此处为 SP_Id
+	AuthSrc   string // +16 = 34： 用于鉴别源地址。其值通过单向 MD5 hash 计算得出，表示如下: authenticatorSource = MD5(Source_Addr+9 字节的 0 +shared secret+timestamp) Shared secret 由中国移动与源地址实 体事先商定，timestamp 格式为: MMDDHHMMSS，即月日时分秒，10 位。
 	Timestamp uint32 // +4 = 39：时间戳的明文,由客户端产生,格式为 MMDDHHMMSS，即月日时分秒，10 位数字的整型，右对齐。
 	Secret    string //非协议内容，调用Pack前需设置
 }
@@ -22,9 +22,8 @@ type ConnResp struct {
 	base
 	Status   uint32 // (cmpp3 = 4字节, cmpp2 = 1字节) 0：正确 1：消息结构错 2：非法源地址 3：认证错 4：版本太高 5~ ：其他错误
 	AuthIsmg string // 16字节 ISMG认证码，用于鉴别ISMG。其值通过单向MD5 hash计算得出，表示如下： AuthenticatorISMG =MD5（Status+AuthenticatorSource+shared secret），Shared secret 由中国移动与源地址实体事先商定，AuthenticatorSource为源地址实体发送给ISMG的对应消息CMPP_Connect中的值。 认证出错时，此项为空。
-	//Version  Version // 1字节 服务器支持的最高版本号，对于3.0的版本，高4bit为3，低4位为0
-	Secret  string // 非协议内容
-	AuthSrc string // 非协议内容
+	Secret   string // 非协议内容
+	AuthSrc  string // 非协议内容
 }
 
 func NewConnReq(ver codec.Version) codec.PDU {
@@ -36,6 +35,12 @@ func NewConnResp(ver codec.Version) codec.PDU {
 	return &ConnResp{
 		base: newBase(ver, CMPP_CONNECT_RESP, 0),
 	}
+}
+func (c ConnReq) String() string {
+	return fmt.Sprintf("loginReq:%s uid:%s,pwd:%s,tm:%d,ver:%v", c.Header, c.SrcAddr, c.Secret, c.Timestamp, c.Version)
+}
+func (c ConnResp) String() string {
+	return fmt.Sprintf("loginResp:%s stat:%d,auth:%s,ver:%v", c.Header, c.Status, c.AuthIsmg, c.Version)
 }
 
 // Pack packs the ConnReq to bytes stream for client side.

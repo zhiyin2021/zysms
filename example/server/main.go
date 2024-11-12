@@ -103,7 +103,7 @@ func handleSubmit(conn zysms.Conn, req *cmpp.SubmitReq) (codec.PDU, error) {
 	msg := req.Message.GetMessage()
 	for i, d := range req.DestTerminalId {
 		conn.Logger().Infof("handleSubmit: handle submit from %s ok!seqId[%d], msgid[%d], srcId[%s], destTerminalId[%s],=>%s\n",
-			req.MsgSrc, req.SequenceNumber, resp.MsgId+uint64(i), req.SrcId, d, msg)
+			req.MsgSrc, req.Seq, resp.MsgId+uint64(i), req.SrcId, d, msg)
 	}
 	return resp, nil
 }

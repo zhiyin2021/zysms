@@ -59,7 +59,7 @@ func (c *cmpp_action) recv() (codec.PDU, error) {
 	if c.Connected == enum.CONN_DISCONNECTED {
 		return nil, smserror.ErrConnIsClosed
 	}
-	pdu, err := cmpp.Parse(c.Conn, c.Typ)
+	pdu, err := cmpp.Parse(c.Conn, c.Typ, c.logger)
 	if err != nil {
 		return nil, err
 	}

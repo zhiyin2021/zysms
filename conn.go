@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -49,10 +50,10 @@ type sms_conn struct {
 	IsAuth    bool
 	cache     *cache.Memory
 
-	errEvent        func(Conn, error)
-	heartbeatNoResp func(Conn, int)
-
 	parent *SMS
+
+	pduWriterPool  sync.Pool
+	activeTestPool sync.Pool
 }
 
 type sms_action interface {
@@ -79,6 +80,8 @@ func newConn(conn net.Conn, parent *SMS) *sms_conn {
 		delay:          utils.NewQueue(10),
 		cache:          cache.NewMemory(time.Second * 1),
 		parent:         parent,
+		pduWriterPool:  codec.NewWirterPool(),
+		activeTestPool: sync.Pool{New: func() any { return new(activeTestItem) }},
 	}
 	switch parent.proto {
 	case codec.CMPP20, codec.CMPP21, codec.CMPP30:
@@ -211,9 +214,12 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	if pdu == nil {
 		return smserror.ErrPktIsNil
 	}
-	buf := codec.NewWriter()
+
+	buf := c.pduWriterPool.Get().(*codec.BytesWriter)
+	defer c.pduWriterPool.Put(buf)
 	pdu.Marshal(buf)
-	c.Logger().Debugf("send pdu: %d , %d ,%#v ", c.Typ, buf.Len(), pdu)
+	c.logger.Debugf("sendPDU[%d:%d]%#v ", c.Typ, buf.Len(), pdu)
+	c.logger.Infof("send[%s]%x", pdu.GetHeader(), buf)
 	_, err := c.Conn.Write(buf.Bytes()) //block write
 	if err != nil {
 		c.Close()
@@ -234,17 +240,19 @@ func (c *sms_conn) Ver() codec.Version {
 }
 
 func (c *sms_conn) activeTestReq(seq int32) {
-	item := activeTestItem{
-		time: time.Now(),
-		flag: 0,
-	}
+	// 对象池中取一个对象
+	item := c.activeTestPool.Get().(*activeTestItem)
+	item.time = time.Now()
+	item.flag = 0
 	item.timer = time.AfterFunc(time.Second*1, func() {
 		time.Sleep(100 * time.Millisecond)
 		if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
 			c.delay.Push(-1)
+			// 超时对象放回池中
+			c.activeTestPool.Put(item)
 		}
 	})
-	c.cache.Set(fmt.Sprintf("active_test_%d", seq), &item)
+	c.cache.Set(fmt.Sprintf("active_test_%d", seq), item)
 }
 
 func (c *sms_conn) activeTestResp(seq int32) {
@@ -252,6 +260,8 @@ func (c *sms_conn) activeTestResp(seq int32) {
 		if item, ok := tmp.(*activeTestItem); ok {
 			if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
 				item.timer.Stop()
+				// 对象放回池中
+				c.activeTestPool.Put(item)
 				c.delay.Push(time.Since(item.time).Microseconds())
 			}
 		}

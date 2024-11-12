@@ -62,7 +62,7 @@ func (c *smgp_action) recv() (codec.PDU, error) {
 		return nil, smserror.ErrConnIsClosed
 	}
 
-	pdu, err := smgp.Parse(c.Conn, c.Typ)
+	pdu, err := smgp.Parse(c.Conn, c.Typ, c.logger)
 	if err != nil {
 		return nil, err
 	}

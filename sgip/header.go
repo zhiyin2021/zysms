@@ -2,6 +2,7 @@ package sgip
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/zhiyin2021/zysms/codec"
@@ -34,6 +35,10 @@ func ParseHeader(v [20]byte) (h Header) {
 	h.SequenceNumber[1] = binary.BigEndian.Uint32(v[12:])
 	h.SequenceNumber[2] = binary.BigEndian.Uint32(v[16:])
 	return
+}
+
+func (c Header) String() string {
+	return fmt.Sprintf("{len:%d,cmd:%#v,seq:%v,nodeId:%v}", c.CommandLength, c.CommandID, c.SequenceNumber, c.NodeId)
 }
 
 // Unmarshal from buffer.

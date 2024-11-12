@@ -10,12 +10,12 @@ import (
 
 type base struct {
 	Header
-	OptionalParameters map[codec.Tag]codec.Field
+	OptionalParameters codec.OptionalFields
 	Version            codec.Version
 }
 
 func newBase(ver codec.Version, commandId codec.CommandId, seqId [3]uint32) (v base) {
-	v.OptionalParameters = make(map[codec.Tag]codec.Field)
+	v.OptionalParameters = make(codec.OptionalFields)
 	v.Version = ver
 	v.CommandID = commandId
 	if seqId[2] > 0 {
@@ -72,7 +72,9 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 }
 
 func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
-	buf := codec.NewReader(optParam)
+	buf := codec.ReaderPool.Get().(*codec.BytesReader)
+	defer codec.ReaderPool.Put(buf)
+	buf.Init(optParam)
 	for buf.Len() > 0 {
 		var field codec.Field
 		if err = field.Unmarshal(buf); err == nil {
@@ -86,7 +88,10 @@ func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
 
 // Marshal to buffer.
 func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)) {
-	bodyBuf := codec.NewWriter()
+
+	bodyBuf := codec.WriterPool.Get().(*codec.BytesWriter)
+	defer codec.WriterPool.Put(bodyBuf)
+	bodyBuf.Reset()
 
 	// body
 	if bodyWriter != nil {
@@ -151,12 +156,17 @@ func Parse(r io.Reader, ver codec.Version, nodeId uint32) (pdu codec.PDU, err er
 
 	// try to create pdu
 	if pdu, err = CreatePDUHeader(header, ver); err == nil {
-		buf := codec.NewWriter()
+		buf := codec.WriterPool.Get().(*codec.BytesWriter)
+		defer codec.WriterPool.Put(buf)
+		buf.Reset()
 		_, _ = buf.Write(headerBytes[:])
 		if len(bodyBytes) > 0 {
 			_, _ = buf.Write(bodyBytes)
 		}
-		err = pdu.Unmarshal(codec.NewReader(buf.Bytes()))
+		rader := codec.ReaderPool.Get().(*codec.BytesReader)
+		defer codec.ReaderPool.Put(rader)
+		rader.Init(buf.Bytes())
+		err = pdu.Unmarshal(rader)
 	}
 	return
 }

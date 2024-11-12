@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sync"
 )
 
 const (
@@ -35,19 +36,30 @@ type BytesWriter struct {
 	*bytesBuffer
 }
 
-// NewBuffer create new buffer from preallocated buffer array.
-func NewReader(inp []byte) *BytesReader {
-	if inp == nil {
-		inp = make([]byte, 0, 512)
-	}
-	b := &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
-	return b
+var (
+	WriterPool = NewWirterPool()
+	ReaderPool = NewReaderPool()
+)
 
+func NewWirterPool() sync.Pool {
+	return sync.Pool{New: func() interface{} {
+		inp := make([]byte, 0, 12)
+		b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
+		return b
+	}}
 }
-func NewWriter() *BytesWriter {
-	inp := make([]byte, 0, 12)
-	b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
-	return b
+
+func NewReaderPool() sync.Pool {
+	return sync.Pool{New: func() interface{} {
+		inp := make([]byte, 0, 12)
+		b := &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
+		return b
+	}}
+}
+
+func (c *bytesBuffer) Init(buf []byte) (int, error) {
+	c.Reset()
+	return c.Write(buf)
 }
 
 // ReadN read n-bytes from buffer.

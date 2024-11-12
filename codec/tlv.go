@@ -4,6 +4,7 @@ package codec
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 )
 
 // Tag is the tag of a Tag-Length-Value (TLV) field.
@@ -75,6 +76,19 @@ const (
 	*/
 	TagMessageType Tag = 0x1414
 )
+
+type OptionalFields map[Tag]Field
+
+func (ofs OptionalFields) String() string {
+	tmp := ""
+	for _, v := range ofs {
+		tmp += fmt.Sprintf("0x%x:%x,", v.Tag, v.Data)
+	}
+	if tmp != "" {
+		tmp = tmp[:len(tmp)-1]
+	}
+	return fmt.Sprintf("{%s}", tmp)
+}
 
 // Field is a PDU Tag-Length-Value (TLV) field
 type Field struct {

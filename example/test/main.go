@@ -8,6 +8,9 @@ import (
 )
 
 func main() {
+	s := 0x80000005
+	fmt.Printf("%x , %x", s, s&0x8000000)
+	return
 	msg := `id:R7e1qWDqT2 sub:001 dlvrd:001 submit date:2310121502 done date:2310121502 stat:DELIVRD err:000 text:000`
 	report := &smpp.DeliverReport{}
 	report.MsgId, msg = splitReport(msg, "id:")

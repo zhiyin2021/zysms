@@ -1,6 +1,8 @@
 package cmpp
 
 import (
+	"fmt"
+
 	"github.com/zhiyin2021/zysms/codec"
 )
 
@@ -132,6 +134,9 @@ func (p *SubmitReq) Marshal(w *codec.BytesWriter) {
 		}
 	})
 }
+func (req SubmitReq) String() string {
+	return fmt.Sprintf("submitReq:%s src:%s,dst:%v,fmt:%d,reg:%d,msg:%x,opts:%s", req.Header, req.SrcId, req.DestTerminalId, req.Message.DataCoding(), req.RegisteredDelivery, req.Message.GetMessageData(), req.OptionalParameters)
+}
 
 // Unpack unpack the binary byte stream to a ActiveTestReq variable.
 // After unpack, you will get all value of fields in
@@ -191,6 +196,10 @@ func (p *SubmitResp) Marshal(w *codec.BytesWriter) {
 			bw.WriteByte(byte(p.Result))
 		}
 	})
+}
+
+func (resp SubmitResp) String() string {
+	return fmt.Sprintf("submitResp:%s msgId:%d,stat:%d,opts:%s", resp.Header, resp.MsgId, resp.Result, resp.OptionalParameters)
 }
 
 // Unpack unpack the binary byte stream to a ActiveTestReq variable.

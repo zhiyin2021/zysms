@@ -124,6 +124,10 @@ func (p *DeliverReq) Unmarshal(w *codec.BytesReader) error {
 		return br.Err()
 	})
 }
+func (req DeliverReq) String() string {
+	return fmt.Sprintf("deliverReq%s msgId:%d,src:%v,dst:%v,fmt:%d,msg:%x,rep:%s,opts:%s", req.Header, req.MsgId, req.SrcTerminalId, req.DestId, req.Message.DataCoding(), req.Message.GetMessageData(), req.Report, req.OptionalParameters)
+}
+
 func (p *DeliverReq) GetResponse() codec.PDU {
 	return &DeliverResp{
 		base: newBase(p.Version, CMPP_DELIVER_RESP, p.SequenceNumber),
@@ -158,6 +162,9 @@ func (p *DeliverResp) Unmarshal(w *codec.BytesReader) error {
 }
 func (p *DeliverResp) GetResponse() codec.PDU {
 	return nil
+}
+func (resp DeliverResp) String() string {
+	return fmt.Sprintf("deliverResp:%s msgId:%d,stat:%d,opts:%s", resp.Header, resp.MsgId, resp.Result, resp.OptionalParameters)
 }
 
 type DeliverReport struct {
