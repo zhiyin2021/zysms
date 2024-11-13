@@ -208,9 +208,14 @@ func (l *Listener) accept() (*sms_conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	tc := c.(*net.TCPConn)
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(30 * time.Second) // 1min
+	switch cc := c.(type) {
+	case *net.TCPConn:
+		cc.SetKeepAlive(true)
+		cc.SetKeepAlivePeriod(30 * time.Second) // 1min
+	case *tls.Conn:
+		cc.NetConn().(*net.TCPConn).SetKeepAlive(true)
+		cc.NetConn().(*net.TCPConn).SetKeepAlivePeriod(30 * time.Second)
+	}
 
 	conn := newConn(c, l.parent)
 	if conn == nil {
