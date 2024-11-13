@@ -24,6 +24,11 @@ var (
 	endianese                    = binary.BigEndian
 )
 
+type IBuffer interface {
+	Reset()
+	Write([]byte) (int, error)
+}
+
 // bytesBuffer wraps over bytes.Buffer with additional features.
 type bytesBuffer struct {
 	*bytes.Buffer
@@ -35,31 +40,42 @@ type BytesReader struct {
 type BytesWriter struct {
 	*bytesBuffer
 }
+type SyncPool[T IBuffer] struct {
+	pool sync.Pool
+}
+
+func (sp *SyncPool[T]) Get(buf ...[]byte) T {
+	obj := sp.pool.Get().(T)
+	obj.Reset()
+	if len(buf) > 0 {
+		obj.Write(buf[0])
+	}
+	return obj
+}
+
+func (sp *SyncPool[T]) Put(obj T) {
+	sp.pool.Put(obj)
+}
 
 var (
 	WriterPool = NewWirterPool()
 	ReaderPool = NewReaderPool()
 )
 
-func NewWirterPool() sync.Pool {
-	return sync.Pool{New: func() interface{} {
+func NewWirterPool() *SyncPool[*BytesWriter] {
+	return &SyncPool[*BytesWriter]{pool: sync.Pool{New: func() any {
 		inp := make([]byte, 0, 12)
 		b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
 		return b
-	}}
+	}}}
 }
 
-func NewReaderPool() sync.Pool {
-	return sync.Pool{New: func() interface{} {
+func NewReaderPool() *SyncPool[*BytesReader] {
+	return &SyncPool[*BytesReader]{pool: sync.Pool{New: func() any {
 		inp := make([]byte, 0, 12)
-		b := &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
+		b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
 		return b
-	}}
-}
-
-func (c *bytesBuffer) Init(buf []byte) (int, error) {
-	c.Reset()
-	return c.Write(buf)
+	}}}
 }
 
 // ReadN read n-bytes from buffer.

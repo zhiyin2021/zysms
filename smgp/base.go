@@ -74,9 +74,8 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 }
 
 func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
-	buf := codec.ReaderPool.Get().(*codec.BytesReader)
+	buf := codec.ReaderPool.Get(optParam)
 	defer codec.ReaderPool.Put(buf)
-	buf.Init(optParam)
 	for buf.Len() > 0 {
 		var field codec.Field
 		if err = field.Unmarshal(buf); err == nil {
@@ -91,9 +90,9 @@ func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
 // Marshal to buffer.
 func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)) {
 
-	bodyBuf := codec.WriterPool.Get().(*codec.BytesWriter)
+	bodyBuf := codec.WriterPool.Get()
 	defer codec.WriterPool.Put(bodyBuf)
-	bodyBuf.Reset()
+
 	// body
 	if bodyWriter != nil {
 		bodyWriter(bodyBuf)
@@ -159,22 +158,20 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		switch header.CommandID {
 		case SMGP_ACTIVE_TEST, SMGP_ACTIVE_TEST_RESP:
 		default:
-			logger.Infof("recv[%s]%x%x", header, headerBytes, bodyBytes)
+			logger.Infof("recv:%s[%x%x]", header, headerBytes, bodyBytes)
 		}
 	}
 	// try to create pdu
 	if pdu, err = CreatePDUHeader(header, ver); err == nil {
 
-		buf := codec.WriterPool.Get().(*codec.BytesWriter)
+		buf := codec.WriterPool.Get(headerBytes[:])
 		defer codec.WriterPool.Put(buf)
-		buf.Reset()
-		_, _ = buf.Write(headerBytes[:])
+
 		if len(bodyBytes) > 0 {
 			_, _ = buf.Write(bodyBytes)
 		}
-		reader := codec.ReaderPool.Get().(*codec.BytesReader)
+		reader := codec.ReaderPool.Get(buf.Bytes())
 		defer codec.ReaderPool.Put(reader)
-		reader.Init(buf.Bytes())
 		err = pdu.Unmarshal(reader)
 	} else {
 		logrus.Infof("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)

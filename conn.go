@@ -10,8 +10,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zycli/cache"
+	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
+	"github.com/zhiyin2021/zysms/smgp"
+	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
 )
@@ -52,7 +55,7 @@ type sms_conn struct {
 
 	parent *SMS
 
-	pduWriterPool  sync.Pool
+	pduWriterPool  *codec.SyncPool[*codec.BytesWriter]
 	activeTestPool sync.Pool
 }
 
@@ -215,11 +218,15 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 		return smserror.ErrPktIsNil
 	}
 
-	buf := c.pduWriterPool.Get().(*codec.BytesWriter)
+	buf := c.pduWriterPool.Get()
 	defer c.pduWriterPool.Put(buf)
 	pdu.Marshal(buf)
 	c.logger.Debugf("sendPDU[%d:%d]%#v ", c.Typ, buf.Len(), pdu)
-	c.logger.Infof("send[%s]%x", pdu.GetHeader(), buf)
+	switch pdu.(type) {
+	case *cmpp.ActiveTestReq, *smpp.EnquireLink, *smgp.ActiveTestReq:
+	default:
+		c.logger.Infof("send:%s[%x]", pdu.GetHeader(), buf)
+	}
 	_, err := c.Conn.Write(buf.Bytes()) //block write
 	if err != nil {
 		c.Close()
