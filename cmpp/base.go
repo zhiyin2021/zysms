@@ -158,7 +158,7 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		switch header.CommandID {
 		case CMPP_ACTIVE_TEST, CMPP_ACTIVE_TEST_RESP:
 		default:
-			logger.Infof("recv:%s[%x%x]", header, headerBytes, bodyBytes)
+			logger.WithField("pcap", "recv").Infof("%x%x", headerBytes, bodyBytes)
 		}
 	}
 	// try to create pdu
@@ -171,6 +171,8 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		reader := codec.ReaderPool.Get(wr.Bytes()) //codec.NewReader(wr.Bytes())
 		defer codec.ReaderPool.Put(reader)
 		err = pdu.Unmarshal(reader)
+	} else {
+		logrus.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
 	}
 	return
 }

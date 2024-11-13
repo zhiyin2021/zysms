@@ -158,7 +158,7 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		switch header.CommandID {
 		case SMGP_ACTIVE_TEST, SMGP_ACTIVE_TEST_RESP:
 		default:
-			logger.Infof("recv:%s[%x%x]", header, headerBytes, bodyBytes)
+			logger.WithField("record", "recv").Infof("%x%x", headerBytes, bodyBytes)
 		}
 	}
 	// try to create pdu
@@ -174,7 +174,7 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		defer codec.ReaderPool.Put(reader)
 		err = pdu.Unmarshal(reader)
 	} else {
-		logrus.Infof("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
+		logrus.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
 	}
 	return
 }

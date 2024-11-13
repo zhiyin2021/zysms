@@ -155,7 +155,7 @@ func Parse(r io.Reader, logger *logrus.Entry) (pdu codec.PDU, err error) {
 		switch header.CommandID {
 		case ENQUIRE_LINK, ENQUIRE_LINK_RESP:
 		default:
-			logger.Infof("recv:%s[%x%x]", header, headerBytes, bodyBytes)
+			logger.WithField("pcap", "recv").Infof("%x%x", headerBytes, bodyBytes)
 		}
 	}
 	// try to create pdu
@@ -169,7 +169,7 @@ func Parse(r io.Reader, logger *logrus.Entry) (pdu codec.PDU, err error) {
 		defer codec.ReaderPool.Put(reader)
 		err = pdu.Unmarshal(reader)
 	} else {
-		logrus.Infof("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
+		logrus.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
 	}
 	return
 }

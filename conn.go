@@ -225,7 +225,7 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	switch pdu.(type) {
 	case *cmpp.ActiveTestReq, *smpp.EnquireLink, *smgp.ActiveTestReq:
 	default:
-		c.logger.Infof("send:%s[%x]", pdu.GetHeader(), buf)
+		c.logger.WithField("pcap", "send").Infof("%x", buf)
 	}
 	_, err := c.Conn.Write(buf.Bytes()) //block write
 	if err != nil {
