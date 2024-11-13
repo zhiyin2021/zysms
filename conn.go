@@ -223,7 +223,7 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	pdu.Marshal(buf)
 	c.logger.Debugf("sendPDU[%d:%d]%#v ", c.Typ, buf.Len(), pdu)
 	switch pdu.(type) {
-	case *cmpp.ActiveTestReq, *smpp.EnquireLink, *smgp.ActiveTestReq:
+	case *cmpp.ActiveTestReq, *smpp.EnquireLink, *smgp.ActiveTestReq, *cmpp.ActiveTestResp, *smpp.EnquireLinkResp, *smgp.ActiveTestResp:
 	default:
 		c.logger.WithField("pcap", "send").Infof("%x", buf)
 	}
