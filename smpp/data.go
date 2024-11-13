@@ -56,9 +56,9 @@ func (c *DataSM) Unmarshal(b *codec.BytesReader) error {
 		c.ServiceType = b.ReadCStr()
 		c.SourceAddr.Unmarshal(b)
 		c.DestAddr.Unmarshal(b)
-		c.EsmClass = b.ReadByte()
-		c.RegisteredDelivery = b.ReadByte()
-		c.DataCoding = b.ReadByte()
+		c.EsmClass = b.ReadU8()
+		c.RegisteredDelivery = b.ReadU8()
+		c.DataCoding = b.ReadU8()
 		return b.Err()
 	})
 }

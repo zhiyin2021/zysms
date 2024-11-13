@@ -39,8 +39,8 @@ func NewAddressWithTonNpiAddr(ton, npi byte, addr string) (a Address, err error)
 
 // Unmarshal from buffer.
 func (c *Address) Unmarshal(b *codec.BytesReader) error {
-	c.ton = b.ReadByte()
-	c.npi = b.ReadByte()
+	c.ton = b.ReadU8()
+	c.npi = b.ReadU8()
 	c.address = b.ReadCStr()
 	return b.Err()
 }

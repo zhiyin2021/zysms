@@ -92,8 +92,8 @@ func (c *QuerySMResp) Unmarshal(b *codec.BytesReader) error {
 	return c.base.unmarshal(b, func(b *codec.BytesReader) error {
 		c.MessageID = b.ReadCStr()
 		c.FinalDate = b.ReadCStr()
-		c.MessageState = b.ReadByte()
-		c.ErrorCode = b.ReadByte()
+		c.MessageState = b.ReadU8()
+		c.ErrorCode = b.ReadU8()
 		return b.Err()
 	})
 }

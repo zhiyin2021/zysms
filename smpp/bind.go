@@ -112,7 +112,7 @@ func (b *BindRequest) Unmarshal(w *codec.BytesReader) error {
 		b.Password = w.ReadCStr()
 		b.SystemType = w.ReadCStr()
 
-		b.InterfaceVersion = codec.Version(w.ReadByte())
+		b.InterfaceVersion = codec.Version(w.ReadU8())
 		b.AddressRange.Unmarshal(w)
 
 		return w.Err()

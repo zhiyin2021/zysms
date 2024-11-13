@@ -64,17 +64,13 @@ var (
 
 func NewWirterPool() *SyncPool[*BytesWriter] {
 	return &SyncPool[*BytesWriter]{pool: sync.Pool{New: func() any {
-		inp := make([]byte, 0, 12)
-		b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
-		return b
+		return &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(make([]byte, 0, 12)), err: nil}}
 	}}}
 }
 
 func NewReaderPool() *SyncPool[*BytesReader] {
 	return &SyncPool[*BytesReader]{pool: sync.Pool{New: func() any {
-		inp := make([]byte, 0, 12)
-		b := &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(inp), err: nil}}
-		return b
+		return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(make([]byte, 0, 12)), err: nil}}
 	}}}
 }
 
@@ -110,7 +106,7 @@ func (c *BytesWriter) WriteU16(v uint16) {
 	endianese.PutUint16(b[:], v)
 	_, _ = c.Write(b[:])
 }
-func (c *BytesReader) ReadByte() byte {
+func (c *BytesReader) ReadU8() byte {
 	if c.err == nil {
 		var v byte
 		v, c.err = c.Buffer.ReadByte()

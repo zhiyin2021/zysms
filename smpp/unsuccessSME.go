@@ -83,7 +83,7 @@ func (c *UnsuccessSMEs) Get() []UnsuccessSME {
 
 // Unmarshal from buffer.
 func (c *UnsuccessSMEs) Unmarshal(b *codec.BytesReader) (err error) {
-	n := b.ReadByte()
+	n := b.ReadU8()
 	if err = b.Err(); err == nil {
 		c.l = make([]UnsuccessSME, n)
 		var i byte

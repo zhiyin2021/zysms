@@ -144,31 +144,31 @@ func (req SubmitReq) String() string {
 func (p *SubmitReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.MsgId = br.ReadU64()
-		p.PkTotal = br.ReadByte()
-		p.PkNumber = br.ReadByte()
-		p.RegisteredDelivery = br.ReadByte()
-		p.MsgLevel = br.ReadByte()
+		p.PkTotal = br.ReadU8()
+		p.PkNumber = br.ReadU8()
+		p.RegisteredDelivery = br.ReadU8()
+		p.MsgLevel = br.ReadU8()
 		p.ServiceId = br.ReadStr(10)
-		p.FeeUserType = br.ReadByte()
+		p.FeeUserType = br.ReadU8()
 		p.FeeTerminalId = br.ReadStr(p.numLen())
 		if p.Version == V30 {
-			p.FeeTerminalType = br.ReadByte()
+			p.FeeTerminalType = br.ReadU8()
 		}
-		p.TpPid = br.ReadByte()
-		p.TpUdhi = br.ReadByte()
-		p.MsgFmt = br.ReadByte()
+		p.TpPid = br.ReadU8()
+		p.TpUdhi = br.ReadU8()
+		p.MsgFmt = br.ReadU8()
 		p.MsgSrc = br.ReadStr(6)
 		p.FeeType = br.ReadStr(2)
 		p.FeeCode = br.ReadStr(6)
 		p.ValidTime = br.ReadStr(17)
 		p.AtTime = br.ReadStr(17)
 		p.SrcId = br.ReadStr(21)
-		p.DestUsrTl = br.ReadByte()
+		p.DestUsrTl = br.ReadU8()
 		for i := 0; i < int(p.DestUsrTl); i++ {
 			p.DestTerminalId = append(p.DestTerminalId, br.ReadStr(p.numLen()))
 		}
 		if p.Version == V30 {
-			p.DestTerminalType = br.ReadByte()
+			p.DestTerminalType = br.ReadU8()
 		}
 		p.Message.Unmarshal(br, p.TpUdhi == 1, p.MsgFmt)
 		if p.Version == V30 {
@@ -211,7 +211,7 @@ func (p *SubmitResp) Unmarshal(w *codec.BytesReader) error {
 		if p.Version == V30 {
 			p.Result = br.ReadU32()
 		} else {
-			p.Result = uint32(br.ReadByte())
+			p.Result = uint32(br.ReadU8())
 		}
 		return br.Err()
 	})

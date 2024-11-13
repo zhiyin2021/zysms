@@ -100,27 +100,27 @@ func (p *SubmitReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.SPNumber = br.ReadStr(21)
 		p.ChargeNumber = br.ReadStr(21)
-		p.UserCount = br.ReadByte()
+		p.UserCount = br.ReadU8()
 		p.UserNumber = make([]string, p.UserCount)
 		for i := 0; i < int(p.UserCount); i++ {
 			p.UserNumber[i] = br.ReadStr(21)
 		}
 		p.CorpId = br.ReadStr(5)
 		p.ServiceType = br.ReadStr(10)
-		p.FeeType = br.ReadByte()
+		p.FeeType = br.ReadU8()
 		p.FeeValue = br.ReadStr(6)
 		p.GivenValue = br.ReadStr(6)
-		p.AgentFlag = br.ReadByte()
-		p.MorelatetoMTFlag = br.ReadByte()
-		p.Priority = br.ReadByte()
+		p.AgentFlag = br.ReadU8()
+		p.MorelatetoMTFlag = br.ReadU8()
+		p.Priority = br.ReadU8()
 		p.ExpireTime = br.ReadStr(16)
 
 		p.ScheduleTime = br.ReadStr(16)
-		p.ReportFlag = br.ReadByte()
-		p.TpPid = br.ReadByte()
-		p.TpUdhi = br.ReadByte()
-		p.MessageCoding = br.ReadByte()
-		p.MessageType = br.ReadByte()
+		p.ReportFlag = br.ReadU8()
+		p.TpPid = br.ReadU8()
+		p.TpUdhi = br.ReadU8()
+		p.MessageCoding = br.ReadU8()
+		p.MessageType = br.ReadU8()
 		p.Message.Unmarshal(br, p.TpUdhi == 1, p.MessageCoding)
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
@@ -142,7 +142,7 @@ func (p *SubmitResp) Marshal(w *codec.BytesWriter) {
 
 func (p *SubmitResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.Status = Status(br.ReadByte())
+		p.Status = Status(br.ReadU8())
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
 	})

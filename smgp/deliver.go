@@ -72,8 +72,8 @@ func (p *DeliverReq) Marshal(w *codec.BytesWriter) {
 func (p *DeliverReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.MsgId = br.ReadStr(10)
-		p.IsReport = br.ReadByte()
-		p.MsgFormat = br.ReadByte()
+		p.IsReport = br.ReadU8()
+		p.MsgFormat = br.ReadU8()
 		p.RecvTime = br.ReadStr(14)
 		p.SrcTermID = br.ReadStr(21)
 		p.DestTermID = br.ReadStr(21)

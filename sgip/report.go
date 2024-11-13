@@ -38,10 +38,10 @@ func (p *ReportReq) Marshal(w *codec.BytesWriter) {
 
 func (p *ReportReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.ReportType = br.ReadByte()
+		p.ReportType = br.ReadU8()
 		p.UserNumber = br.ReadStr(21)
-		p.State = Status(br.ReadByte())
-		p.ErrorCode = br.ReadByte()
+		p.State = Status(br.ReadU8())
+		p.ErrorCode = br.ReadU8()
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
 	})
@@ -62,7 +62,7 @@ func (p *ReportResp) Marshal(w *codec.BytesWriter) {
 
 func (p *ReportResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.Status = Status(br.ReadByte())
+		p.Status = Status(br.ReadU8())
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
 	})

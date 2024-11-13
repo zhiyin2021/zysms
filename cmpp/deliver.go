@@ -92,17 +92,17 @@ func (p *DeliverReq) Unmarshal(w *codec.BytesReader) error {
 		p.MsgId = br.ReadU64()
 		p.DestId = br.ReadStr(21)
 		p.ServiceId = br.ReadStr(10)
-		p.TpPid = br.ReadByte()
-		p.TpUdhi = br.ReadByte()
-		p.MsgFmt = br.ReadByte()
+		p.TpPid = br.ReadU8()
+		p.TpUdhi = br.ReadU8()
+		p.MsgFmt = br.ReadU8()
 		p.SrcTerminalId = br.ReadStr(21)
 		if p.Version == V30 {
-			p.SrcTerminalType = br.ReadByte()
+			p.SrcTerminalType = br.ReadU8()
 		}
-		p.RegisterDelivery = br.ReadByte()
+		p.RegisterDelivery = br.ReadU8()
 
 		if p.RegisterDelivery == 1 {
-			if br.ReadByte() == ReportLen {
+			if br.ReadU8() == ReportLen {
 				p.Report = &DeliverReport{
 					MsgId:          br.ReadU64(),
 					Stat:           br.ReadStr(7),
@@ -155,7 +155,7 @@ func (p *DeliverResp) Unmarshal(w *codec.BytesReader) error {
 		if p.Version == V30 {
 			p.Result = br.ReadU32()
 		} else {
-			p.Result = uint32(br.ReadByte())
+			p.Result = uint32(br.ReadU8())
 		}
 		return br.Err()
 	})

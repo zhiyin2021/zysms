@@ -75,7 +75,7 @@ func (p *ConnReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.SrcAddr = br.ReadStr(6)
 		p.AuthSrc = br.ReadStr(16)
-		p.Version = codec.Version(br.ReadByte())
+		p.Version = codec.Version(br.ReadU8())
 		p.Timestamp = br.ReadU32()
 		return br.Err()
 	})
@@ -116,10 +116,10 @@ func (p *ConnResp) Unmarshal(w *codec.BytesReader) error {
 		if p.Version == V30 || br.Len() == 21 {
 			p.Status = br.ReadU32()
 		} else {
-			p.Status = uint32(br.ReadByte())
+			p.Status = uint32(br.ReadU8())
 		}
 		p.AuthIsmg = br.ReadStr(16)
-		p.Version = codec.Version(br.ReadByte())
+		p.Version = codec.Version(br.ReadU8())
 		return br.Err()
 	})
 }

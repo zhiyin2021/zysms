@@ -61,7 +61,7 @@ func (p *ActiveTestResp) Marshal(w *codec.BytesWriter) {
 // ActiveTestResp struct.
 func (p *ActiveTestResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.Reserved = br.ReadByte()
+		p.Reserved = br.ReadU8()
 		return br.Err()
 	})
 }

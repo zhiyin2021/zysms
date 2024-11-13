@@ -55,7 +55,7 @@ func (p *QueryReq) Marshal(w *codec.BytesWriter) {
 func (p *QueryReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.Time = br.ReadStr(8)
-		p.QueryType = br.ReadByte()
+		p.QueryType = br.ReadU8()
 		p.QueryCode = br.ReadStr(10)
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
@@ -90,7 +90,7 @@ func (p *QueryResp) Marshal(w *codec.BytesWriter) {
 func (p *QueryResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.Time = br.ReadStr(8)
-		p.QueryType = br.ReadByte()
+		p.QueryType = br.ReadU8()
 		p.QueryCode = br.ReadStr(10)
 		p.MtTlMsg = br.ReadU32()
 		p.MtTlUsr = br.ReadU32()

@@ -289,10 +289,10 @@ func (c *ShortMessage) Marshal(b *codec.BytesWriter) {
 func (c *ShortMessage) Unmarshal(b *codec.BytesReader, udhi bool) (err error) {
 
 	if !c.withoutDataCoding {
-		c.dataCoding = b.ReadByte()
+		c.dataCoding = b.ReadU8()
 	}
-	c.SmDefaultMsgID = b.ReadByte()
-	n := b.ReadByte()
+	c.SmDefaultMsgID = b.ReadU8()
+	n := b.ReadU8()
 	c.messageData = b.ReadN(int(n))
 	if b.Err() != nil {
 		return

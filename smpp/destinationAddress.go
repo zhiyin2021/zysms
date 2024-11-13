@@ -21,7 +21,7 @@ func NewDestinationAddress() (c DestinationAddress) {
 
 // Unmarshal from buffer.
 func (c *DestinationAddress) Unmarshal(b *codec.BytesReader) (err error) {
-	if c.destFlag = b.ReadByte(); b.Err() == nil {
+	if c.destFlag = b.ReadU8(); b.Err() == nil {
 		switch c.destFlag {
 
 		case SM_DEST_SME_ADDRESS:
@@ -112,7 +112,7 @@ func (c *DestinationAddresses) Get() []DestinationAddress {
 // Unmarshal from buffer.
 func (c *DestinationAddresses) Unmarshal(b *codec.BytesReader) (err error) {
 	var n byte
-	if n = b.ReadByte(); b.Err() == nil {
+	if n = b.ReadU8(); b.Err() == nil {
 		c.l = make([]DestinationAddress, n)
 		var i byte
 		for ; i < n; i++ {

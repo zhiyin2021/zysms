@@ -197,7 +197,7 @@ func (c *ShortMessage) Marshal(b *BytesWriter) {
 
 // Unmarshal implements PDU interface.
 func (c *ShortMessage) Unmarshal(b *BytesReader, udhi bool, enc byte) (err error) {
-	c.messageLen = b.ReadByte()
+	c.messageLen = b.ReadU8()
 	c.messageData = b.ReadN(int(c.messageLen))
 	// If short message length is non zero, short message contains User-Data Header
 	// Else UDH should be in TLV field MessagePayload

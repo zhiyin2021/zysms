@@ -44,9 +44,9 @@ func (p *DeliverReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
 		p.UserNumber = br.ReadStr(21)
 		p.SPNumber = br.ReadStr(21)
-		p.TpPid = br.ReadByte()
-		p.TpUdhi = br.ReadByte()
-		p.MessageCoding = br.ReadByte()
+		p.TpPid = br.ReadU8()
+		p.TpUdhi = br.ReadU8()
+		p.MessageCoding = br.ReadU8()
 		p.Message.Unmarshal(br, p.TpUdhi == 1, p.MessageCoding)
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
@@ -67,7 +67,7 @@ func (p *DeliverResp) Marshal(w *codec.BytesWriter) {
 }
 func (p *DeliverResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.Status = Status(br.ReadByte())
+		p.Status = Status(br.ReadU8())
 		p.Reserve = br.ReadStr(8)
 		return br.Err()
 	})

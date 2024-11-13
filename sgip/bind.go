@@ -38,7 +38,7 @@ func (p *BindReq) Marshal(w *codec.BytesWriter) {
 
 func (p *BindReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.LoginType = br.ReadByte()
+		p.LoginType = br.ReadU8()
 		p.LoginName = br.ReadStr(16)
 		p.LoginPassword = br.ReadStr(16)
 		p.Reserve = br.ReadStr(8)
@@ -60,7 +60,7 @@ func (p *BindResp) Marshal(w *codec.BytesWriter) {
 
 func (p *BindResp) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.Status = Status(br.ReadByte())
+		p.Status = Status(br.ReadU8())
 		return br.Err()
 	})
 }

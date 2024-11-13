@@ -59,7 +59,7 @@ func (c *ReplaceSM) Unmarshal(b *codec.BytesReader) error {
 		c.SourceAddr.Unmarshal(b)
 		c.ScheduleDeliveryTime = b.ReadCStr()
 		c.ValidityPeriod = b.ReadCStr()
-		c.RegisteredDelivery = b.ReadByte()
+		c.RegisteredDelivery = b.ReadU8()
 		c.Message.Unmarshal(b, false)
 		return b.Err()
 	})

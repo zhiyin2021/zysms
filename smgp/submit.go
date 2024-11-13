@@ -76,19 +76,19 @@ func (p *SubmitReq) Marshal(w *codec.BytesWriter) {
 // ActiveTestReq struct.
 func (p *SubmitReq) Unmarshal(w *codec.BytesReader) error {
 	return p.base.unmarshal(w, func(br *codec.BytesReader) error {
-		p.SubType = br.ReadByte()
-		p.NeedReport = br.ReadByte()
-		p.Priority = br.ReadByte()
+		p.SubType = br.ReadU8()
+		p.NeedReport = br.ReadU8()
+		p.Priority = br.ReadU8()
 		p.ServiceID = br.ReadStr(10)
 		p.FeeType = br.ReadStr(2)
 		p.FeeCode = br.ReadStr(6)
 		p.FixedFee = br.ReadStr(6)
-		p.MsgFormat = br.ReadByte()
+		p.MsgFormat = br.ReadU8()
 		p.ValidTime = br.ReadStr(17)
 		p.AtTime = br.ReadStr(17)
 		p.SrcTermID = br.ReadStr(21)
 		p.ChargeTermID = br.ReadStr(21)
-		p.DestTermIDCount = br.ReadByte()
+		p.DestTermIDCount = br.ReadU8()
 		for i := byte(0); i < p.DestTermIDCount; i++ {
 			p.DestTermID = append(p.DestTermID, br.ReadStr(21))
 		}
