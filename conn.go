@@ -55,7 +55,7 @@ type sms_conn struct {
 
 	parent *SMS
 
-	pduWriterPool  *codec.SyncPool[*codec.BytesWriter]
+	pduWriter      *codec.BytesWriter
 	activeTestPool sync.Pool
 }
 
@@ -83,7 +83,7 @@ func newConn(conn net.Conn, parent *SMS) *sms_conn {
 		delay:          utils.NewQueue(10),
 		cache:          cache.NewMemory(time.Second * 1),
 		parent:         parent,
-		pduWriterPool:  codec.NewWirterPool(),
+		pduWriter:      codec.NewWriter(),
 		activeTestPool: sync.Pool{New: func() any { return new(activeTestItem) }},
 	}
 	switch parent.proto {
@@ -218,16 +218,17 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 		return smserror.ErrPktIsNil
 	}
 
-	buf := c.pduWriterPool.Get()
-	defer c.pduWriterPool.Put(buf)
-	pdu.Marshal(buf)
-	c.logger.Debugf("sendPDU[%d:%d]%#v ", c.Typ, buf.Len(), pdu)
+	// buf := c.pduWriterPool.Get()
+	// defer c.pduWriterPool.Put(buf)
+	wr := codec.NewWriter()
+	pdu.Marshal(wr)
+	c.logger.Debugf("sendPDU[%d:%d]%#v ", c.Typ, wr.Len(), pdu)
 	switch pdu.(type) {
 	case *cmpp.ActiveTestReq, *smpp.EnquireLink, *smgp.ActiveTestReq, *cmpp.ActiveTestResp, *smpp.EnquireLinkResp, *smgp.ActiveTestResp:
 	default:
-		c.logger.WithField("pcap", "send").Infof("%x", buf)
+		c.logger.WithField("pcap", "send").Infof("%x", wr)
 	}
-	_, err := c.Conn.Write(buf.Bytes()) //block write
+	_, err := c.Conn.Write(wr.Bytes()) //block write
 	if err != nil {
 		c.Close()
 	}

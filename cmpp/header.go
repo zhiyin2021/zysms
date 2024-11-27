@@ -29,6 +29,13 @@ type Header struct {
 func (c Header) String() string {
 	return fmt.Sprintf("{len:%d,cmd:%#v,seq:%d}", c.CommandLength, c.CommandID, c.SequenceNumber)
 }
+func (c *Header) GetCommandID() uint32 {
+	return uint32(c.CommandID)
+}
+
+func (c *Header) GetCommandLength() uint32 {
+	return c.CommandLength
+}
 
 // ParseHeader parses PDU header.
 func ParseHeader(v [12]byte) (h Header) {

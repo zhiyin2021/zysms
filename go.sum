@@ -12,6 +12,8 @@ github.com/zhiyin2021/zycli v1.0.35 h1:SX4Agn1RO66TRMRV6k22WyFf4B1o1ymvkoGH4bkkX
 github.com/zhiyin2021/zycli v1.0.35/go.mod h1:yx4Yve1i/jRengaRe1RyR9FTSOaIebbRb30XhnR1sC8=
 github.com/zhiyin2021/zycli v1.0.40 h1:PXkFtRZirgu+FbN+80QL/h41K/HYln1sL6KF1myy4F0=
 github.com/zhiyin2021/zycli v1.0.40/go.mod h1:ct7s/EOJlNL8DvijlfVH16Rw8me6o6/7Q483feaiSQM=
+golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f h1:XdNn9LlyWAhLVp6P/i8QYBW+hlyhrhei9uErw2B5GJo=
+golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f/go.mod h1:D5SMRVC3C2/4+F/DB1wZsLRnSNimn2Sp/NPsCrsv8ak=
 golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.16.0 h1:xWw16ngr6ZMtmxDyKyIgsE93KNKz5HKmMa3b8ALHidU=
 golang.org/x/sys v0.16.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=

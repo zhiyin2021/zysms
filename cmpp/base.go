@@ -50,7 +50,6 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 				err = smserror.ErrInvalidPDU
 				return
 			}
-
 			// body < command_length, still have optional parameters ?
 			if got < cmdLength {
 				optParam := b.ReadN(cmdLength - got)
@@ -62,7 +61,6 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 				}
 				err = nil
 			}
-
 			// validate again
 			if b.Len() != fullLen-cmdLength {
 				err = smserror.ErrInvalidPDU
@@ -74,13 +72,10 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 }
 
 func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
-	// buf := codec.NewReader(optParam)
-	buf := codec.ReaderPool.Get(optParam) //codec.NewWriter()
-	defer codec.ReaderPool.Put(buf)
-
-	for buf.Len() > 0 {
+	reader := codec.NewReader(optParam)
+	for reader.Len() > 0 {
 		var field codec.Field
-		if err = field.Unmarshal(buf); err == nil {
+		if err = field.Unmarshal(reader); err == nil {
 			c.OptionalParameters[field.Tag] = field
 		} else {
 			return
@@ -91,8 +86,7 @@ func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
 
 // Marshal to buffer.
 func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)) {
-	bodyBuf := codec.WriterPool.Get() //codec.NewWriter()
-	defer codec.WriterPool.Put(bodyBuf)
+	bodyBuf := codec.NewWriter()
 	// body
 	if bodyWriter != nil {
 		bodyWriter(bodyBuf)
@@ -108,7 +102,7 @@ func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)
 	c.Header.Marshal(b)
 
 	// write body and its optional params
-	b.WriteBytes(bodyBuf.Bytes())
+	b.Write(bodyBuf.Bytes())
 }
 
 // RegisterOptionalParam register optional param.
@@ -153,23 +147,20 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 			return
 		}
 	}
+	reader := codec.NewReader(headerBytes[:])
+	if len(bodyBytes) > 0 {
+		reader.WriteBytes(bodyBytes)
+	}
 
 	if logger != nil {
 		switch header.CommandID {
 		case CMPP_ACTIVE_TEST, CMPP_ACTIVE_TEST_RESP:
 		default:
-			logger.WithField("pcap", "recv").Infof("%x%x", headerBytes, bodyBytes)
+			logger.WithFields(logrus.Fields{"recv": fmt.Sprintf("%.8x", header.CommandID), "seq": header.SequenceNumber}).Infof("%x", reader.Bytes())
 		}
 	}
 	// try to create pdu
 	if pdu, err = CreatePDUHeader(header, ver); err == nil {
-		wr := codec.WriterPool.Get(headerBytes[:]) //codec.NewWriter()
-		defer codec.WriterPool.Put(wr)
-		if len(bodyBytes) > 0 {
-			wr.Write(bodyBytes)
-		}
-		reader := codec.ReaderPool.Get(wr.Bytes()) //codec.NewReader(wr.Bytes())
-		defer codec.ReaderPool.Put(reader)
 		err = pdu.Unmarshal(reader)
 	} else {
 		logrus.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)

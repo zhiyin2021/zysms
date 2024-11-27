@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sync"
 )
 
 const (
@@ -35,43 +34,61 @@ type bytesBuffer struct {
 	err error
 }
 type BytesReader struct {
+	bytes []byte
 	*bytesBuffer
 }
 type BytesWriter struct {
 	*bytesBuffer
 }
-type SyncPool[T IBuffer] struct {
-	pool sync.Pool
+
+// type SyncPool[T IBuffer] struct {
+// 	Total int
+// 	pool  sync.Pool
+// }
+
+// func (sp *SyncPool[T]) Get(buf ...[]byte) T {
+// 	obj := sp.pool.Get().(T)
+// 	obj.Reset()
+// 	if len(buf) > 0 {
+// 		obj.Write(buf[0])
+// 	}
+// 	return obj
+// }
+
+// func (sp *SyncPool[T]) Put(obj T) {
+// 	sp.pool.Put(obj)
+// }
+
+// var (
+// 	WriterPool = NewWirterPool()
+// 	ReaderPool = NewReaderPool()
+// )
+
+// func NewWirterPool() *SyncPool[*BytesWriter] {
+// 	sp := &SyncPool[*BytesWriter]{}
+// 	sp.pool.New = func() any {
+// 		sp.Total++
+// 		return &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(make([]byte, 0, 12)), err: nil}}
+// 	}
+// 	return sp
+// }
+
+// func NewReaderPool() *SyncPool[*BytesReader] {
+// 	sp := &SyncPool[*BytesReader]{}
+// 	sp.pool.New = func() any {
+// 		sp.Total++
+// 		return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(make([]byte, 0, 12)), err: nil}}
+// 	}
+// 	return sp
+// }
+
+func NewWriter() *BytesWriter {
+	return &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer([]byte{}), err: nil}}
+
 }
 
-func (sp *SyncPool[T]) Get(buf ...[]byte) T {
-	obj := sp.pool.Get().(T)
-	obj.Reset()
-	if len(buf) > 0 {
-		obj.Write(buf[0])
-	}
-	return obj
-}
-
-func (sp *SyncPool[T]) Put(obj T) {
-	sp.pool.Put(obj)
-}
-
-var (
-	WriterPool = NewWirterPool()
-	ReaderPool = NewReaderPool()
-)
-
-func NewWirterPool() *SyncPool[*BytesWriter] {
-	return &SyncPool[*BytesWriter]{pool: sync.Pool{New: func() any {
-		return &BytesWriter{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(make([]byte, 0, 12)), err: nil}}
-	}}}
-}
-
-func NewReaderPool() *SyncPool[*BytesReader] {
-	return &SyncPool[*BytesReader]{pool: sync.Pool{New: func() any {
-		return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(make([]byte, 0, 12)), err: nil}}
-	}}}
+func NewReader(buf []byte) *BytesReader {
+	return &BytesReader{bytesBuffer: &bytesBuffer{Buffer: bytes.NewBuffer(buf), err: nil}}
 }
 
 // ReadN read n-bytes from buffer.
@@ -82,7 +99,8 @@ func (c *BytesReader) ReadN(n int) (r []byte) {
 				r = make([]byte, n)
 				_, _ = c.Read(r)
 			} else {
-				c.err = ErrBufferNotEnoughByteToRead
+				c.err = fmt.Errorf("not enough byte to read from buffer(%d>%d): %x", n, c.Len(), c.bytes)
+				panic(c.err)
 			}
 		}
 	}
@@ -149,11 +167,6 @@ func (c *BytesWriter) WriteU32(v uint32) {
 }
 
 // WriteInt writes int to buffer.
-func (c *BytesWriter) WriteBytes(buf []byte) {
-	c.Write(buf)
-}
-
-// WriteInt writes int to buffer.
 func (c *BytesWriter) WriteU64(v uint64) {
 	var b [SizeLong]byte
 	endianese.PutUint64(b[:], v)
@@ -214,6 +227,12 @@ func (c *BytesReader) ReadStr(count int) string {
 		return string(bytes.TrimRight(buf, "\x00"))
 	}
 	return ""
+}
+
+// WriteInt writes int to buffer.
+func (c *BytesReader) WriteBytes(buf []byte) {
+	c.bytes = append([]byte{}, buf...)
+	c.Write(buf)
 }
 
 // ReadCString

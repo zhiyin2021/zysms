@@ -56,9 +56,11 @@ func (p *DeliverReq) Marshal(w *codec.BytesWriter) {
 		bw.WriteByte(p.TpPid)
 		bw.WriteByte(p.TpUdhi)
 		bw.WriteByte(p.MsgFmt)
-		bw.WriteStr(p.SrcTerminalId, 21)
 		if p.Version == V30 {
+			bw.WriteStr(p.SrcTerminalId, 32)
 			bw.WriteByte(p.SrcTerminalType)
+		} else {
+			bw.WriteStr(p.SrcTerminalId, 21)
 		}
 
 		if p.Report != nil {
@@ -95,9 +97,11 @@ func (p *DeliverReq) Unmarshal(w *codec.BytesReader) error {
 		p.TpPid = br.ReadU8()
 		p.TpUdhi = br.ReadU8()
 		p.MsgFmt = br.ReadU8()
-		p.SrcTerminalId = br.ReadStr(21)
 		if p.Version == V30 {
+			p.SrcTerminalId = br.ReadStr(32)
 			p.SrcTerminalType = br.ReadU8()
+		} else {
+			p.SrcTerminalId = br.ReadStr(21)
 		}
 		p.RegisterDelivery = br.ReadU8()
 

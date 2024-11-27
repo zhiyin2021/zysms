@@ -68,7 +68,7 @@ func TestShortMessage(t *testing.T) {
 		s, err := NewBinaryShortMessage([]byte{0x00, 0x01, 0x02, 0x03, 0x04})
 		require.NoError(t, err)
 
-		buf := codec.WriterPool.Get()
+		buf := codec.NewWriter()
 		s.Marshal(buf)
 
 		require.Equal(t, "0400050001020304", hex.EncodeToString(buf.Bytes()))
@@ -81,8 +81,7 @@ func TestShortMessage(t *testing.T) {
 		s.messageData = append(s.messageData, 0)
 		s.enc = nil
 
-		buf := codec.WriterPool.Get()
-		defer codec.WriterPool.Put(buf)
+		buf := codec.NewWriter()
 		s.Marshal(buf)
 		require.Equal(t, "00000461626300", hex.EncodeToString(buf.Bytes()))
 	})
@@ -91,8 +90,7 @@ func TestShortMessage(t *testing.T) {
 		s, err := NewShortMessageWithEncoding("abc", codec.GSM7BIT)
 		require.NoError(t, err)
 
-		buf := codec.WriterPool.Get()
-		defer codec.WriterPool.Put(buf)
+		buf := codec.NewWriter()
 		s.Marshal(buf)
 		require.Equal(t, "000003616263", hex.EncodeToString(buf.Bytes()))
 	})
@@ -101,8 +99,7 @@ func TestShortMessage(t *testing.T) {
 		s, err := NewShortMessageWithEncoding("abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcab", codec.GSM7BIT)
 		require.NoError(t, err)
 
-		buf := codec.WriterPool.Get()
-		defer codec.WriterPool.Put(buf)
+		buf := codec.NewWriter()
 		s.Marshal(buf)
 		fmt.Println(buf.Bytes())
 		require.Equal(t, 116, len(buf.Bytes()))
@@ -113,8 +110,7 @@ func TestShortMessage(t *testing.T) {
 		require.NoError(t, err)
 		s.SetUDH(codec.UDH{codec.NewIEConcatMessage(2, 1, 12)})
 
-		buf := codec.WriterPool.Get()
-		defer codec.WriterPool.Put(buf)
+		buf := codec.NewWriter()
 		s.Marshal(buf)
 		require.Equal(t, "0000090500030c0201616263", hex.EncodeToString(buf.Bytes()))
 	})
@@ -122,9 +118,7 @@ func TestShortMessage(t *testing.T) {
 	t.Run("unmarshalBinaryWithUDHConcat", func(t *testing.T) {
 		s := &ShortMessage{}
 
-		reader := codec.ReaderPool.Get()
-		defer codec.ReaderPool.Put(reader)
-		reader.Write([]byte{0x04, 0x00, 0x09, 0x05, 0x00, 0x03, 0x0c, 0x02, 0x01, 0x01, 0x02, 0x03})
+		reader := codec.NewReader([]byte{0x04, 0x00, 0x09, 0x05, 0x00, 0x03, 0x0c, 0x02, 0x01, 0x01, 0x02, 0x03})
 		// check encoding
 		require.NoError(t, s.Unmarshal(reader, true))
 		require.Equal(t, codec.BINARY8BIT2, s.Encoding())
@@ -138,9 +132,7 @@ func TestShortMessage(t *testing.T) {
 	t.Run("unmarshalGSM7WithUDHConcat", func(t *testing.T) {
 		s := &ShortMessage{}
 
-		reader := codec.ReaderPool.Get()
-		defer codec.ReaderPool.Put(reader)
-		reader.Write([]byte{0x00, 0x00, 0x09, 0x05, 0x00, 0x03, 0x0c, 0x02, 0x01, 0x61, 0x62, 0x63})
+		reader := codec.NewReader([]byte{0x00, 0x00, 0x09, 0x05, 0x00, 0x03, 0x0c, 0x02, 0x01, 0x61, 0x62, 0x63})
 		// check encoding
 		require.NoError(t, s.Unmarshal(reader, true))
 		require.Equal(t, codec.GSM7BIT, s.Encoding())
@@ -203,7 +195,7 @@ func TestShortMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := range multiSM {
-			b1, b2 := codec.WriterPool.Get(), codec.WriterPool.Get()
+			b1, b2 := codec.NewWriter(), codec.NewWriter()
 			multiSM[i].Marshal(b1)
 			multiSM[i].Marshal(b2)
 			require.Equal(t, b1.Bytes(), b2.Bytes())

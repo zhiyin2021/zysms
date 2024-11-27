@@ -72,11 +72,10 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 }
 
 func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
-	buf := codec.ReaderPool.Get(optParam)
-	defer codec.ReaderPool.Put(buf)
-	for buf.Len() > 0 {
+	reader := codec.NewReader(optParam)
+	for reader.Len() > 0 {
 		var field codec.Field
-		if err = field.Unmarshal(buf); err == nil {
+		if err = field.Unmarshal(reader); err == nil {
 			c.OptionalParameters[field.Tag] = field
 		} else {
 			return
@@ -88,9 +87,9 @@ func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
 // Marshal to buffer.
 func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)) {
 
-	bodyBuf := codec.WriterPool.Get()
-	defer codec.WriterPool.Put(bodyBuf)
-
+	// bodyBuf := codec.WriterPool.Get()
+	// defer codec.WriterPool.Put(bodyBuf)
+	bodyBuf := codec.NewWriter()
 	// body
 	if bodyWriter != nil {
 		bodyWriter(bodyBuf)
@@ -106,7 +105,7 @@ func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)
 	c.Header.Marshal(b)
 
 	// write body and its optional params
-	b.WriteBytes(bodyBuf.Bytes())
+	b.Write(bodyBuf.Bytes())
 }
 
 // RegisterOptionalParam register optional param.
@@ -154,15 +153,11 @@ func Parse(r io.Reader, ver codec.Version, nodeId uint32) (pdu codec.PDU, err er
 
 	// try to create pdu
 	if pdu, err = CreatePDUHeader(header, ver); err == nil {
-		buf := codec.WriterPool.Get(headerBytes[:])
-		defer codec.WriterPool.Put(buf)
-
+		reader := codec.NewReader(headerBytes[:])
 		if len(bodyBytes) > 0 {
-			_, _ = buf.Write(bodyBytes)
+			reader.WriteBytes(bodyBytes)
 		}
-		rader := codec.ReaderPool.Get(buf.Bytes())
-		defer codec.ReaderPool.Put(rader)
-		err = pdu.Unmarshal(rader)
+		err = pdu.Unmarshal(reader)
 	}
 	return
 }

@@ -1,6 +1,7 @@
 package smgp
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/sirupsen/logrus"
@@ -74,11 +75,10 @@ func (c *base) unmarshal(b *codec.BytesReader, bodyReader func(*codec.BytesReade
 }
 
 func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
-	buf := codec.ReaderPool.Get(optParam)
-	defer codec.ReaderPool.Put(buf)
-	for buf.Len() > 0 {
+	reader := codec.NewReader(optParam)
+	for reader.Len() > 0 {
 		var field codec.Field
-		if err = field.Unmarshal(buf); err == nil {
+		if err = field.Unmarshal(reader); err == nil {
 			c.OptionalParameters[field.Tag] = field
 		} else {
 			return
@@ -89,10 +89,9 @@ func (c *base) unmarshalOptionalParam(optParam []byte) (err error) {
 
 // Marshal to buffer.
 func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)) {
-
-	bodyBuf := codec.WriterPool.Get()
-	defer codec.WriterPool.Put(bodyBuf)
-
+	// bodyBuf := codec.WriterPool.Get()
+	// defer codec.WriterPool.Put(bodyBuf)
+	bodyBuf := codec.NewWriter()
 	// body
 	if bodyWriter != nil {
 		bodyWriter(bodyBuf)
@@ -108,7 +107,7 @@ func (c *base) marshal(b *codec.BytesWriter, bodyWriter func(*codec.BytesWriter)
 	c.Header.Marshal(b)
 
 	// write body and its optional params
-	b.WriteBytes(bodyBuf.Bytes())
+	b.Write(bodyBuf.Bytes())
 }
 
 // RegisterOptionalParam register optional param.
@@ -154,24 +153,20 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		}
 	}
 
+	reader := codec.NewReader(headerBytes[:])
+	if len(bodyBytes) > 0 {
+		reader.WriteBytes(bodyBytes)
+	}
+
 	if logger != nil {
 		switch header.CommandID {
 		case SMGP_ACTIVE_TEST, SMGP_ACTIVE_TEST_RESP:
 		default:
-			logger.WithField("record", "recv").Infof("%x%x", headerBytes, bodyBytes)
+			logger.WithFields(logrus.Fields{"recv": fmt.Sprintf("%.8x", header.CommandID), "seq": header.SequenceNumber}).Infof("%x", reader.Bytes())
 		}
 	}
 	// try to create pdu
 	if pdu, err = CreatePDUHeader(header, ver); err == nil {
-
-		buf := codec.WriterPool.Get(headerBytes[:])
-		defer codec.WriterPool.Put(buf)
-
-		if len(bodyBytes) > 0 {
-			_, _ = buf.Write(bodyBytes)
-		}
-		reader := codec.ReaderPool.Get(buf.Bytes())
-		defer codec.ReaderPool.Put(reader)
 		err = pdu.Unmarshal(reader)
 	} else {
 		logrus.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
