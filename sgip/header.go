@@ -38,7 +38,7 @@ func ParseHeader(v [20]byte) (h Header) {
 }
 
 func (c Header) String() string {
-	return fmt.Sprintf("{len:%d,cmd:%#v,seq:%v,nodeId:%v}", c.CommandLength, c.CommandID, c.SequenceNumber, c.NodeId)
+	return fmt.Sprintf("0x%.8d,%d,%d,%d", c.CommandID, c.SequenceNumber, c.CommandLength, c.NodeId)
 }
 
 // Unmarshal from buffer.

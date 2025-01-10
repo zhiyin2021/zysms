@@ -27,7 +27,7 @@ type Header struct {
 }
 
 func (c Header) String() string {
-	return fmt.Sprintf("{len:%d,cmd:%#v,seq:%d}", c.CommandLength, c.CommandID, c.SequenceNumber)
+	return fmt.Sprintf("0x%.8d,%d,%d", c.CommandID, c.SequenceNumber, c.CommandLength)
 }
 func (c *Header) GetCommandID() uint32 {
 	return uint32(c.CommandID)

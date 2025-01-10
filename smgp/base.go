@@ -1,7 +1,6 @@
 package smgp
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/sirupsen/logrus"
@@ -162,7 +161,7 @@ func Parse(r io.Reader, ver codec.Version, logger *logrus.Entry) (pdu codec.PDU,
 		switch header.CommandID {
 		case SMGP_ACTIVE_TEST, SMGP_ACTIVE_TEST_RESP:
 		default:
-			logger.WithFields(logrus.Fields{"recv": fmt.Sprintf("%.8x", header.CommandID), "seq": header.SequenceNumber}).Infof("%x", reader.Bytes())
+			logger.WithField("recv", header).Infof("%x", reader.Bytes())
 		}
 	}
 	// try to create pdu

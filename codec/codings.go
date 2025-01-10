@@ -64,12 +64,9 @@ func encode(str string, encoder *encoding.Encoder) ([]byte, error) {
 	return encoder.Bytes([]byte(str))
 }
 
-func decode(data []byte, decoder *encoding.Decoder) (st string, err error) {
+func decode(data []byte, decoder *encoding.Decoder) (string, error) {
 	tmp, err := decoder.Bytes(data)
-	if err == nil {
-		st = string(tmp)
-	}
-	return
+	return string(tmp), err
 }
 
 type gsm7bit struct {

@@ -1,7 +1,6 @@
 package smpp
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/sirupsen/logrus"
@@ -158,7 +157,7 @@ func Parse(r io.Reader, logger *logrus.Entry) (pdu codec.PDU, err error) {
 		switch header.CommandID {
 		case ENQUIRE_LINK, ENQUIRE_LINK_RESP:
 		default:
-			logger.WithFields(logrus.Fields{"recv": fmt.Sprintf("%.8x", header.CommandID), "seq": header.SequenceNumber}).Infof("%x", reader.Bytes())
+			logger.WithField("recv", header).Infof("%x", reader.Bytes())
 		}
 	}
 	// try to create pdu

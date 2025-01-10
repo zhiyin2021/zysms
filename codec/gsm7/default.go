@@ -3,6 +3,7 @@ package gsm7
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
 
 	"golang.org/x/text/encoding"
@@ -63,6 +64,9 @@ var (
 	gsmEnDefaultExt map[rune]byte
 )
 
+func errInvalidByte(n int, buf []byte) error {
+	return fmt.Errorf("invalid gsm7 byte at %d, %x", n, buf)
+}
 func init() {
 	gsmDeDefault = make(map[byte]rune)
 	gsmDeDefaultExt = make(map[byte]rune)
@@ -218,18 +222,21 @@ func (g *gsm7Decoder) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, er
 		if b == escapeSequence {
 			nSeptet++
 			if nSeptet >= len(septets) {
-				return 0, 0, ErrInvalidByte
+				err = errInvalidByte(nSeptet, septets)
+				continue
 			}
 			e := septets[nSeptet]
 			if r, ok := g.dataExt[e]; ok {
 				builder.WriteRune(r)
 			} else {
-				return 0, 0, ErrInvalidByte
+				err = errInvalidByte(nSeptet, septets)
+				continue
 			}
 		} else if r, ok := g.data[b]; ok {
 			builder.WriteRune(r)
 		} else {
-			return 0, 0, ErrInvalidByte
+			err = errInvalidByte(nSeptet, septets)
+			continue
 		}
 		nSeptet++
 	}

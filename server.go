@@ -120,6 +120,11 @@ func (s *SMS) doError(conn Conn, err error) {
 		}
 	}
 }
+func (s *SMS) doDisconnect(conn Conn) {
+	if s.OnDisconnect != nil {
+		s.OnDisconnect(conn)
+	}
+}
 func (s *SMS) Dial(addr string, uid, pwd string, timeout time.Duration, ext map[string]string) (Conn, error) {
 	var err error
 	var conn net.Conn
@@ -158,9 +163,7 @@ func (s *SMS) run(conn *sms_conn) {
 			s.OnConnect(conn)
 		}
 		defer func() {
-			if s.OnDisconnect != nil {
-				s.OnDisconnect(conn)
-			}
+			s.doDisconnect(conn)
 			conn.Close()
 		}()
 		// 设置第一次读取超时10秒,10秒内没有数据则主动断开请求.
