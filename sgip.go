@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
 	"github.com/zhiyin2021/zysms/sgip"
@@ -90,7 +89,7 @@ func (c *sgip_action) recv() (codec.PDU, error) {
 		case sgip.V12:
 			// 服务端自适应版本
 			c.Typ = p.Version
-			c.logger = c.logger.WithFields(logrus.Fields{"v": c.Protocol.String(), "v1": c.Typ})
+			c.logger = c.logger.With("v", c.Protocol.String(), "v1", c.Typ)
 		default:
 			return nil, fmt.Errorf("cmpp version not support [ %d ]", p.Version)
 		}

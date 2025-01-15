@@ -3,9 +3,9 @@ package smpp
 import (
 	"io"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
+	"go.uber.org/zap"
 )
 
 type base struct {
@@ -121,10 +121,10 @@ func (c *base) IsGNack() bool {
 }
 
 // Parse PDU from reader.
-func Parse(r io.Reader, logger *logrus.Entry) (pdu codec.PDU, err error) {
+func Parse(r io.Reader, logger *zap.SugaredLogger) (pdu codec.PDU, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logrus.Errorln("smpp.parse.err", err)
+			logger.Errorln("smpp.parse.err", err)
 			err = smserror.ErrInvalidPDU
 		}
 	}()
@@ -157,14 +157,14 @@ func Parse(r io.Reader, logger *logrus.Entry) (pdu codec.PDU, err error) {
 		switch header.CommandID {
 		case ENQUIRE_LINK, ENQUIRE_LINK_RESP:
 		default:
-			logger.WithField("recv", header).Infof("%x", reader.Bytes())
+			logger.With("recv", header).Infof("%x", reader.Bytes())
 		}
 	}
 	// try to create pdu
 	if pdu, err = CreatePDUFromCmdID(header.CommandID); err == nil {
 		err = pdu.Unmarshal(reader)
 	} else {
-		logrus.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
+		logger.Errorf("read.CreatePDUFromCmdID %d,%v", header.CommandID, err)
 	}
 	return
 }

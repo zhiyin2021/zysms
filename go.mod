@@ -2,19 +2,16 @@ module github.com/zhiyin2021/zysms
 
 go 1.22.0
 
-toolchain go1.22.3
-
 require (
-	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.7.0
-	github.com/zhiyin2021/zycli v1.0.40
-	golang.org/x/text v0.16.0
+	github.com/stretchr/testify v1.10.0
+	go.uber.org/zap v1.27.0
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
+	golang.org/x/text v0.21.0
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -8,12 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
+	"github.com/zhiyin2021/zysms/utils/logger"
 )
 
 const (
@@ -26,10 +26,10 @@ var sig = make(chan os.Signal)
 func main() {
 	sms := zysms.New(codec.CMPP30)
 	sms.OnConnect = func(c zysms.Conn) {
-		c.Logger().Println("server: connect")
+		c.Logger().Infoln("server: connect")
 	}
 	sms.OnDisconnect = func(c zysms.Conn) {
-		c.Logger().Println("server: disconnect")
+		c.Logger().Infoln("server: disconnect")
 	}
 	sms.OnError = func(c zysms.Conn, err error) {
 		c.Logger().Errorln("server: error: ", err)
@@ -64,7 +64,7 @@ func main() {
 			return
 		}
 	}()
-	logrus.Println("server started")
+	logger.Infoln("server started")
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 }

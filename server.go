@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/utils/logger"
+	"go.uber.org/zap"
 )
 
 // errors for cmpp server
@@ -35,7 +36,7 @@ type (
 		// Recv() ([]byte, error)
 		// RecvPDU() (codec.PDU, error)
 		SendPDU(PDU) error
-		Logger() *logrus.Entry
+		Logger() *zap.SugaredLogger
 		Ver() codec.Version
 		sendActiveTest() (int32, error)
 
@@ -66,7 +67,7 @@ func (s *SMS) Listen(addr string) (*Listener, error) {
 		for {
 			sConn, err := l.accept()
 			if err != nil {
-				logrus.Errorf("listen.accept error:%s", err)
+				logger.Errorln("listen.accept error:", err)
 				if e, ok := err.(*net.OpError); ok && e.Error() == "use of closed network connection" {
 					return
 				}
@@ -81,7 +82,7 @@ func (s *SMS) Listen(addr string) (*Listener, error) {
 func (s *SMS) ListenTls(addr string, cert []byte, key []byte) (*Listener, error) {
 	crt, err := tls.X509KeyPair(cert, key)
 	if err != nil {
-		logrus.Error(err.Error())
+		logger.Errorln(err.Error())
 		return nil, err
 	}
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
@@ -102,7 +103,7 @@ func (s *SMS) ListenTls(addr string, cert []byte, key []byte) (*Listener, error)
 		for {
 			sConn, err := l.accept()
 			if err != nil {
-				logrus.Errorf("listen.accept error:%s", err)
+				logger.Errorf("listen.accept error:%s", err)
 				if e, ok := err.(*net.OpError); ok && e.Error() == "use of closed network connection" {
 					return
 				}
@@ -235,7 +236,7 @@ func tryGO(f func()) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				logrus.StandardLogger().Fatalf("panic:%v\n%s", err, debug.Stack())
+				logger.Errorln("panic:%v\n%s", err, debug.Stack())
 			}
 		}()
 		f()

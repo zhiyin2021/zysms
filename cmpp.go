@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
@@ -90,7 +89,7 @@ func (c *cmpp_action) recv() (codec.PDU, error) {
 			c.Typ = p.Version
 			fallthrough
 		case 0:
-			c.logger = c.logger.WithFields(logrus.Fields{"v": c.Protocol.String(), "v1": c.Typ})
+			c.logger = c.logger.With("v", c.Protocol.String(), "v1", c.Typ)
 		default:
 			return nil, fmt.Errorf("cmpp version not support [ %d ]", p.Version)
 		}

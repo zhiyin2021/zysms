@@ -3,9 +3,9 @@ package sgip
 import (
 	"io"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
+	"github.com/zhiyin2021/zysms/utils/logger"
 )
 
 type base struct {
@@ -127,7 +127,7 @@ func (c *base) IsGNack() bool {
 func Parse(r io.Reader, ver codec.Version, nodeId uint32) (pdu codec.PDU, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logrus.Errorln("smpp.parse.err", err)
+			logger.Errorln("smpp.parse.err", err)
 			err = smserror.ErrInvalidPDU
 		}
 	}()

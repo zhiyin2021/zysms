@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/zhiyin2021/zycli/cache"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
@@ -17,6 +15,9 @@ import (
 	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
+	"github.com/zhiyin2021/zysms/utils/cache"
+	"github.com/zhiyin2021/zysms/utils/logger"
+	"go.uber.org/zap"
 )
 
 type activeTestItem struct {
@@ -39,7 +40,7 @@ type sms_conn struct {
 	Protocol       codec.SmsProto
 	Typ            codec.Version
 	counter        int32
-	logger         *logrus.Entry
+	logger         *zap.SugaredLogger
 	activeFail     int32
 	extParam       map[string]string
 	checkVer       bool
@@ -74,14 +75,14 @@ func newConn(conn net.Conn, parent *SMS) *sms_conn {
 		sid:            sid,
 		Typ:            parent.proto.Version(),
 		Protocol:       parent.proto,
-		logger:         logrus.WithFields(logrus.Fields{"sid": sid, "addr": addr, "v": parent.proto.String()}),
+		logger:         logger.With("sid", sid, "addr", addr, "v", parent.proto.String()),
 		extParam:       parent.extParam,
 		checkVer:       false,
 		autoActiveResp: true,
 		activeCount:    0,
 		activeInterval: 5,
 		delay:          utils.NewQueue(10),
-		cache:          cache.NewMemory(time.Second * 1),
+		cache:          cache.NewMemory(context.Background()),
 		parent:         parent,
 		pduWriter:      codec.NewWriter(),
 		activeTestPool: sync.Pool{New: func() any { return new(activeTestItem) }},
@@ -204,7 +205,7 @@ func (c *sms_conn) SetExtParam(ext map[string]string) {
 func (c *sms_conn) SendPDU(pdu PDU) error {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.Errorln("smpp.send.panic:", err)
+			logger.Errorln("smpp.send.panic:", err)
 			c.Close()
 		}
 	}()
@@ -226,7 +227,7 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	switch pdu.(type) {
 	case *cmpp.ActiveTestReq, *smpp.EnquireLink, *smgp.ActiveTestReq, *cmpp.ActiveTestResp, *smpp.EnquireLinkResp, *smgp.ActiveTestResp:
 	default:
-		c.logger.WithField("send", pdu.GetHeader()).Infof("%x", wr.Bytes())
+		c.logger.With("send", pdu.GetHeader()).Infof("%x", wr.Bytes())
 	}
 	_, err := c.Conn.Write(wr.Bytes()) //block write
 	if err != nil {
@@ -235,7 +236,7 @@ func (c *sms_conn) SendPDU(pdu PDU) error {
 	return err
 }
 
-func (c *sms_conn) Logger() *logrus.Entry {
+func (c *sms_conn) Logger() *zap.SugaredLogger {
 	return c.logger
 }
 func (c *sms_conn) SetReadDeadline(timeout time.Duration) {

@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
+	"github.com/zhiyin2021/zysms/utils/logger"
 )
 
 // 11101100 01000110 11000100 0000000 00101101 11000000 00000000 00000011
@@ -43,7 +43,7 @@ func startAClient(idx int) {
 	}
 	c, err := sms.Dial("112.33.28.61:57892", user, password, connectTimeout, nil)
 	if err != nil {
-		logrus.Printf("client %d: connect error: %s.", idx, err)
+		logger.Infof("client %d: connect error: %s.", idx, err)
 		return
 	}
 
