@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zhiyin2021/zycli/tools/logger"
 	"github.com/zhiyin2021/zysms"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/utils/logger"
 )
 
 // 11101100 01000110 11000100 0000000 00101101 11000000 00000000 00000011

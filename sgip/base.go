@@ -3,9 +3,9 @@ package sgip
 import (
 	"io"
 
+	"github.com/zhiyin2021/zycli/tools/logger"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/smserror"
-	"github.com/zhiyin2021/zysms/utils/logger"
 )
 
 type base struct {

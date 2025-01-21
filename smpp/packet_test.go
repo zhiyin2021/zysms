@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zhiyin2021/zycli/tools/logger"
 	"github.com/zhiyin2021/zysms/codec"
-	"github.com/zhiyin2021/zysms/utils/logger"
 	"golang.org/x/exp/rand"
 )
 

@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zhiyin2021/zycli/tools/cache"
+	"github.com/zhiyin2021/zycli/tools/logger"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
 	"github.com/zhiyin2021/zysms/enum"
@@ -15,15 +17,12 @@ import (
 	"github.com/zhiyin2021/zysms/smpp"
 	"github.com/zhiyin2021/zysms/smserror"
 	"github.com/zhiyin2021/zysms/utils"
-	"github.com/zhiyin2021/zysms/utils/cache"
-	"github.com/zhiyin2021/zysms/utils/logger"
 	"go.uber.org/zap"
 )
 
 type activeTestItem struct {
-	time  time.Time
-	timer *time.Timer
-	flag  int32
+	time time.Time
+	flag int32
 }
 type sms_conn struct {
 	Data any
@@ -253,25 +252,23 @@ func (c *sms_conn) activeTestReq(seq int32) {
 	item := c.activeTestPool.Get().(*activeTestItem)
 	item.time = time.Now()
 	item.flag = 0
-	item.timer = time.AfterFunc(time.Second*1, func() {
-		time.Sleep(100 * time.Millisecond)
-		if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
+	c.cache.SetByExpireCallback(fmt.Sprintf("active_test_%d", seq), item, time.Second*5, func(m any) {
+		item1 := m.(*activeTestItem)
+		if atomic.CompareAndSwapInt32(&item1.flag, 0, 1) {
 			c.delay.Push(-1)
 			// 超时对象放回池中
-			c.activeTestPool.Put(item)
+			c.activeTestPool.Put(item1)
 		}
 	})
-	c.cache.Set(fmt.Sprintf("active_test_%d", seq), item)
 }
 
 func (c *sms_conn) activeTestResp(seq int32) {
-	if tmp := c.cache.Get(fmt.Sprintf("active_test_%d", seq)); tmp != nil {
+	if tmp := c.cache.GetAndDel(fmt.Sprintf("active_test_%d", seq)); tmp != nil {
 		if item, ok := tmp.(*activeTestItem); ok {
 			if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
-				item.timer.Stop()
+				c.delay.Push(time.Since(item.time).Microseconds())
 				// 对象放回池中
 				c.activeTestPool.Put(item)
-				c.delay.Push(time.Since(item.time).Microseconds())
 			}
 		}
 	}
