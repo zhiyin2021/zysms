@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zhiyin2021/zycli/tools/cache"
 	"github.com/zhiyin2021/zycli/tools/logger"
 	"github.com/zhiyin2021/zysms/cmpp"
 	"github.com/zhiyin2021/zysms/codec"
@@ -51,7 +50,6 @@ type sms_conn struct {
 
 	Connected int32
 	IsAuth    bool
-	cache     *cache.Memory
 
 	parent *SMS
 
@@ -81,7 +79,6 @@ func newConn(conn net.Conn, parent *SMS) *sms_conn {
 		activeCount:    0,
 		activeInterval: 5,
 		delay:          utils.NewQueue(10),
-		cache:          cache.NewMemory(context.Background()),
 		parent:         parent,
 		pduWriter:      codec.NewWriter(),
 		activeTestPool: sync.Pool{New: func() any { return new(activeTestItem) }},
@@ -168,7 +165,6 @@ func (c *sms_conn) sendActiveTest() (int32, error) {
 }
 func (c *sms_conn) Close() {
 	if atomic.CompareAndSwapInt32(&c.Connected, enum.CONN_CONNECTED, enum.CONN_DISCONNECTED) {
-		// c.logger.Warnln("connection closing.")
 		if c.IsAuth {
 			if c.action != nil {
 				c.action.logout()
@@ -178,7 +174,6 @@ func (c *sms_conn) Close() {
 		}
 		c.stop()
 		c.Conn.Close()
-		// c.logger.Warnln("connection closed.")
 	}
 }
 
@@ -252,7 +247,7 @@ func (c *sms_conn) activeTestReq(seq int32) {
 	item := c.activeTestPool.Get().(*activeTestItem)
 	item.time = time.Now()
 	item.flag = 0
-	c.cache.SetByExpireCallback(fmt.Sprintf("active_test_%d", seq), item, time.Second*5, func(m any) {
+	active_cache.SetByExpireCallback(fmt.Sprintf("active_test_%s_%d", c.sid, seq), item, time.Second*5, func(m any) {
 		item1 := m.(*activeTestItem)
 		if atomic.CompareAndSwapInt32(&item1.flag, 0, 1) {
 			c.delay.Push(-1)
@@ -263,7 +258,7 @@ func (c *sms_conn) activeTestReq(seq int32) {
 }
 
 func (c *sms_conn) activeTestResp(seq int32) {
-	if tmp := c.cache.GetAndDel(fmt.Sprintf("active_test_%d", seq)); tmp != nil {
+	if tmp := active_cache.GetAndDel(fmt.Sprintf("active_test_%s_%d", c.sid, seq)); tmp != nil {
 		if item, ok := tmp.(*activeTestItem); ok {
 			if atomic.CompareAndSwapInt32(&item.flag, 0, 1) {
 				c.delay.Push(time.Since(item.time).Microseconds())

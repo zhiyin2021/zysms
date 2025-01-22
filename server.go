@@ -1,6 +1,7 @@
 package zysms
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"fmt"
@@ -9,10 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zhiyin2021/zycli/tools/cache"
 	"github.com/zhiyin2021/zycli/tools/logger"
 	"github.com/zhiyin2021/zysms/codec"
 	"go.uber.org/zap"
 )
+
+var active_cache = cache.NewMemory(context.Background())
 
 // errors for cmpp server
 type (
